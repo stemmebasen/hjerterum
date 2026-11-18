@@ -41,6 +41,7 @@ export function parseCheckoutInput(value: unknown): {
   interval: BillingInterval;
   email: string;
   fullName: string;
+  acceptedTerms: true;
 } {
   if (!value || typeof value !== "object") throw new Error("invalid_body");
   const body = value as Record<string, unknown>;
@@ -51,7 +52,9 @@ export function parseCheckoutInput(value: unknown): {
 
   if (!Object.prototype.hasOwnProperty.call(membershipAmounts, tier)) throw new Error("invalid_tier");
   if (interval !== "month" && interval !== "year") throw new Error("invalid_interval");
-  return { tier, interval, email, fullName };
+  // Douglas (13 Nov 2026), for the board: one who joins accepts the terms on the form.
+  if (body.acceptedTerms !== true) throw new Error("invalid_terms_not_accepted");
+  return { tier, interval, email, fullName, acceptedTerms: true };
 }
 
 export async function getMemberByClerkUserId(
@@ -126,7 +129,8 @@ export async function createMembershipCheckout(
     "metadata[clerk_user_id]": clerkUserId,
     "metadata[tier]": input.tier,
     "metadata[interval]": input.interval,
-    "metadata[full_name]": input.fullName
+    "metadata[full_name]": input.fullName,
+    "metadata[terms_accepted_at]": String(Date.now())
   };
 
   // A membership the board gave has no Stripe customer: only a real one is reused.
@@ -278,13 +282,16 @@ async function changeStatus(db: D1Database, member: { id: number; status: string
     title: status === "canceled" ? "Medlemskab opsagt" : `Status: ${STATUS_DA[member.status] ?? member.status} → ${STATUS_DA[status] ?? status}`, by: "Stripe" }, eventId);
 }
 
+export type Welcome = { email: string; fullName: string; tier: string; interval: string; trialDays: number };
+
 export async function processMemberStripeEvent(
   db: D1Database,
   event: StripeEvent
-): Promise<{ duplicate: boolean }> {
+): Promise<{ duplicate: boolean; welcome?: Welcome }> {
   const claimed = await markWebhook(db, event.id, event.type);
   if (!claimed) return { duplicate: true };
 
+  let welcome: Welcome | undefined;
   try {
     const object = event.data?.object ?? {};
 
@@ -302,6 +309,8 @@ export async function processMemberStripeEvent(
 
       if (!customerId || !clerkUserId || !email) throw new Error("stripe_checkout_metadata_incomplete");
       const now = Date.now();
+      const before = await memberIdBy(db, "clerk_user_id", clerkUserId);
+      const terms = Number(objectString(metadata, "terms_accepted_at"));
       await db
         .prepare(
           `INSERT INTO members (
@@ -338,6 +347,9 @@ export async function processMemberStripeEvent(
         await recordTimeline(db, joined.id, { atMs: eventTime(event), kind: "joined", title: `Blev medlem: ${membershipPlan(tier)?.name ?? tier}`,
           amountMinor: objectNumber(object, "amount_total"), detail: interval === "year" ? "Årlig betaling med kort" : "Månedlig betaling med kort", by: "Stripe" }, event.id);
         await linkMembershipWorks(db, joined.id, now);
+        if (Number.isFinite(terms) && terms > 0) await db.prepare("UPDATE members SET terms_accepted_at_ms = ? WHERE id = ?").bind(terms, joined.id).run();
+        // A welcome to one who is new here (worker/member-welcome.ts) - not to one who renews or comes back.
+        if (!before) welcome = { email, fullName, tier, interval, trialDays: membershipPlan(tier)?.trialDays ?? 0 };
       }
     } else if (event.type === "customer.subscription.updated") {
       const subscriptionId = objectString(object, "id");
@@ -369,7 +381,7 @@ export async function processMemberStripeEvent(
     }
 
     await finishWebhook(db, event.id);
-    return { duplicate: false };
+    return { duplicate: false, ...(welcome ? { welcome } : {}) };
   } catch (error) {
     const message = error instanceof Error ? error.message : "stripe_webhook_failed";
     await failWebhook(db, event.id, message);

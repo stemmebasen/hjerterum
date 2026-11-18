@@ -5,6 +5,7 @@ import { EventPrMaterial } from "./pr-material-editor";
 import { includesMemberBenefits, membershipName, membershipPlan, membershipPrice } from "../membership";
 import { MembershipPlans } from "./membership-plans";
 import { RichText } from "./rich-text";
+import { JoinMembership } from "./join-membership";
 import { EventPlanner } from "./event-planner";
 import { AuthImage, EventFilesField, FileLinks, fileProblems, uploadEventFiles, type EventFile } from "./event-files";
 import { SagaEventGuide } from "./saga-event-guide";
@@ -1253,7 +1254,7 @@ export function MemberWorkspace({
           <section className="workspace-section member-page workspace-narrow"><p className="kicker">Medlemsområde</p><h1>Medlemskab kræves</h1><div className="workspace-card"><p>{accessError}</p><p>Er du allerede medlem, så skriv til os, så kobler vi dit medlemskab på din e-mail.</p><a className="text-link" href={`mailto:${TEAM_MAIL}`}>Kontakt Hjerterum →</a></div>
             {/* Requested: "Det bør være muligt at booke lokalet uden at være medlem" - the calculator books the room at the standard price and shows what members pay. */}
             <div className="workspace-card"><h2>Vil du leje salen?</h2><p>Det kan du også uden medlemskab - til standardpris. I prisberegneren ser du samtidig, hvad du ville betale som medlem.</p><a className="pill-button dark" href="https://www.hjerterum.info/brug-hjerterum/lejepriser#beregner">Beregn pris og book salen</a></div></section>
-          <section className="workspace-section member-page"><p className="kicker">Bliv medlem</p><h2>Vælg dit medlemskab</h2><p>Du melder dig til i det nuværende medlemssystem. Bruger du samme e-mail, får du adgang her, så snart medlemskabet er aktivt.</p><MembershipPlans /></section>
+          <JoinMembership clerk={clerk} user={user} fallback={<section className="workspace-section member-page"><p className="kicker">Bliv medlem</p><h2>Vælg dit medlemskab</h2><p>Du melder dig til i det nuværende medlemssystem. Bruger du samme e-mail, får du adgang her, så snart medlemskabet er aktivt.</p><MembershipPlans /></section>} />
         </> :
         normalized === "/member-portal/medlemskab" ? (
           <><MemberProfile clerk={clerk} member={member} onSaved={setMember} /><div id="medlemskab"><MemberBilling clerk={clerk} member={member} /></div><MemberNewsletter clerk={clerk} /></>

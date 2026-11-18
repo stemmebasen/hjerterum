@@ -278,6 +278,22 @@ describe("saving a large MembershipWorks export", () => {
 });
 
 // Security review (3 Nov 2026), point 7: a payment Stripe sends again after it failed with us is taken again - not dropped as a duplicate.
+// Douglas (17 Nov 2026), for the board: "Signup email" - and the accepted terms are kept.
+describe("one who joins here", () => {
+  it("is welcomed once, and when they accepted the terms is kept", async () => {
+    const db = testDatabase();
+    const first = await processMemberStripeEvent(db, { id: "evt_new", type: "checkout.session.completed", created: NOW / 1000,
+      data: { object: { customer: "cus_Eva", subscription: "sub_Eva", metadata: { clerk_user_id: "user_eva", tier: "reduceret", interval: "year", full_name: "Eva Lund", terms_accepted_at: "1700000000000" },
+        customer_details: { email: "eva@example.dk" } } } } as never);
+    expect(first.welcome).toEqual({ email: "eva@example.dk", fullName: "Eva Lund", tier: "reduceret", interval: "year", trialDays: 30 });
+    expect((await db.prepare("SELECT terms_accepted_at_ms FROM members WHERE clerk_user_id = 'user_eva'").first<{ terms_accepted_at_ms: number }>())!.terms_accepted_at_ms).toBe(1700000000000);
+    const again = await processMemberStripeEvent(db, { id: "evt_again", type: "checkout.session.completed", created: NOW / 1000,
+      data: { object: { customer: "cus_Eva", subscription: "sub_Eva2", metadata: { clerk_user_id: "user_eva", tier: "standard", interval: "month", full_name: "Eva Lund" },
+        customer_details: { email: "eva@example.dk" } } } } as never);
+    expect(again.welcome).toBeUndefined();
+  });
+});
+
 describe("a membership payment that failed with us", () => {
   it("is taken when Stripe tries again, and a processed one only once", async () => {
     const db = testDatabase();

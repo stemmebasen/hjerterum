@@ -26,15 +26,24 @@ describe("published Hjerterum membership prices", () => {
     ["reduceret", "month", 11100], ["reduceret", "year", 115500],
     ["support", "month", 5000], ["support", "year", 54000]
   ])("charges the published price for %s / %s", async (tier, interval, amount) => {
-    const input = parseCheckoutInput({ tier, interval, email: "test@example.invalid", fullName: "Test" });
+    const input = parseCheckoutInput({ tier, interval, email: "test@example.invalid", fullName: "Test", acceptedTerms: true });
     await createMembershipCheckout(db, "test-secret", "https://staging.example.invalid", "user_test", input);
     expect(stripeRequest).toHaveBeenCalledWith("test-secret", "POST", "/checkout/sessions",
       expect.objectContaining({ "line_items[0][price_data][unit_amount]": amount }));
   });
 
+  // Douglas (13 Nov 2026), for the board: one who joins clicks to accept the terms; the level's own trial goes to Stripe.
+  it("asks for the terms to be accepted, and gives the level's trial", async () => {
+    expect(() => parseCheckoutInput({ tier: "standard", interval: "month", email: "test@example.invalid", fullName: "Test" })).toThrow("invalid_terms_not_accepted");
+    const input = parseCheckoutInput({ tier: "standard", interval: "month", email: "test@example.invalid", fullName: "Test", acceptedTerms: true });
+    await createMembershipCheckout(db, "test-secret", "https://staging.example.invalid", "user_test", input);
+    expect(stripeRequest).toHaveBeenCalledWith("test-secret", "POST", "/checkout/sessions",
+      expect.objectContaining({ "subscription_data[trial_period_days]": 30, "metadata[terms_accepted_at]": expect.stringMatching(/^\d+$/) }));
+  });
+
   it("rejects invalid and inherited plan names", () => {
     for (const tier of ["invalid", "constructor", "__proto__"]) {
-      expect(() => parseCheckoutInput({ tier, interval: "month", email: "test@example.invalid", fullName: "Test" })).toThrow("invalid_tier");
+      expect(() => parseCheckoutInput({ tier, interval: "month", email: "test@example.invalid", fullName: "Test", acceptedTerms: true })).toThrow("invalid_tier");
     }
   });
 
