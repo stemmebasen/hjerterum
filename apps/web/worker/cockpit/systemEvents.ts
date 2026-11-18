@@ -12,14 +12,14 @@ export type SystemEvent = { id: number; title: string; description: string | nul
 
 export async function comingSystemEvents(db: D1Database, nowMs: number): Promise<SystemEvent[]> {
   return db.prepare(`SELECT b.id, b.title, b.description, b.teacher_name, b.teacher_email, b.starts_at_ms, b.ends_at_ms, b.max_attendees, b.review_status, b.cirkler_meeting_id,
-      (SELECT COUNT(*) FROM room_booking_attendees a WHERE a.room_booking_id = b.id AND a.registration_status IN ('pending', 'confirmed')) AS attendees
+      (SELECT COALESCE(SUM(a.seats), 0) FROM room_booking_attendees a WHERE a.room_booking_id = b.id AND a.registration_status IN ('pending', 'confirmed')) AS attendees
     FROM room_bookings b WHERE b.status = 'scheduled' AND b.ends_at_ms >= ? AND COALESCE(b.review_status, 'approved') <> 'rejected' ORDER BY b.starts_at_ms LIMIT 200`)
     .bind(nowMs).all<SystemEvent>().then(r => r.results ?? []).catch(() => []);
 }
 
 export async function systemEvent(db: D1Database, id: number): Promise<SystemEvent | null> {
   return db.prepare(`SELECT b.id, b.title, b.description, b.teacher_name, b.teacher_email, b.starts_at_ms, b.ends_at_ms, b.max_attendees, b.review_status, b.cirkler_meeting_id,
-      (SELECT COUNT(*) FROM room_booking_attendees a WHERE a.room_booking_id = b.id AND a.registration_status IN ('pending', 'confirmed')) AS attendees
+      (SELECT COALESCE(SUM(a.seats), 0) FROM room_booking_attendees a WHERE a.room_booking_id = b.id AND a.registration_status IN ('pending', 'confirmed')) AS attendees
     FROM room_bookings b WHERE b.id = ? AND b.status = 'scheduled'`).bind(id).first<SystemEvent>().catch(() => null);
 }
 

@@ -27,7 +27,7 @@ export async function eventMeta(db: D1Database | undefined, id: string, fetcher:
   if (own) {
     if (!db) return null;
     const row = await db.prepare(`SELECT b.id, b.title, b.description, b.teacher_name, b.starts_at_ms, b.ends_at_ms, b.ticket_price_minor, b.non_member_price_minor, b.max_attendees,
-        (SELECT COUNT(*) FROM room_booking_attendees a WHERE a.room_booking_id = b.id AND a.registration_status IN ('pending', 'confirmed')) AS taken,
+        (SELECT COALESCE(SUM(a.seats), 0) FROM room_booking_attendees a WHERE a.room_booking_id = b.id AND a.registration_status IN ('pending', 'confirmed')) AS taken,
         (SELECT f.id FROM room_booking_files f WHERE f.room_booking_id = b.id AND f.kind = 'cover' LIMIT 1) AS cover_id,
         (SELECT d.created_at_ms FROM room_booking_designs d WHERE d.room_booking_id = b.id) AS design_at
       FROM room_bookings b WHERE b.id = ? AND b.status = 'scheduled' AND COALESCE(b.review_status, 'approved') = 'approved'`).bind(Number(own[1]))

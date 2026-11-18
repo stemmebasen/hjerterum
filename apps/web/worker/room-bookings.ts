@@ -67,6 +67,7 @@ export type AttendeeRow = {
   member_email: string;
   created_at_ms: number;
   registration_status: "pending" | "confirmed" | "cancelled";
+  seats?: number;
 };
 
 const weekdayMap: Record<string, number> = {
@@ -255,7 +256,7 @@ export async function listMemberCalendarBookings(
             -- Reported (Gitta): her event waiting for the board said "Godkendt og offentligt" - the review status was not read, so it counted as approved.
             b.non_member_price_minor, b.setup_minutes, b.cleanup_minutes, b.review_status, b.review_note,
             b.cancelled_at_ms,
-            SUM(CASE WHEN a.registration_status = 'confirmed' THEN 1 ELSE 0 END) AS attendee_count,
+            SUM(CASE WHEN a.registration_status = 'confirmed' THEN a.seats ELSE 0 END) AS attendee_count,
             MAX(CASE WHEN a.clerk_user_id = ? AND a.registration_status = 'confirmed' THEN 1 ELSE 0 END) AS is_attending,
             MAX(CASE WHEN a.clerk_user_id = ? THEN a.registration_status ELSE NULL END) AS registration_status
      FROM room_bookings b
@@ -515,7 +516,7 @@ export async function listBookingAttendees(
 
   const result = await db
     .prepare(
-      `SELECT id, clerk_user_id, member_name, member_email, created_at_ms, registration_status
+      `SELECT id, clerk_user_id, member_name, member_email, created_at_ms, registration_status, seats
        FROM room_booking_attendees
        WHERE room_booking_id = ? AND registration_status = 'confirmed'
        ORDER BY created_at_ms ASC`
@@ -525,14 +526,19 @@ export async function listBookingAttendees(
   return result.results ?? [];
 }
 
+export const MAX_SEATS = 6;
+
 export async function attendRoomBooking(
   db: D1Database,
   clerkUserId: string,
   bookingId: number,
   attendee: { memberName: string; memberEmail: string },
   /** Requested: "Man skal også kunne tilmelde sig et event som ikke-medlem" - a non-member pays the non-member price, when the event has one. */
-  nonMember = false
+  nonMember = false,
+  /** Douglas (13 Nov 2026), for the board: "book more than one person" - the places this sign-up holds (1-6). */
+  seats = 1
 ): Promise<void> {
+  if (!Number.isInteger(seats) || seats < 1 || seats > MAX_SEATS) throw new Error("invalid_seats");
   const now = Date.now();
   const booking = await db.prepare(
     `SELECT id, clerk_user_id, starts_at_ms, max_attendees, ticket_price_minor, non_member_price_minor
@@ -559,14 +565,14 @@ export async function attendRoomBooking(
   if (existing) {
     const result = await db.prepare(
       `UPDATE room_booking_attendees
-       SET member_name = ?, member_email = ?, registration_status = 'confirmed',
+       SET member_name = ?, member_email = ?, registration_status = 'confirmed', seats = ?,
            confirmed_at_ms = ?, cancelled_at_ms = NULL
        WHERE id = ? AND registration_status = 'cancelled'
          AND ((SELECT max_attendees FROM room_bookings WHERE id = ?) IS NULL OR
-           (SELECT COUNT(*) FROM room_booking_attendees
-            WHERE room_booking_id = ? AND registration_status = 'confirmed') <
+           (SELECT COALESCE(SUM(seats), 0) FROM room_booking_attendees
+            WHERE room_booking_id = ? AND registration_status = 'confirmed') + ? <=
            (SELECT max_attendees FROM room_bookings WHERE id = ?))`
-    ).bind(attendee.memberName, attendee.memberEmail, now, existing.id, bookingId, bookingId, bookingId).run();
+    ).bind(attendee.memberName, attendee.memberEmail, seats, now, existing.id, bookingId, bookingId, seats, bookingId).run();
     if ((result.meta?.changes ?? 0) === 0) throw new Error("booking_full");
     return;
   }
@@ -574,17 +580,17 @@ export async function attendRoomBooking(
   const result = await db.prepare(
     `INSERT INTO room_booking_attendees
      (room_booking_id, clerk_user_id, member_name, member_email, created_at_ms,
-      registration_status, confirmed_at_ms)
-     SELECT b.id, ?, ?, ?, ?, 'confirmed', ?
+      registration_status, confirmed_at_ms, seats)
+     SELECT b.id, ?, ?, ?, ?, 'confirmed', ?, ?
      FROM room_bookings b
      WHERE b.id = ? AND b.status = 'scheduled' AND b.starts_at_ms > ?
        AND (b.max_attendees IS NULL OR
-         (SELECT COUNT(*) FROM room_booking_attendees
+         (SELECT COALESCE(SUM(seats), 0) FROM room_booking_attendees
           WHERE room_booking_id = b.id AND (
             registration_status = 'confirmed' OR
             (registration_status = 'pending' AND expires_at_ms > ?)
-          )) < b.max_attendees)`
-  ).bind(clerkUserId, attendee.memberName, attendee.memberEmail, now, now, bookingId, now, now).run();
+          )) + ? <= b.max_attendees)`
+  ).bind(clerkUserId, attendee.memberName, attendee.memberEmail, now, now, seats, bookingId, now, now, seats).run();
   if ((result.meta?.changes ?? 0) === 0) throw new Error("booking_full");
 }
 

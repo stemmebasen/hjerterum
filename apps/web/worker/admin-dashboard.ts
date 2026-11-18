@@ -123,7 +123,7 @@ export async function listAdminBookings(
     `SELECT rb.id, rb.title, rb.teacher_name, rb.teacher_email,
             rb.starts_at_ms, rb.ends_at_ms, rb.max_attendees, rb.fee_minor,
             rb.ticket_price_minor, rb.status,
-            SUM(CASE WHEN rba.registration_status = 'confirmed' THEN 1 ELSE 0 END) AS attendee_count
+            SUM(CASE WHEN rba.registration_status = 'confirmed' THEN rba.seats ELSE 0 END) AS attendee_count
      FROM room_bookings rb
      LEFT JOIN room_booking_attendees rba ON rba.room_booking_id = rb.id
      WHERE (? = 0 OR (rb.status = 'scheduled' AND rb.ends_at_ms >= ?))
