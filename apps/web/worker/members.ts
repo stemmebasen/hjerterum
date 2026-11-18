@@ -134,7 +134,9 @@ export async function createMembershipCheckout(
     params.customer = existing.stripeCustomerId;
   } else {
     params.customer_email = input.email;
-    params["subscription_data[trial_period_days]"] = 30;
+    // The level's own trial (Medlemsoverblik → Medlemskaber); none when it is 0.
+    const trialDays = membershipPlans[input.tier].trialDays;
+    if (trialDays > 0) params["subscription_data[trial_period_days]"] = trialDays;
   }
 
   const session = await stripeRequest<{ url?: string }>(

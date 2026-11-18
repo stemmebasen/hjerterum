@@ -18,19 +18,21 @@ export function levelsPage(base: string, who: string | null, d: { changes: Level
 <label class="mc-field"><span>Beskrivelse</span><textarea name="description" rows="5" maxlength="1000">${esc(p.description)}</textarea></label>
 <div class="ml-prices"><label class="mc-field"><span>Kr. pr. måned</span><input name="month" inputmode="decimal" required value="${kr(p.month)}"></label>
 <label class="mc-field"><span>Kr. pr. år</span><input name="year" inputmode="decimal" required value="${kr(p.year)}"></label></div>
+<label class="mc-field"><span>Gratis prøveperiode (dage, 0 = ingen)</span><input name="trial" type="number" min="0" max="365" step="1" value="${p.trialDays}"></label>
 <p class="small muted">${p.benefits ? "Giver adgang til medlemsfordelene." : "Giver ikke adgang til medlemsfordelene."}</p>
 <button>Gem ${esc(p.name.toLocaleLowerCase("da-DK"))}</button></form>`;
   }).join("");
   const history = d.changes.length ? `<ul class="mc-timeline">${d.changes.map(c => {
     const what = [c.before.name !== c.after.name && `navn: ${c.before.name} → ${c.after.name}`, c.before.month !== c.after.month && `pr. måned: ${kr(c.before.month)} → ${kr(c.after.month)} kr.`,
-      c.before.year !== c.after.year && `pr. år: ${kr(c.before.year)} → ${kr(c.after.year)} kr.`, c.before.description !== c.after.description && "beskrivelsen"].filter(Boolean).join(" · ");
+      c.before.year !== c.after.year && `pr. år: ${kr(c.before.year)} → ${kr(c.after.year)} kr.`, c.before.description !== c.after.description && "beskrivelsen",
+      c.after.trialDays !== undefined && c.before.trialDays !== c.after.trialDays && `prøveperiode: ${c.before.trialDays ?? "–"} → ${c.after.trialDays} dage`].filter(Boolean).join(" · ");
     return `<li><span>${esc(TIME.format(c.atMs))}</span><div><b>${esc(c.after.name)}</b><p>${esc(what || "ingen ændring")}</p><small>${esc(c.by)}</small></div></li>`;
   }).join("")}</ul>` : `<p class="muted">Ingen ændringer endnu - medlemskaberne er, som de står på hjemmesiden.</p>`;
   const body = `<main class="mc"><p class="small"><a href="${base}/medlemskab">← Medlemsoverblik</a></p><h1>Medlemskaber</h1>
 <p class="muted small">Navne, beskrivelser og priser på de fire medlemskaber. Kun for formanden og Douglas, der er ansvarlig for medlemssystemet.</p>
 <div class="card ml-note"><p><b>En ændring slår igennem på</b> hjemmesiden, medlemssiderne og det, Saga svarer, inden for et minut - og prisen på et nyt medlemskab, der betales i Hjerterums nye system.</p>
 <p><b>Den ændrer ikke</b> prisen på medlemskaber, der allerede kører. Priserne i MembershipWorks ændres ikke herfra - så længe indmeldelse sker dér, skal en ny pris også rettes dér.</p>
-<p>En ny pris kræver en beslutning i bestyrelsen.</p></div>
+<p>En ny pris kræver en beslutning i bestyrelsen. Prøveperioden gælder kun dem, der melder sig ind første gang.</p></div>
 ${d.notice ? `<p class="notice">${esc(d.notice)}</p>` : ""}${d.error && !d.errorTier ? `<p class="notice bad">${esc(d.error)}</p>` : ""}
 <section class="mc-grid ml-grid">${forms}</section>
 <section class="card"><h2>Ændringer</h2>${history}</section></main>`;

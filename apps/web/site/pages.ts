@@ -427,7 +427,7 @@ Bindingsperioden er løbende måned + 1 måned. Det betyder, at du betaler én g
 
 Gennemføres en kortbetaling af en eller anden grund ikke, er du stadig medlem, indtil du opsiger – og betalingen forventes at fortsætte.
 
-## 30 dages prøveperiode
+## Gratis prøveperiode
 Tilbyder vi en gratis prøveperiode, kan den kun bruges én gang. Opsiger du og vil melde dig ind igen, logger du ind på din konto og opdaterer dine betalingsoplysninger.
 
 ## Dine oplysninger

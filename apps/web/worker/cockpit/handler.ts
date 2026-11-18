@@ -27,7 +27,7 @@ import { todosPage } from "./todosPage.js";
 import { statsPage } from "./statsPage.js";
 import { memberPage, membersListPage, turnoverPage, MEMBER_TABS, type MemberTab } from "./memberPages.js";
 import { addNote, changeManualMembership, grantMembership, listMembers, memberById, memberCounts, memberEvents, membershipWorksAccount, membershipWorksSummary,
-  memberTimeline, saveMembershipWorksExport, importTurnover, turnoverPlan, STATUS_FILTERS, type StatusFilter } from "../member-admin.js";
+  memberTimeline, recordTimeline, saveMembershipWorksExport, importTurnover, turnoverPlan, STATUS_FILTERS, type StatusFilter } from "../member-admin.js";
 import { changeMemberAccess } from "../admin-members.js";
 import { enquiryTopics, periodOf, siteStats } from "../site-stats.js";
 import { logoResponse } from "./logo.js";
@@ -66,6 +66,8 @@ import { fetchStockPicture, pictureIdeas, searchStock, sourcesOf, STOCK_IMAGE_HO
 import { prEventsData } from "./prEvents.js";
 import { eventKeyOf, setStudioDesign, storeSocialDesign, studioData, studioEvents, studioListPage, studioPicture } from "./posterStudio.js";
 import { levelsPage } from "./membershipLevels.js";
+import { saveLabels } from "../member-labels.js";
+import { moveRenewal } from "../member-renewal.js";
 import { membershipLevelChanges, saveMembershipLevel } from "../membership-levels.js";
 import { applyFilter, cardTimeline, cockpitMembers, cockpitPage, memberCardPage, membersCsv, readFilter, saveContact as saveMemberContact } from "./membershipCockpit.js";
 import { comingSystemEvents, readEventChange, systemEvent, systemEventPage, systemEventsSection } from "./systemEvents.js";
@@ -669,7 +671,7 @@ async function route(request: Request, env: SagaEnv, deps: SagaDeps, state: Stat
         const form = await request.formData().catch(() => null);
         const tier = String(form?.get("tier") ?? "");
         const saved = await saveMembershipLevel(db, tier, { name: String(form?.get("name") ?? ""), description: String(form?.get("description") ?? ""),
-          month: String(form?.get("month") ?? ""), year: String(form?.get("year") ?? "") }, who, now);
+          month: String(form?.get("month") ?? ""), year: String(form?.get("year") ?? ""), trialDays: String(form?.get("trial") ?? "") }, who, now);
         if ("error" in saved) return html(levelsPage(base, who, { changes: await membershipLevelChanges(db), notice: "", error: saved.error, errorTier: tier }), 400);
         if (saved.changed.length) await audit(db, actor, "members.levels", `Rettede medlemskabet ${tier}: ${saved.changed.join(", ")}`, now);
         return redirect(`${base}/medlemskab/niveauer?besked=${saved.changed.length ? "gemt" : "uaendret"}#niveau-${tier}`);
@@ -693,8 +695,24 @@ async function route(request: Request, env: SagaEnv, deps: SagaDeps, state: Stat
       const card = async (notice = "", error = "", status = 200) => html(memberCardPage(base, who, { member: (await cockpitMembers(db)).members.find(m => m.key === member.key) ?? member,
         timeline: member.platformId ? await cardTimeline(db, member.platformId) : [], today, notice, error }), status);
       if (request.method === "POST") {
-        if (!member.platformId) return card("", "Medlemmet er kun i MembershipWorks og rettes dér indtil skæringsdagen.", 409);
         const form = await request.formData().catch(() => null);
+        // Douglas (13 Nov 2026), for the board: "How can we assign a label to a member?" - for everyone, kept by e-mail (member-labels.ts).
+        if (form?.get("action") === "labels") {
+          const changed = await saveLabels(db, member.email, String(form.get("labels") ?? ""), who, now);
+          if (changed.added.length || changed.removed.length) {
+            await audit(db, actor, "members.cockpit", `Labels for ${member.name}: ${[...changed.added.map(l => `+${l}`), ...changed.removed.map(l => `-${l}`)].join(", ")}`, now);
+            if (member.platformId) await recordTimeline(db, member.platformId, { atMs: now, kind: "note", title: "Labels ændret", detail: [...changed.added.map(l => `+${l}`), ...changed.removed.map(l => `-${l}`)].join(", "), by: who });
+          }
+          return card(changed.added.length || changed.removed.length ? "Labels er gemt." : "Intet blev ændret.");
+        }
+        if (!member.platformId) return card("", "Medlemmet er kun i MembershipWorks og rettes dér indtil skæringsdagen.", 409);
+        // "Editable renewal date" (Douglas, 13 and 17 Nov 2026).
+        if (form?.get("action") === "renewal") {
+          const moved = await moveRenewal(db, env as { STRIPE_SECRET_KEY?: string }, member.platformId, String(form.get("renewal") ?? ""), who, now);
+          if ("error" in moved) return card("", moved.error, 400);
+          await audit(db, actor, "members.cockpit", `Fornyelsesdato for ${member.name}: ${moved.from ?? "–"} → ${moved.to}`, now);
+          return card("Fornyelsesdatoen er rettet.");
+        }
         if (form?.get("action") === "note") {
           await addNote(db, member.platformId, String(form.get("note") ?? ""), who, now);
           return card("Noten er tilføjet.");
