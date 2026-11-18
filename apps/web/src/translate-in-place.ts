@@ -147,7 +147,8 @@ function keepSpaces(kept: Element): void {
 const NAMES: Array<[RegExp, string]> = [[/\b(?:the )?Heart ?(?:Room|room|Space|space|Rum|rum)\b/g, "Hjerterum"], [/\bCIRCLES\b/g, "CIRKLER"],
   [/\bGoldsmith(?:'s)? ?(?:Street|Lane|street|lane)\b/g, "Guldsmedgade"],
   // Douglas (17 Nov 2026): "It says 'Courses and courses' in English instead of 'Forløb'" - the calendar's category "Kurser & Forløb".
-  [/\bCOURSES (?:&|AND) COURSES\b/g, "COURSES & PROGRAMMES"], [/\bCourses (?:&|and) [Cc]ourses\b/g, "Courses & Programmes"]];
+  // Then (18 Nov 2026): "I think it would be best if the word 'programmes' get left out, so it is just 'Courses'".
+  [/\bCOURSES (?:&|AND) (?:COURSES|PROGRAMMES)\b/g, "COURSES"], [/\bCourses (?:&|and) (?:[Cc]ourses|[Pp]rogrammes)\b/g, "Courses"]];
 export function englishNames(text: string): string {
   return NAMES.reduce((out, [pattern, name]) => out.replace(pattern, name), text);
 }

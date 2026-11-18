@@ -776,7 +776,8 @@ export function MemberCalendar({
     const body = await response.json().catch(() => ({})) as { error?: string; checkoutUrl?: string };
     if (!response.ok) {
       const text = body.error === "booking_full" ? "Eventet er desværre fyldt." : body.error === "non_member_payment_unavailable"
-        ? "Tilmelding med betaling for ikke-medlemmer åbner snart. Indtil da kan du skrive til arrangøren eller blive medlem." : body.error === "booking_started" ? "Eventet er begyndt." : "Tilmeldingen kunne ikke ændres. Prøv igen om lidt.";
+        ? "Tilmelding med betaling for ikke-medlemmer åbner snart. Indtil da kan du skrive til arrangøren eller blive medlem." : body.error === "booking_started" ? "Eventet er begyndt."
+        : body.error === "booking_not_approved" ? "Eventet er ikke godkendt endnu. Man kan tilmelde sig, når det er godkendt." : "Tilmeldingen kunne ikke ændres. Prøv igen om lidt.";
       setMessage(text); setRowNote({ id: booking.id, text });
     } else if (body.checkoutUrl) {
       window.location.assign(body.checkoutUrl);
@@ -1217,7 +1218,13 @@ export function MemberWorkspace({
   // "Mine events" has two pages under it: Opret event (/member-portal/events) and the member's own events (/member-portal/events/mine).
   const onEventsPage = normalized === "/member-portal/events" || normalized === EVENTS_MINE;
   const ownedBookings = calendar.filter((booking) => booking.isOwner);
-  const markedDates = new Set([...calendar, ...externalEvents].map((entry) => todayKey(new Date(entry.startsAt))));
+  // Douglas (18 Nov 2026): a weekend course had "no 'punktum' for the second day" - every day an event runs on gets its dot.
+  const daysOf = (entry: { startsAt: string; endsAt?: string | null }) => {
+    const days: string[] = [], start = new Date(entry.startsAt), end = new Date(entry.endsAt ?? entry.startsAt);
+    for (let d = new Date(start.getFullYear(), start.getMonth(), start.getDate()); d <= end && days.length < 14; d.setDate(d.getDate() + 1)) days.push(todayKey(new Date(d)));
+    return days.length ? days : [todayKey(start)];
+  };
+  const markedDates = new Set([...calendar, ...externalEvents].flatMap(daysOf));
   return (
     <main className="workspace-shell profile-workspace">
       <WorkspaceHeader clerk={clerk} mode="member" path={path} />

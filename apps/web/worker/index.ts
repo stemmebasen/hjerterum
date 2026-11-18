@@ -466,7 +466,7 @@ async function attendBooking(
       }
     }
     if (code === "booking_not_found") return json({ error: code }, { status: 404 });
-    if (code === "booking_started" || code === "non_member_payment_unavailable") return json({ error: code }, { status: 409 });
+    if (code === "booking_started" || code === "non_member_payment_unavailable" || code === "booking_not_approved") return json({ error: code }, { status: 409 });
     if (code === "already_attending" || code === "booking_full" ||
         code === "booking_full_or_pending") {
       return json({ error: code }, { status: 409 });
