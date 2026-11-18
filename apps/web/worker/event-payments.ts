@@ -264,7 +264,7 @@ export async function createEventCheckout(
          (registration_status = 'pending' AND COALESCE(expires_at_ms, 0) <= ?)
        ) AND (
          (SELECT max_attendees FROM room_bookings WHERE id = ?) IS NULL OR
-         (SELECT COUNT(*) FROM room_booking_attendees
+         (SELECT COALESCE(SUM(seats), 0) FROM room_booking_attendees
           WHERE room_booking_id = ? AND id <> ? AND (
             registration_status = 'confirmed' OR
             (registration_status = 'pending' AND expires_at_ms > ?)
@@ -289,7 +289,7 @@ export async function createEventCheckout(
        WHERE id = ? AND status = 'scheduled' AND review_status = 'approved' AND starts_at_ms > ?
          AND (
            max_attendees IS NULL OR
-           (SELECT COUNT(*) FROM room_booking_attendees
+           (SELECT COALESCE(SUM(seats), 0) FROM room_booking_attendees
             WHERE room_booking_id = ? AND (
               registration_status = 'confirmed' OR
               (registration_status = 'pending' AND expires_at_ms > ?)

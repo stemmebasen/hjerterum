@@ -40,4 +40,15 @@ describe("signing up as a guest", () => {
     expect(await publicEvent(db, pending)).toBeNull();
     expect(await signUpGuest(db, pending, form(), now)).toMatchObject({ error: "booking_not_found", status: 404 });
   });
+
+  // Douglas (13 Nov 2026), for the board: "Can there be the possibility to book more than one person when booking for an event?"
+  it("signs up several people at once, counting each place", async () => {
+    const db = testDatabase();
+    const id = await event(db, { max: 4 });
+    expect(await signUpGuest(db, id, form({ seats: 3 }), now)).toEqual({ ok: true, confirmed: true });
+    expect((await publicEvent(db, id))?.taken).toBe(3);
+    expect(await signUpGuest(db, id, form({ email: "eva@x.dk", name: "Eva", seats: 2 }), now)).toMatchObject({ error: "booking_full" });
+    expect(await signUpGuest(db, id, form({ email: "eva@x.dk", name: "Eva", seats: 1 }), now)).toEqual({ ok: true, confirmed: true });
+    expect((await publicEvent(db, id))?.taken).toBe(4);
+  });
 });

@@ -706,7 +706,7 @@ function eventPrices(booking: Pick<Booking, "ticketPriceKr" | "nonMemberPriceKr"
 
 /** Douglas (12 Nov 2026): "Is it possible for a teacher to be able to see the email addresses of the people who have signed up for their workshop
  * and whether they are members or non-members." The organiser's own list, opened from the event under Mine events. */
-type Attendee = { id: number; memberName: string; memberEmail: string; member: boolean };
+type Attendee = { id: number; memberName: string; memberEmail: string; member: boolean; seats?: number };
 function AttendeeList({ clerk, bookingId, count }: { clerk: ClerkBrowser; bookingId: number; count: number }) {
   const [list, setList] = useState<Attendee[] | null>(null);
   const [state, setState] = useState<"closed" | "loading" | "open" | "error">("closed");
@@ -723,7 +723,7 @@ function AttendeeList({ clerk, bookingId, count }: { clerk: ClerkBrowser; bookin
       {state === "open" ? "Skjul tilmeldte" : state === "loading" ? "Henter …" : `Se de tilmeldte (${count})`}</button>
     {state === "error" && <p className="small muted" role="status">Listen kunne ikke hentes. Prøv igen om lidt.</p>}
     {state === "open" && list && (list.length ? <ol>
-      {list.map(a => <li key={a.id}><span>{a.memberName}</span> <a className="notranslate" href={`mailto:${a.memberEmail}`}>{a.memberEmail}</a>{" "}
+      {list.map(a => <li key={a.id}><span>{a.memberName}{a.seats && a.seats > 1 ? ` (${a.seats} personer)` : ""}</span> <a className="notranslate" href={`mailto:${a.memberEmail}`}>{a.memberEmail}</a>{" "}
         <span className={"lys-chip " + (a.member ? "sage" : "clay")}>{a.member ? "Medlem" : "Ikke-medlem"}</span></li>)}
     </ol> : <p className="small muted">Ingen bekræftede tilmeldinger endnu.</p>)}
   </div>;
@@ -765,14 +765,15 @@ export function MemberCalendar({
 
   // Douglas (17 Nov 2026): "When I click 'Cancel Registration', nothing seems to happen" - the answer stands by the button too, not only at the top of the page.
   const [rowNote, setRowNote] = useState<{ id: number; text: string } | null>(null);
+  // Douglas (13 Nov 2026), for the board: "book more than one person" - how many the member signs up for, per event.
+  const [seatsFor, setSeatsFor] = useState<Record<number, number>>({});
   async function toggleAttendance(booking: Booking) {
     if (booking.isAttending && booking.ticketPriceKr > 0 &&
         !window.confirm("Vil du afmelde dig? En betalt billet refunderes ikke automatisk.")) return;
     setBusyId(booking.id);
     setMessage("");
-    const response = await apiFetch(clerk, "/api/room-bookings/" + booking.id + "/attend", {
-      method: booking.isAttending ? "DELETE" : "POST"
-    });
+    const response = await apiFetch(clerk, "/api/room-bookings/" + booking.id + "/attend", booking.isAttending ? { method: "DELETE" }
+      : { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ seats: seatsFor[booking.id] ?? 1 }) });
     const body = await response.json().catch(() => ({})) as { error?: string; checkoutUrl?: string };
     if (!response.ok) {
       const text = body.error === "booking_full" ? "Eventet er desværre fyldt." : body.error === "non_member_payment_unavailable"
@@ -783,7 +784,7 @@ export function MemberCalendar({
       window.location.assign(body.checkoutUrl);
       return;
     } else {
-      const text = booking.isAttending ? "Din tilmelding er annulleret." : "Du er nu tilmeldt.";
+      const text = booking.isAttending ? "Din tilmelding er annulleret." : (seatsFor[booking.id] ?? 1) > 1 ? `Du er nu tilmeldt for ${seatsFor[booking.id]} personer.` : "Du er nu tilmeldt.";
       setMessage(text); setRowNote({ id: booking.id, text });
       await reload();
     }
@@ -843,6 +844,10 @@ export function MemberCalendar({
             </RowText>
             <span className="event-row-more">
               {/* Douglas (13 Nov 2026), signed up for his own test event: "Where it says 'unsubscribe', how can we do that?" - the organiser who is signed up can cancel it too. */}
+              {booking && !booking.isAttending && !full && priceKr === 0 && booking.registrationStatus !== "pending" && (!booking.isOwner) &&
+                <select className="member-seats" aria-label="Antal personer" value={seatsFor[booking.id] ?? 1} onChange={e => setSeatsFor({ ...seatsFor, [booking.id]: Number(e.target.value) })}>
+                  {Array.from({ length: Math.min(6, booking.maxAttendees ? Math.max(1, booking.maxAttendees - (booking.attendeeCount ?? 0)) : 6) }, (_, i) => i + 1).map(n => <option key={n} value={n}>{n === 1 ? "1 person" : `${n} pers.`}</option>)}
+                </select>}
               {booking ? booking.isOwner && !booking.isAttending ? <a className="text-link" href="/member-portal/events">Administrér →</a> : (
                 <button type="button" className={booking.isAttending ? "pill-button subtle" : "pill-button dark"}
                   disabled={busyId === booking.id || booking.registrationStatus === "pending" || (!booking.isAttending && full)}

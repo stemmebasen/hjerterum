@@ -257,7 +257,7 @@ async function guestSignup(request: Request, env: Env, id: number): Promise<Resp
   if ("error" in result) return json({ error: result.error }, { status: result.status });
   if ("confirmed" in result) {
     const row = await publicEvent(env.DB, id).catch(() => null);
-    const guest = { name: String(sent.name ?? "").trim(), email: String(sent.email ?? "").trim().toLowerCase() };
+    const guest = { name: String(sent.name ?? "").trim(), email: String(sent.email ?? "").trim().toLowerCase(), seats: Math.min(Math.max(Math.trunc(Number(sent.seats ?? 1)) || 1, 1), 6) };
     if (row) await guestReceipt(env, fetch, row, guest, `${url.origin}/events/h${id}`);
     await notifyOrganiser(env, fetch, id, { ...guest, clerkUserId: `guest:${guest.email}` }, CURRENT_SITE);
     // Requested: "alle modtagere gemmes samlet i vores Mailchimp konto" - a guest who ticked the newsletter goes to the list, confirming by mail first.
@@ -413,6 +413,7 @@ async function bookingAttendees(
         clerkUserId: attendee.clerk_user_id,
         memberName: attendee.member_name,
         memberEmail: attendee.member_email,
+        seats: attendee.seats ?? 1,
         member: await isMemberAttendee(db, attendee.clerk_user_id, attendee.member_email),
         createdAt: new Date(attendee.created_at_ms).toISOString()
       })))
@@ -435,14 +436,17 @@ async function attendBooking(
   if (isResponse(membership)) return membership;
 
   try {
+    // Douglas (13 Nov 2026): "book more than one person" - the member says how many they are.
+    const sent = await request.json().catch(() => ({})) as { seats?: unknown };
+    const seats = Math.min(Math.max(Math.trunc(Number(sent.seats ?? 1)) || 1, 1), 6);
     await attendRoomBooking(env.DB, user.userId, bookingId, {
       memberName: membership.fullName,
       memberEmail: membership.email
-    }, !membership.member);
+    }, !membership.member, seats);
     // Douglas (12 Nov 2026): "Does a participant get an email when they sign up for an event?" - a guest did; now one who signs up logged in too.
     const row = await publicEvent(env.DB, bookingId).catch(() => null);
-    if (row) await guestReceipt(env, fetch, row, { name: membership.fullName, email: membership.email.trim().toLowerCase() }, `${CURRENT_SITE}/events/h${bookingId}`);
-    await notifyOrganiser(env, fetch, bookingId, { name: membership.fullName, email: membership.email.trim().toLowerCase(), clerkUserId: user.userId }, CURRENT_SITE);
+    if (row) await guestReceipt(env, fetch, row, { name: membership.fullName, email: membership.email.trim().toLowerCase(), seats }, `${CURRENT_SITE}/events/h${bookingId}`);
+    await notifyOrganiser(env, fetch, bookingId, { name: membership.fullName, email: membership.email.trim().toLowerCase(), clerkUserId: user.userId, seats }, CURRENT_SITE);
     return json({ status: "attending" }, { status: 201 });
   } catch (error) {
     const code = error instanceof Error ? error.message : "attendance_failed";
