@@ -317,7 +317,7 @@ function overviewView(pc: PageContext, o: Overview, now: number): AdminView {
       ${tile(sum(d, "visitors"), "seneste 30 dage", `${num(sum(d, "views"))} sidevisninger`)}
     </div>
     ${visitChart(d)}
-    <p class="sk-note">Besøgende tælles pr. dag: den samme person to dage i træk tæller to gange. Robotter og dine egne besøg tælles ikke med. Ingen cookies.</p>
+    <p class="sk-note">Besøgende tælles pr. dag: den samme person to dage i træk tæller to gange. Robotter og dine egne besøg tælles ikke med. Ingen cookies.${o.visits.robots.week ? ` Sorteret fra som robotter: ${num(o.visits.robots.today)} sidevisninger i dag, ${num(o.visits.robots.week)} på 7 dage (fra 19. november 2026: også programmer, der udgiver sig for at være en browser, og besøg fra serverhoteller).` : ""}</p>
     <div class="sk-two">
       <div>
         <h3>Mest sete sider, 7 dage</h3>

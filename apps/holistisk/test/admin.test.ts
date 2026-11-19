@@ -80,7 +80,7 @@ describe("admin overview", () => {
     db.raw.prepare("INSERT INTO event_interests (member_id, event_id, status, created_at, updated_at) VALUES ('m1', ?, 'waiting', ?, ?)").run(event.id, NOW - 600_000, NOW);
     db.raw.prepare("INSERT INTO flocks (id, event_id, created_by, meeting_place, meeting_at, max_size, status, created_at, updated_at) VALUES ('f1', ?, 'm1', 'Foran Domkirken', ?, 6, 'open', ?, ?)").run(event.id, NOW + 86_400_000, NOW, NOW);
     db.raw.prepare("INSERT INTO flock_members (flock_id, member_id, joined_at) VALUES ('f1', 'm1', ?)").run(NOW - 300_000);
-    await recordVisit(db, new Request("https://socialklubben.dk/kalender", { headers: { "user-agent": BROWSER, "cf-connecting-ip": "1.2.3.4", referer: "https://www.google.dk/" } }), NOW);
+    await recordVisit(db, new Request("https://socialklubben.dk/kalender", { headers: { "user-agent": BROWSER, "accept-language": "da-DK,da;q=0.9", "cf-connecting-ip": "1.2.3.4", referer: "https://www.google.dk/" } }), NOW);
 
     const r = await call("/admin", { cookie });
     expect(r.status).toBe(200);
@@ -113,7 +113,7 @@ describe("admin overview", () => {
 });
 
 describe("visitor statistics", () => {
-  const req = (path: string, headers: Record<string, string> = {}) => new Request(`https://socialklubben.dk${path}`, { headers: { "user-agent": BROWSER, ...headers } });
+  const req = (path: string, headers: Record<string, string> = {}) => new Request(`https://socialklubben.dk${path}`, { headers: { "user-agent": BROWSER, "accept-language": "da-DK,da;q=0.9", ...headers } });
   const page = new Response("<p>hej</p>", { headers: { "content-type": "text/html; charset=utf-8" } });
 
   it("counts people reading pages, not robots, files, prefetches or the admin", () => {
@@ -126,6 +126,30 @@ describe("visitor statistics", () => {
     expect(countable(req("/sitemap.xml"), page)).toBe(false);
     expect(countable(req("/"), new Response("x", { status: 404, headers: { "content-type": "text/html" } }))).toBe(false);
     expect(countable(req("/events/x.ics"), new Response("x", { headers: { "content-type": "text/calendar" } }))).toBe(false);
+  });
+
+  it("sorts out scrapers dressed up as a browser (19 November 2026)", async () => {
+    // No language, or not fetching a page, or from a data centre: not a person.
+    expect(countable(new Request("https://socialklubben.dk/", { headers: { "user-agent": BROWSER } }), page)).toBe(false);
+    expect(countable(req("/", { "sec-fetch-dest": "empty" }), page)).toBe(false);
+    expect(countable(req("/", { "sec-fetch-dest": "document" }), page)).toBe(true);
+    const cloud = req("/kalender");
+    Object.defineProperty(cloud, "cf", { value: { asOrganization: "Amazon.com, Inc." } });
+    expect(countable(cloud, page)).toBe(false);
+    const home = req("/kalender");
+    Object.defineProperty(home, "cf", { value: { asOrganization: "TDC Holding A/S" } });
+    expect(countable(home, page)).toBe(true);
+    // They are counted apart, as a number per day.
+    const d = testDb();
+    const waits: Promise<unknown>[] = [];
+    const ctx = { waitUntil: (p: Promise<unknown>) => { waits.push(p); } };
+    const e: Env = { DB: d, ENVIRONMENT: "staging", ACTIVE_REGIONS: "ostjylland", EDITION: "portal" };
+    await worker.fetch(new Request("https://socialklubben.dk/om", { headers: { "user-agent": BROWSER } }), e, ctx);
+    await worker.fetch(req("/om"), e, ctx);
+    await Promise.all(waits);
+    const s = await visitSummary(d, Date.now());
+    expect(s.robots.today).toBe(1);
+    expect(s.days.at(-1)!.views).toBe(1);
   });
 
   it("names sources and paths plainly", () => {
@@ -167,7 +191,7 @@ describe("visitor statistics", () => {
     const ctx = { waitUntil: (p: Promise<unknown>) => { waits.push(p); } };
     const e: Env = { DB: d, ENVIRONMENT: "staging", ACTIVE_REGIONS: "ostjylland", EDITION: "portal" };
     await worker.fetch(req("/om"), e, ctx);
-    await worker.fetch(new Request("https://holistisk-portal-staging.example.workers.dev/om", { headers: { "user-agent": BROWSER } }), e, ctx);
+    await worker.fetch(new Request("https://holistisk-portal-staging.example.workers.dev/om", { headers: { "user-agent": BROWSER, "accept-language": "da-DK,da;q=0.9" } }), e, ctx);
     await Promise.all(waits);
     expect(d.raw.prepare("SELECT path, views FROM visit_pages").all()).toEqual([{ path: "/om", views: 1 }]);
   });
@@ -278,7 +302,7 @@ describe("the way to becoming a member", () => {
 
   /** A visitor's browser on socialklubben.dk: keeps cookies, sends forms from the site itself. */
   async function visit(path: string, form?: Record<string, string>, ip = "9.9.9.9"): Promise<Response> {
-    const headers: Record<string, string> = { "user-agent": BROWSER, "cf-connecting-ip": ip, cookie: Object.entries(jar).map(([k, v]) => `${k}=${v}`).join("; ") };
+    const headers: Record<string, string> = { "user-agent": BROWSER, "accept-language": "da-DK,da;q=0.9", "cf-connecting-ip": ip, cookie: Object.entries(jar).map(([k, v]) => `${k}=${v}`).join("; ") };
     if (form) { headers.origin = SITE; headers["content-type"] = "application/x-www-form-urlencoded"; }
     const r = await worker.fetch(new Request(SITE + path, { method: form ? "POST" : "GET", headers, body: form ? new URLSearchParams(form) : null }), env, ctx);
     for (const c of r.headers.getSetCookie()) { const [pair] = c.split(";"); const i = pair!.indexOf("="); jar[pair!.slice(0, i)] = pair!.slice(i + 1); }
@@ -315,13 +339,13 @@ describe("the way to becoming a member", () => {
   });
 
   it("does not count robots or the admin, and a member's direct tick is two steps", () => {
-    const post = (headers: Record<string, string> = {}) => new Request(`${SITE}/events/x/interesse`, { method: "POST", headers: { "user-agent": BROWSER, ...headers } });
+    const post = (headers: Record<string, string> = {}) => new Request(`${SITE}/events/x/interesse`, { method: "POST", headers: { "user-agent": BROWSER, "accept-language": "da-DK,da;q=0.9", ...headers } });
     const thanks = new Response(null, { status: 303, headers: { location: "/events/x?besked=interesse_her#besked" } });
     expect(funnelSteps(post(), thanks, "/events/x/interesse")).toEqual(["vil_med", "paa_listen"]);
     expect(funnelSteps(post({ "user-agent": "Googlebot/2.1 (+http://www.google.com/bot.html)" }), thanks, "/events/x/interesse")).toEqual([]);
     expect(funnelSteps(post({ cookie: "sk_admin=x" }), thanks, "/events/x/interesse")).toEqual([]);
     const nothing = new Response(null, { status: 303, headers: { location: "/kom-godt-i-gang?besked=intet_valgt" } });
-    expect(funnelSteps(new Request(`${SITE}/kom-godt-i-gang`, { method: "POST", headers: { "user-agent": BROWSER } }), nothing, "/kom-godt-i-gang")).toEqual([]);
+    expect(funnelSteps(new Request(`${SITE}/kom-godt-i-gang`, { method: "POST", headers: { "user-agent": BROWSER, "accept-language": "da-DK,da;q=0.9" } }), nothing, "/kom-godt-i-gang")).toEqual([]);
   });
 
   it("shows the steps on the overview", async () => {

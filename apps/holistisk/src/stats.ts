@@ -15,18 +15,47 @@ const SKIP = /^\/(admin|api|assets|log-ind\/link|log-ud|favicon|robots\.txt|site
 
 export const ADMIN_COOKIE = "sk_admin";
 
-/** Whether a request and its answer is a page view to count. */
-export function countable(request: Request, response: Response): boolean {
-  if (request.method !== "GET" || response.status !== 200) return false;
-  if (!(response.headers.get("content-type") ?? "").startsWith("text/html")) return false;
-  const path = new URL(request.url).pathname;
-  if (SKIP.test(path)) return false;
+/** Networks of hosting and cloud companies (Cloudflare's request.cf.asOrganization): people read pages from home,
+ * work or a phone network; scrapers run in data centres and change IP address all the time, so each request looked
+ * like a new visitor (19 November 2026: 2,595 "visitors" with 1.2 pages each, mostly /kalender and /en/calendar, no
+ * referrers). */
+const HOSTING = /amazon|aws|google cloud|googlecloud|microsoft|azure|digitalocean|hetzner|ovh|linode|akamai|alibaba|tencent|huawei|oracle|vultr|contabo|scaleway|leaseweb|m247|choopa|datacamp|cdn77|hostinger|ionos|netcup|upcloud|hostroyale|packethub|clouvider|psychz|colocrossing|servers\.com|selectel|timeweb|bytedance|cogent|zenlayer/i;
+
+/** What a real browser sends with a page: a language, and (all browsers since 2020–2023) that it is fetching a page.
+ * Many scrapers dress up as Chrome in the user agent but leave these out or get them wrong. */
+function looksLikeBrowser(request: Request): boolean {
+  if (!(request.headers.get("accept-language") ?? "").trim()) return false;
+  const dest = request.headers.get("sec-fetch-dest");
+  if (dest && dest !== "document" && dest !== "iframe") return false;
+  const org = (request as Request & { cf?: { asOrganization?: string } }).cf?.asOrganization ?? "";
+  return !HOSTING.test(org);
+}
+
+/** Whether a request is from a person to count (not a robot, a prefetch or the admin), whatever its method. */
+export function fromPerson(request: Request): boolean {
   const ua = request.headers.get("user-agent") ?? "";
   if (!ua || ua.length < 20 || BOT.test(ua)) return false;
   const purpose = (request.headers.get("sec-purpose") ?? request.headers.get("purpose") ?? "").toLowerCase();
   if (purpose.includes("prefetch") || purpose.includes("prerender")) return false;
   if (new RegExp(`(?:^|;\\s*)${ADMIN_COOKIE}=`).test(request.headers.get("cookie") ?? "")) return false;
-  return true;
+  return looksLikeBrowser(request);
+}
+
+/** A page people read (not a file, the admin or a feed), whoever asked for it. */
+export function isPageView(request: Request, response: Response): boolean {
+  if (request.method !== "GET" || response.status !== 200) return false;
+  if (!(response.headers.get("content-type") ?? "").startsWith("text/html")) return false;
+  return !SKIP.test(new URL(request.url).pathname);
+}
+
+/** Whether a request and its answer is a page view to count. */
+export function countable(request: Request, response: Response): boolean {
+  return isPageView(request, response) && fromPerson(request);
+}
+
+/** A page view sorted out as a robot (not the admin): counted per day only, so the overview can say how many. */
+export async function recordRobot(db: D1Database, now: number): Promise<void> {
+  await db.prepare("INSERT INTO visit_robots (day, views) VALUES (?, 1) ON CONFLICT (day) DO UPDATE SET views = views + 1").bind(localDate(now)).run();
 }
 
 /** A page path as counted: no query, no trailing slash, at most 120 characters. */
@@ -95,7 +124,8 @@ export async function rollUpVisits(db: D1Database, now: number): Promise<void> {
     db.prepare("DELETE FROM visit_visitors WHERE day < ?").bind(today),
     db.prepare("DELETE FROM visit_salts WHERE day < ?").bind(today),
     db.prepare("DELETE FROM visit_pages WHERE day < ?").bind(addDays(today, -400)),
-    db.prepare("DELETE FROM visit_sources WHERE day < ?").bind(addDays(today, -400))
+    db.prepare("DELETE FROM visit_sources WHERE day < ?").bind(addDays(today, -400)),
+    db.prepare("DELETE FROM visit_robots WHERE day < ?").bind(addDays(today, -400))
   ]);
 }
 
@@ -104,6 +134,8 @@ export type VisitSummary = {
   days: DayCount[];
   topPages: Array<{ path: string; views: number }>;
   topSources: Array<{ source: string; views: number }>;
+  /** Page views sorted out as robots: today and the last 7 days. */
+  robots: { today: number; week: number };
 };
 
 /** The last `span` days (today included), oldest first, with the top pages and sources of the last 7 days. */
@@ -111,11 +143,12 @@ export async function visitSummary(db: D1Database, now: number, span = 30): Prom
   const today = localDate(now);
   const from = addDays(today, -(span - 1));
   const week = addDays(today, -6);
-  const [rows, live, pages, sources] = await Promise.all([
+  const [rows, live, pages, sources, robots] = await Promise.all([
     db.prepare("SELECT day, views, visitors FROM visit_days WHERE day >= ? ORDER BY day").bind(from).all<{ day: string; views: number; visitors: number | null }>(),
     db.prepare("SELECT day, COUNT(*) AS n FROM visit_visitors WHERE day >= ? GROUP BY day").bind(from).all<{ day: string; n: number }>(),
     db.prepare("SELECT path, SUM(views) AS views FROM visit_pages WHERE day >= ? GROUP BY path ORDER BY views DESC, path LIMIT 10").bind(week).all<{ path: string; views: number }>(),
-    db.prepare("SELECT source, SUM(views) AS views FROM visit_sources WHERE day >= ? GROUP BY source ORDER BY views DESC, source LIMIT 8").bind(week).all<{ source: string; views: number }>()
+    db.prepare("SELECT source, SUM(views) AS views FROM visit_sources WHERE day >= ? GROUP BY source ORDER BY views DESC, source LIMIT 8").bind(week).all<{ source: string; views: number }>(),
+    db.prepare("SELECT day, views FROM visit_robots WHERE day >= ?").bind(week).all<{ day: string; views: number }>().catch(() => ({ results: [] as Array<{ day: string; views: number }> }))
   ]);
   const byDay = new Map(rows.results.map(r => [r.day, r]));
   const liveBy = new Map(live.results.map(r => [r.day, r.n]));
@@ -124,7 +157,8 @@ export async function visitSummary(db: D1Database, now: number, span = 30): Prom
     const r = byDay.get(d);
     days.push({ day: d, views: r?.views ?? 0, visitors: r?.visitors ?? liveBy.get(d) ?? 0 });
   }
-  return { days, topPages: pages.results, topSources: sources.results };
+  const robotViews = { today: robots.results.find(r => r.day === today)?.views ?? 0, week: robots.results.reduce((n, r) => n + r.views, 0) };
+  return { days, topPages: pages.results, topSources: sources.results, robots: robotViews };
 }
 
 // ————————————————————————————————————————— The way to becoming a member (Jake 2026-11-19)
@@ -143,15 +177,6 @@ export const FUNNEL_STEPS = [
   { key: "login_link", label: "Loggede ind med link fra mail", hint: "trykkede på knappen fra mailen" }
 ] as const;
 export type FunnelStep = (typeof FUNNEL_STEPS)[number]["key"];
-
-/** Whether a request is from a person to count (not a robot, a prefetch or the admin), whatever its method. */
-function fromPerson(request: Request): boolean {
-  const ua = request.headers.get("user-agent") ?? "";
-  if (!ua || ua.length < 20 || BOT.test(ua)) return false;
-  const purpose = (request.headers.get("sec-purpose") ?? request.headers.get("purpose") ?? "").toLowerCase();
-  if (purpose.includes("prefetch") || purpose.includes("prerender")) return false;
-  return !new RegExp(`(?:^|;\\s*)${ADMIN_COOKIE}=`).test(request.headers.get("cookie") ?? "");
-}
 
 /** The steps a request and its answer are (often none). `path` is the Danish path (an English /en/... page made
  * Danish). A tick by someone with a full profile is both "vil_med" and "paa_listen" at once. */

@@ -14,3 +14,9 @@ CREATE TABLE funnel_days (
   people INTEGER NOT NULL DEFAULT 0,
   PRIMARY KEY (day, step)
 ) STRICT;
+
+-- Page views sorted out as robots (src/stats.ts fromPerson), a number per day, so the overview can say how many.
+CREATE TABLE visit_robots (
+  day TEXT PRIMARY KEY,
+  views INTEGER NOT NULL DEFAULT 0
+) STRICT;

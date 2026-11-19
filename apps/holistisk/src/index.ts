@@ -27,7 +27,7 @@ import { activityFilters } from "./web/pages.js";
 import { adminRoute } from "./admin.js";
 import { danishPath, englishCanonicalOf, englishPath } from "./i18n/paths.js";
 import { translateHtml } from "./i18n/translate.js";
-import { countable, funnelSteps, recordStep, recordVisit, rollUpFunnel, rollUpVisits } from "./stats.js";
+import { countable, fromPerson, funnelSteps, isPageView, recordRobot, recordStep, recordVisit, rollUpFunnel, rollUpVisits } from "./stats.js";
 import { refreshPicks } from "./curation.js";
 
 /** Flokken: the public event portal (server-rendered pages), its flocks, and its daily collector (the cron). */
@@ -409,6 +409,9 @@ export default {
       if (ctx && env.DB && isSocialklubben(request) && countable(request, response)) {
         const db = env.DB;
         ctx.waitUntil(recordVisit(db, request, Date.now()).catch(error => console.error(JSON.stringify({ event: "visit_failed", error: error instanceof Error ? error.message : String(error) }))));
+      } else if (ctx && env.DB && isSocialklubben(request) && isPageView(request, response) && !fromPerson(request) && !/(?:^|;\s*)sk_admin=/.test(request.headers.get("cookie") ?? "")) {
+        const db = env.DB;
+        ctx.waitUntil(recordRobot(db, Date.now()).catch(() => undefined));
       }
       // The way to becoming a member (src/stats.ts): which steps people reach, counted the same cookie-free way.
       if (ctx && env.DB && isSocialklubben(request)) {
