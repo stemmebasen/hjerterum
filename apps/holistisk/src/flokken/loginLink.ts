@@ -46,7 +46,7 @@ export async function requestLoginLink(db: D1Database, env: Env, input: string, 
   if ((recent?.n ?? 0) >= PER_HOUR) return { sent: true };
   const member = await db.prepare("SELECT id, first_name FROM members WHERE lower(email) = ? LIMIT 1").bind(email).first<{ id: string; first_name: string }>();
   const signup = member ? null : await db.prepare("SELECT name FROM membership_signups WHERE lower(email) = ? LIMIT 1").bind(email).first<{ name: string }>();
-  if (!member && !signup) return { sent: true };
+  if (!member && !signup) return welcomeNewcomer(db, env, email, next, origin, now);
   const token = await createLoginLink(db, email, member?.id ?? null, next, now + LINK_MINUTES * 60_000, now);
   const name = member?.first_name ?? signup!.name.split(/\s+/)[0] ?? "";
   const mail = letter({
@@ -58,6 +58,28 @@ export async function requestLoginLink(db: D1Database, env: Env, input: string, 
     after: ["Har du ikke bedt om at logge ind, kan du bare se bort fra denne mail."]
   });
   const result = await sendLogged(db, env, "login", member?.id ?? null, mail, now);
+  return result.ok ? { sent: true } : { error: "failed" };
+}
+
+/** Someone new who typed their e-mail in the login box: before 2026-11-19 nothing was sent, so a newcomer waited for a
+ * mail that never came. Now they get a mail with a button to make a profile, back to the page they came from. The
+ * answer on the page stays the same, so the form still cannot tell who is a member. A used, already expired row in
+ * login_links counts toward the three mails per address per hour; it can never log anyone in. */
+async function welcomeNewcomer(db: D1Database, env: Env, email: string, next: string, origin: string, now: number): Promise<LinkRequest> {
+  await db.prepare("INSERT INTO login_links (token_hash, email, member_id, next, created_at, expires_at, used_at) VALUES (?, ?, NULL, NULL, ?, ?, ?)")
+    .bind(await sha256(newToken()), email, now, now, now).run();
+  const mail = letter({
+    to: email,
+    subject: "Velkommen til Socialklubben",
+    greeting: "Hej",
+    paragraphs: [
+      "Du bad om et login-link, men vi har ikke nogen profil med denne e-mail endnu. Måske er du ny her? Så er du meget velkommen.",
+      "Tryk på knappen, skriv dit fornavn, og så er du i gang. Det tager et øjeblik."
+    ],
+    button: { label: "Opret din profil", url: `${origin}/log-ind?naeste=${encodeURIComponent(next)}#ny` },
+    after: ["Har du ikke bedt om det, kan du bare se bort fra denne mail."]
+  });
+  const result = await sendLogged(db, env, "login", null, mail, now);
   return result.ok ? { sent: true } : { error: "failed" };
 }
 
