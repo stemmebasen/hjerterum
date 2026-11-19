@@ -338,7 +338,7 @@ async function route(request: Request, env: Env, now: number, mount: Mount | nul
   const oldArea = /^\/omraade\/([a-z0-9-]+)$/.exec(path)?.[1];
   if (oldArea && areaBySlug(oldArea)) return redirect(cityAreas(regions).some(a => a.slug === oldArea) ? `/${oldArea}${url.search}` : "/aarhus");
 
-  // Landing pages, activity first as people search: /meditation, /meditation/aarhus, and the city's own /aarhus.
+  // Landing pages, activity first as people search: /meditation, and the city's own /aarhus.
   const two = /^\/([a-z0-9-]+)(?:\/([a-z0-9-]+))?$/.exec(path);
   if (two) {
     const [, first, second] = two as unknown as [string, string, string | undefined];
@@ -363,12 +363,10 @@ async function route(request: Request, env: Env, now: number, mount: Mount | nul
       const secondActivity = activityBySlug(second);
       if (retired(first) && secondActivity) return redirect(`/${secondActivity.slug}`);
       if (firstActivity && retired(second)) return redirect(`/${firstActivity.slug}`);
-      if (firstCity && secondActivity) return redirect(`/${secondActivity.slug}/${firstCity.slug}`);
-      const secondCity = cityOf(second);
-      if (firstActivity && secondCity) {
-        if (firstActivity.slug !== first) return redirect(`/${firstActivity.slug}/${secondCity.slug}`);
-        return view(env, await activityPage(db, pc, regions, firstActivity, secondCity, pageNo));
-      }
+      // Aarhus is the only city, so /meditation/aarhus was the same page as /meditation (same title, same events) and
+      // Google saw two copies. It moves to the activity's own page, keeping ?side=.
+      if (firstCity && secondActivity) return redirect(`/${secondActivity.slug}${url.search}`);
+      if (firstActivity && cityOf(second)) return redirect(`/${firstActivity.slug}${url.search}`);
     }
   }
   const ics = /^\/events\/([a-z0-9-]{1,90})\.ics$/.exec(path)?.[1];

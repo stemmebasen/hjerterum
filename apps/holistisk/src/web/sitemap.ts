@@ -20,7 +20,6 @@ export async function sitemapPages(db: D1Database, regions: string[], now: numbe
     const counts = perActivity[i]!;
     const total = [...counts.values()].reduce((a, b) => a + b, 0);
     if (total > 0 || organizersFor(activity.slug, null).some(o => inRegions.includes(o))) pages.push(`/${activity.slug}`);
-    for (const area of areas) if ((counts.get(area.slug) ?? 0) > 0 || organizersFor(activity.slug, area.slug).length) pages.push(`/${activity.slug}/${area.slug}`);
   });
   return pages;
 }

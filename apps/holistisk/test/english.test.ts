@@ -114,6 +114,9 @@ describe("the English site", () => {
     const old = await call("/en/kalender?periode=idag");
     expect(old.status).toBe(301);
     expect(old.headers.get("location")).toBe("/en/calendar?periode=idag");
+    const city = await call("/en/meditation/aarhus");
+    expect(city.status).toBe(301);
+    expect(city.headers.get("location")).toBe("/en/meditation");
     const admin = await call("/en/admin");
     expect(admin.status).toBe(302);
     expect(admin.headers.get("location")).toBe("/admin");
