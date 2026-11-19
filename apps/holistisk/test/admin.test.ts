@@ -1,8 +1,8 @@
-import { beforeAll, describe, expect, it } from "vitest";
+import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
 import worker, { handle } from "../src/index.js";
 import { runIngest } from "../src/ingest/run.js";
 import { SOURCES } from "../src/sources/registry.js";
-import { countable, countedPath, recordVisit, rollUpVisits, sourceOf, visitSummary } from "../src/stats.js";
+import { countable, countedPath, funnelSteps, funnelSummary, recordVisit, rollUpFunnel, rollUpVisits, sourceOf, sourceOfLink, visitSummary } from "../src/stats.js";
 import { ago } from "../src/admin.js";
 import type { EmailBinding } from "../src/mail.js";
 import type { Env } from "../src/env.js";
@@ -135,6 +135,11 @@ describe("visitor statistics", () => {
     expect(sourceOf("https://www.aarhus.dk/kultur", "socialklubben.dk")).toBe("aarhus.dk");
     expect(sourceOf(null, "socialklubben.dk")).toBeNull();
     expect(countedPath("/kalender/")).toBe("/kalender");
+    // Apps often leave out the referrer; the link itself may still say where it was shared.
+    expect(sourceOfLink(new URL("https://socialklubben.dk/?fbclid=abc"))).toBe("facebook");
+    expect(sourceOfLink(new URL("https://socialklubben.dk/?utm_source=IG_story"))).toBe("instagram");
+    expect(sourceOfLink(new URL("https://socialklubben.dk/?utm_source=radio24syv"))).toBe("radio24syv");
+    expect(sourceOfLink(new URL("https://socialklubben.dk/"))).toBeNull();
   });
 
   it("counts visitors per day, then keeps only the number", async () => {
@@ -260,5 +265,72 @@ describe("admin member pages", () => {
     expect(db.raw.prepare("SELECT COUNT(*) AS n FROM membership_signups WHERE email = 'uden@example.dk'").all()[0]).toEqual({ n: 0 });
     expect((await call("/admin/medlemmer/m2/slet", { form: { bekraeft: "ja" }, cookie: admin })).status).toBe(404);
     expect(db.raw.prepare("SELECT COUNT(*) AS n FROM members WHERE id = 'm2'").all()[0]).toEqual({ n: 1 });
+  });
+});
+
+describe("the way to becoming a member", () => {
+  const SITE = "https://socialklubben.dk";
+  const waits: Promise<unknown>[] = [];
+  const ctx = { waitUntil: (p: Promise<unknown>) => { waits.push(p); } };
+  let jar: Record<string, string> = {};
+  beforeAll(() => { vi.useFakeTimers({ toFake: ["Date"] }); vi.setSystemTime(NOW); });
+  afterAll(() => { vi.useRealTimers(); });
+
+  /** A visitor's browser on socialklubben.dk: keeps cookies, sends forms from the site itself. */
+  async function visit(path: string, form?: Record<string, string>, ip = "9.9.9.9"): Promise<Response> {
+    const headers: Record<string, string> = { "user-agent": BROWSER, "cf-connecting-ip": ip, cookie: Object.entries(jar).map(([k, v]) => `${k}=${v}`).join("; ") };
+    if (form) { headers.origin = SITE; headers["content-type"] = "application/x-www-form-urlencoded"; }
+    const r = await worker.fetch(new Request(SITE + path, { method: form ? "POST" : "GET", headers, body: form ? new URLSearchParams(form) : null }), env, ctx);
+    for (const c of r.headers.getSetCookie()) { const [pair] = c.split(";"); const i = pair!.indexOf("="); jar[pair!.slice(0, i)] = pair!.slice(i + 1); }
+    return r;
+  }
+  const at = (r: Response) => new URL(r.headers.get("location")!, SITE).pathname + new URL(r.headers.get("location")!, SITE).search;
+
+  it("counts each step once per person and day, without cookies of its own", async () => {
+    const event = db.raw.prepare("SELECT slug FROM events WHERE status = 'scheduled' AND starts_at > ? ORDER BY starts_at LIMIT 1").all(NOW + 86_400_000)[0] as { slug: string };
+    jar = {};
+    expect((await visit(`/events/${event.slug}`)).status).toBe(200);
+    await visit(`/events/${event.slug}`);
+    const tick = await visit(`/events/${event.slug}/interesse`, {});
+    expect(at(tick)).toMatch(/^\/log-ind\?naeste=/);
+    expect((await visit(at(tick))).status).toBe(200);
+    const made = await visit("/bliv-medlem", { fornavn: "Tove", naeste: `/events/${event.slug}/interesse` });
+    expect(at(made)).toMatch(/^\/bliv-medlem\/velkommen/);
+    const profile = await visit(`/profil?naeste=${encodeURIComponent(`/events/${event.slug}/interesse`)}&mail=1`, { fornavn: "Tove", alder: "30-39", om_mig: "Glæder mig", email: "tragt@example.dk" });
+    expect(profile.status).toBe(303);
+    const back = await visit(at(profile));
+    expect(back.headers.get("location")).toContain("besked=interesse_her");
+    // Someone else only looks.
+    await visit(`/events/${event.slug}`, undefined, "8.8.8.8");
+    await Promise.all(waits);
+
+    const rows = Object.fromEntries((await funnelSummary(db, NOW)).map(r => [r.key, r.today]));
+    expect(rows).toMatchObject({ arrangement: 2, vil_med: 1, log_ind: 1, profil_oprettet: 1, profil_udfyldt: 1, paa_listen: 1, meldt_ind: 0 });
+    // The tables hold no cookie, name or address: only the day, the step and a hash that goes the next night.
+    expect(Object.keys(jar).some(k => /funnel|tragt|stat/.test(k))).toBe(false);
+    await rollUpFunnel(db, NOW + 86_400_000);
+    expect(db.raw.prepare("SELECT COUNT(*) AS n FROM funnel_people").all()[0]).toEqual({ n: 0 });
+    const later = Object.fromEntries((await funnelSummary(db, NOW + 86_400_000)).map(r => [r.key, r.yesterday]));
+    expect(later).toMatchObject({ arrangement: 2, paa_listen: 1 });
+  });
+
+  it("does not count robots or the admin, and a member's direct tick is two steps", () => {
+    const post = (headers: Record<string, string> = {}) => new Request(`${SITE}/events/x/interesse`, { method: "POST", headers: { "user-agent": BROWSER, ...headers } });
+    const thanks = new Response(null, { status: 303, headers: { location: "/events/x?besked=interesse_her#besked" } });
+    expect(funnelSteps(post(), thanks, "/events/x/interesse")).toEqual(["vil_med", "paa_listen"]);
+    expect(funnelSteps(post({ "user-agent": "Googlebot/2.1 (+http://www.google.com/bot.html)" }), thanks, "/events/x/interesse")).toEqual([]);
+    expect(funnelSteps(post({ cookie: "sk_admin=x" }), thanks, "/events/x/interesse")).toEqual([]);
+    const nothing = new Response(null, { status: 303, headers: { location: "/kom-godt-i-gang?besked=intet_valgt" } });
+    expect(funnelSteps(new Request(`${SITE}/kom-godt-i-gang`, { method: "POST", headers: { "user-agent": BROWSER } }), nothing, "/kom-godt-i-gang")).toEqual([]);
+  });
+
+  it("shows the steps on the overview", async () => {
+    sent.length = 0;
+    await call("/admin/log-ind", { form: {} });
+    const used = await call("/admin/link", { form: { t: tokenIn(sent[0]!) } });
+    const cookie = /sk_admin=[^;]+/.exec(used.headers.get("set-cookie") ?? "")![0];
+    const r = await call("/admin", { cookie }, NOW + 86_400_000);
+    expect(r.body).toContain("Vejen til medlem");
+    expect(r.body).toContain("Oprettede en profil");
   });
 });

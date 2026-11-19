@@ -27,7 +27,7 @@ import { activityFilters } from "./web/pages.js";
 import { adminRoute } from "./admin.js";
 import { danishPath, englishCanonicalOf, englishPath } from "./i18n/paths.js";
 import { translateHtml } from "./i18n/translate.js";
-import { countable, recordVisit, rollUpVisits } from "./stats.js";
+import { countable, funnelSteps, recordStep, recordVisit, rollUpFunnel, rollUpVisits } from "./stats.js";
 import { refreshPicks } from "./curation.js";
 
 /** Flokken: the public event portal (server-rendered pages), its flocks, and its daily collector (the cron). */
@@ -410,6 +410,15 @@ export default {
         const db = env.DB;
         ctx.waitUntil(recordVisit(db, request, Date.now()).catch(error => console.error(JSON.stringify({ event: "visit_failed", error: error instanceof Error ? error.message : String(error) }))));
       }
+      // The way to becoming a member (src/stats.ts): which steps people reach, counted the same cookie-free way.
+      if (ctx && env.DB && isSocialklubben(request)) {
+        const pathname = new URL(request.url).pathname;
+        const steps = funnelSteps(request, response, danishPath(pathname) ?? pathname);
+        if (steps.length) {
+          const db = env.DB;
+          ctx.waitUntil(Promise.all(steps.map(step => recordStep(db, request, step, Date.now()))).catch(error => console.error(JSON.stringify({ event: "funnel_failed", error: error instanceof Error ? error.message : String(error) }))));
+        }
+      }
       // A tick, an answer or a "no thanks" can offer someone a place in a flock: mail them now, not at the next cron.
       if (ctx && env.DB && request.method === "POST" && mailConfigured(env) && MAY_INVITE.test(new URL(request.url).pathname)) {
         const db = env.DB;
@@ -458,7 +467,7 @@ export default {
         .then(result => console.log(JSON.stringify({ event: "picks", ...result })))
         .catch(error => console.error(JSON.stringify({ event: "picks_failed", error: error instanceof Error ? error.message : String(error) })))
       : Promise.resolve();
-    const visits = controller.cron === DAILY_CRON && env.DB ? rollUpVisits(env.DB, controller.scheduledTime || Date.now()).catch(() => undefined) : Promise.resolve();
+    const visits = controller.cron === DAILY_CRON && env.DB ? Promise.all([rollUpVisits(env.DB, controller.scheduledTime || Date.now()), rollUpFunnel(env.DB, controller.scheduledTime || Date.now())]).catch(() => undefined) : Promise.resolve();
     const purgeMail = controller.cron === DAILY_CRON && env.DB ? purgeMailData(env.DB, controller.scheduledTime || Date.now()).catch(() => undefined) : Promise.resolve();
     const all = Promise.all([work, picks, purge, gather, mail, purgeMail, visits]);
     if (ctx) ctx.waitUntil(all);
