@@ -6,7 +6,7 @@ import type { AdapterContext, FetchResult, SourceAdapter, SourceConfig, SourceEv
  * event in one GET (/api/v1/events/happening?_format=json): start and end with offset, branch, address, ticket prices
  * (0 = free), state (Active, SoldOut, Cancelled, …), categories and pictures. robots.txt asks for 10 s between requests;
  * this is one request a night.
- * Options: url, branches (names to keep, e.g. ["Hovedbiblioteket"]), daysAhead (default 60), maxDays (default 14). */
+ * Options: url, branches (names to keep, e.g. ["Hovedbiblioteket"]), skipBranches (names to leave out), daysAhead (default 60), maxDays (default 14). */
 
 const DEFAULT_URL = "https://www.aakb.dk/api/v1/events/happening?_format=json";
 
@@ -24,6 +24,7 @@ const branchName = (b: string | undefined) => b === "Hovedbiblioteket" ? "Dokk1"
 export function aakbEvents(rows: AakbEvent[], config: SourceConfig, now: number): { events: SourceEvent[]; unreadable: number } {
   const zone = config.defaults.timezone;
   const keep = Array.isArray(config.options.branches) ? (config.options.branches as string[]) : null;
+  const drop = Array.isArray(config.options.skipBranches) ? (config.options.skipBranches as string[]) : null;
   const horizon = now + Number(config.options.daysAhead ?? 60) * 86_400_000;
   const maxDays = Number(config.options.maxDays ?? 14);
   const events: SourceEvent[] = [];
@@ -33,6 +34,7 @@ export function aakbEvents(rows: AakbEvent[], config: SourceConfig, now: number)
     const endsAt = r.date_time?.end ? Date.parse(r.date_time.end) : NaN;
     if (!r.title || !r.url || !Number.isFinite(startsAt)) { unreadable++; continue; }
     if (keep && !(r.branches ?? []).some(b => keep.includes(b))) continue;
+    if (drop && (r.branches ?? []).some(b => drop.includes(b))) continue;
     if (r.address?.locationType === "online") continue;
     const skip = Array.isArray(config.options.skipCategories) ? (config.options.skipCategories as string[]) : [];
     if ((r.categories ?? []).some(c => skip.includes(c))) continue;

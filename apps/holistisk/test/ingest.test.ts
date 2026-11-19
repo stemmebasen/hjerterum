@@ -41,6 +41,7 @@ function routes(feed: string) {
     "https://resonansbistro.dk/public/events/upcoming": { body: fixture("resonans-events.json"), headers: { "content-type": "application/json" } },
     "https://folkestedet.aarhus.dk/robots.txt": { status: 404 },
     "https://folkestedet.aarhus.dk/kalender": { body: fixture("folkestedet-kalender.html") },
+    "https://folkestedet.aarhus.dk/kalender/": { body: fixture("folkestedet-kvinde.html") },
     "https://godsbanen.dk/robots.txt": { body: "User-agent: *\nDisallow:\n" },
     "https://godsbanen.dk/kalender/": { body: fixture("godsbanen-kalender.html") },
     "https://voxhall.dk/robots.txt": { body: "User-agent: *\nDisallow: /wp-admin/\n" },
