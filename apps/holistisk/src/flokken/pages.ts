@@ -359,7 +359,7 @@ export function loginPage(ctx: PageContext, next: string, state: { nameError?: s
     <p class="standfirst">For at oprette eller blive en del af en flok skal du have en profil. Det kræver kun dit fornavn – intet telefonnummer. Når du vil være med i en flok, beder vi om din aldersgruppe og en linje om dig selv, så de andre ved, hvem de skal møde. Vil du have besked, når vi har samlet en flok til dig, beder vi også om din e-mail.</p>
   </header>
   <div class="two-forms">
-    <form class="form-card" method="post" action="/bliv-medlem" novalidate>
+    <form class="form-card" id="ny" method="post" action="/bliv-medlem" novalidate>
       <h2>Ny her?</h2>
       <input type="hidden" name="naeste" value="${next}">
       <div class="field">
@@ -374,7 +374,7 @@ export function loginPage(ctx: PageContext, next: string, state: { nameError?: s
     <div class="form-card login-card">
       <h2>Har du allerede en profil?</h2>
       ${state.sentTo
-        ? html`<p class="notice" role="status">Tjek din indbakke. Hører <strong>${state.sentTo}</strong> til en profil eller et medlemskab, har vi sendt dig et link, som du logger ind med. Det virker i en time. Kan du ikke finde mailen, så kig også i spam.</p>`
+        ? html`<p class="notice" role="status">Tjek din indbakke. Vi har sendt en mail til <strong>${state.sentTo}</strong>: et link, som du logger ind med, eller er du ny, et link til at oprette dig. Kan du ikke finde mailen, så kig også i spam.</p>`
         : html`<form method="post" action="/log-ind/mail" class="login-form" novalidate>
         <input type="hidden" name="naeste" value="${next}">
         <div class="field">

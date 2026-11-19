@@ -88,11 +88,18 @@ describe("login with a link on e-mail", () => {
     expect(cookieOf(again)).toBe("");
   });
 
-  it("answers the same for an unknown address and sends nothing, and limits links per hour", async () => {
+  it("answers the same for an unknown address, mails a newcomer a way to sign up, and limits mails per hour", async () => {
     sent.length = 0;
-    const r = await call("/log-ind/mail", { form: { email: "ukendt@example.dk" } });
+    const r = await call("/log-ind/mail", { form: { email: "ukendt@example.dk", naeste: "/events/x/interesse" } });
     expect(r.headers.get("location")).toMatch(/besked=mail_sendt$/);
-    expect(sent).toHaveLength(0);
+    // Someone new who typed their e-mail gets a welcome with a button to make a profile, not a login link.
+    expect(sent).toHaveLength(1);
+    expect(sent[0]!.subject).toBe("Velkommen til Socialklubben");
+    expect(sent[0]!.text).toContain(`${ORIGIN}/log-ind?naeste=%2Fevents%2Fx%2Finteresse#ny`);
+    expect(sent[0]!.text).not.toContain("/log-ind/link");
+    for (let i = 0; i < 5; i++) await call("/log-ind/mail", { form: { email: "ukendt@example.dk" } });
+    expect(sent).toHaveLength(3);
+    sent.length = 0;
     await member("Mads", "mads@example.dk");
     for (let i = 0; i < 5; i++) await call("/log-ind/mail", { form: { email: "mads@example.dk" } });
     expect(sent).toHaveLength(3);
