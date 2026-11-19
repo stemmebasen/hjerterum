@@ -79,3 +79,13 @@ a.sk-more { color: var(--berry); font-weight: 700; font-size: .9rem; }
   .sk-two { display: grid; grid-template-columns: 1fr 1fr; gap: 24px; }
   .sk-card { padding: 20px 24px; }
 }
+
+/* "Vejen til medlem": a small table that scrolls sideways on a phone. */
+.sk-scroll { overflow-x: auto; margin-top: 10px; }
+.sk-table { width: 100%; border-collapse: collapse; font-size: .9rem; }
+.sk-table th, .sk-table td { padding: 7px 8px; border-bottom: 1px solid var(--rule); text-align: right; white-space: nowrap; }
+.sk-table th[scope="row"], .sk-table thead th:first-child { text-align: left; white-space: normal; min-width: 11rem; }
+.sk-table th[scope="row"] small { display: block; color: var(--muted); font-weight: 400; font-size: .8rem; }
+.sk-table td { font-weight: 800; font-variant-numeric: tabular-nums; }
+.sk-table thead th { font-size: .8rem; color: var(--muted); font-weight: 700; }
+.sk-table tbody tr:last-child > * { border-bottom: 0; }

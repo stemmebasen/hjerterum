@@ -2,7 +2,7 @@ import type { D1Database } from "./db.js";
 import type { Env } from "./env.js";
 import { letter, mailConfigured, sendLogged } from "./mail.js";
 import { sha256 } from "./flokken/auth.js";
-import { ADMIN_COOKIE, visitSummary, type VisitSummary } from "./stats.js";
+import { ADMIN_COOKIE, funnelSummary, visitSummary, type FunnelRow, type VisitSummary } from "./stats.js";
 import { capitalize, dayLabel, hhmm, localDate, addDays } from "./time.js";
 import { html, raw, type SafeHtml } from "./web/html.js";
 import { ORGANISER_EMAIL, page, type PageContext } from "./web/layout.js";
@@ -111,6 +111,7 @@ export async function adminRoute(request: Request, env: Env, db: D1Database, pc:
 
 export type Overview = {
   visits: VisitSummary;
+  funnel: FunnelRow[];
   members: { profiles: number; profilesWeek: number; withEmail: number; signups: number; signupsWeek: number; activeWeek: number };
   newestPeople: Array<{ id: string; name: string; email: string | null; kind: "profil" | "indmelding"; at: number; age_group: string | null }>;
   interests: Array<{ slug: string; title: string; starts_at: number; waiting: number; invited: number; confirmed: number }>;
@@ -131,8 +132,9 @@ const first = async <T>(p: Promise<T | null>, fallback: T): Promise<T> => (await
 export async function overview(db: D1Database, now: number, mailOn = true): Promise<Overview> {
   const week = now - 7 * 86_400_000;
   const n = (sql: string, ...binds: unknown[]) => first(db.prepare(sql).bind(...binds).first<{ n: number }>(), { n: 0 }).then(r => r.n ?? 0);
-  const [visits, profiles, profilesWeek, withEmail, signups, signupsWeek, activeWeek] = await Promise.all([
+  const [visits, funnel, profiles, profilesWeek, withEmail, signups, signupsWeek, activeWeek] = await Promise.all([
     visitSummary(db, now),
+    funnelSummary(db, now).catch(() => [] as FunnelRow[]),
     n(`SELECT COUNT(*) AS n FROM members m WHERE ${SK_MEMBER}`),
     n(`SELECT COUNT(*) AS n FROM members m WHERE ${SK_MEMBER} AND m.created_at > ?`, week),
     n(`SELECT COUNT(*) AS n FROM members m WHERE ${SK_MEMBER} AND m.email IS NOT NULL`),
@@ -179,6 +181,7 @@ export async function overview(db: D1Database, now: number, mailOn = true): Prom
   ].sort((a, b) => b.at - a.at).slice(0, 20);
   return {
     visits,
+    funnel,
     members: { profiles, profilesWeek, withEmail, signups, signupsWeek, activeWeek },
     newestPeople,
     interests: interestRows.results,
@@ -194,7 +197,7 @@ export async function overview(db: D1Database, now: number, mailOn = true): Prom
 
 // ————————————————————————————————————————— Pages
 
-const STYLE = ["/assets/admin.css?v=3"];
+const STYLE = ["/assets/admin.css?v=4"];
 export const when = (at: number, now: number) => `${dayLabel(at, now)} kl. ${hhmm(at)}`;
 /** "for 5 min. siden", "i går kl. 14.05" – how long ago, as a person would say it. */
 export function ago(at: number, now: number): string {
@@ -265,6 +268,29 @@ const sum = (days: VisitSummary["days"], key: "views" | "visitors") => days.redu
 const CONTACT_MAIL: Record<string, string> = { failed: "Mail fejlede", off: "Ikke mailet", held: "Ikke mailet (dagens grænse)" };
 const MAIL_KIND: Record<string, string> = { login: "Login-links", invitation: "Invitationer til flokke", reminder: "Påmindelser" };
 
+/** "Vejen til medlem": how many people reached each step, beside the visitors, so it shows where people stop. */
+function funnelView(o: Overview, d: VisitSummary["days"]) {
+  if (!o.funnel.length) return null;
+  const today = d[d.length - 1]!, yesterday = d[d.length - 2] ?? { views: 0, visitors: 0 };
+  const visitors = { today: today.visitors, yesterday: yesterday.visitors, week: sum(d.slice(-7), "visitors"), month: sum(d, "visitors") };
+  const share = (n: number) => visitors.week ? `${(Math.round(n / visitors.week * 1000) / 10).toLocaleString("da-DK")} %` : "–";
+  return html`
+  <section class="sk-card" aria-labelledby="vejen">
+    <h2 id="vejen">Vejen til medlem</h2>
+    <p class="sk-note">Hvor mange personer der nåede hvert trin. Ingen cookies: tælles som besøgende, én gang pr. person pr. dag. Talt fra 19. november 2026.</p>
+    <div class="sk-scroll">
+      <table class="sk-table">
+        <thead><tr><th scope="col">Trin</th><th scope="col">I dag</th><th scope="col">I går</th><th scope="col">7 dage</th><th scope="col">af besøgende</th><th scope="col">30 dage</th></tr></thead>
+        <tbody>
+          <tr><th scope="row">Besøgende<small>alle, der så en side</small></th><td>${num(visitors.today)}</td><td>${num(visitors.yesterday)}</td><td>${num(visitors.week)}</td><td>100 %</td><td>${num(visitors.month)}</td></tr>
+          ${o.funnel.map(r => html`<tr><th scope="row">${r.label}<small>${r.hint}</small></th><td>${num(r.today)}</td><td>${num(r.yesterday)}</td><td>${num(r.week)}</td><td>${share(r.week)}</td><td>${num(r.month)}</td></tr>`)}
+        </tbody>
+      </table>
+    </div>
+    <p class="sk-note">De sidste trin (indmelding og login med mail) er andre veje ind end „Jeg vil gerne med!“. Kommer-fra-listen ovenfor bruger nu også links med utm_source eller Facebooks klik-id, når appen ikke fortæller, hvor folk kom fra.</p>
+  </section>`;
+}
+
 function overviewView(pc: PageContext, o: Overview, now: number): AdminView {
   const d = o.visits.days;
   const today = d[d.length - 1]!, yesterday = d[d.length - 2] ?? { views: 0, visitors: 0 };
@@ -291,7 +317,7 @@ function overviewView(pc: PageContext, o: Overview, now: number): AdminView {
       ${tile(sum(d, "visitors"), "seneste 30 dage", `${num(sum(d, "views"))} sidevisninger`)}
     </div>
     ${visitChart(d)}
-    <p class="sk-note">Besøgende tælles pr. dag: den samme person to dage i træk tæller to gange. Robotter og dine egne besøg tælles ikke med. Ingen cookies.</p>
+    <p class="sk-note">Besøgende tælles pr. dag: den samme person to dage i træk tæller to gange. Robotter og dine egne besøg tælles ikke med. Ingen cookies.${o.visits.robots.week ? ` Sorteret fra som robotter: ${num(o.visits.robots.today)} sidevisninger i dag, ${num(o.visits.robots.week)} på 7 dage (fra 19. november 2026: også programmer, der udgiver sig for at være en browser, og besøg fra serverhoteller).` : ""}</p>
     <div class="sk-two">
       <div>
         <h3>Mest sete sider, 7 dage</h3>
@@ -303,6 +329,8 @@ function overviewView(pc: PageContext, o: Overview, now: number): AdminView {
       </div>
     </div>
   </section>
+
+  ${funnelView(o, d)}
 
   <section class="sk-card" aria-labelledby="medlemmer">
     <div class="sk-head"><h2 id="medlemmer">Medlemmer</h2><a class="sk-more" href="/admin/medlemmer">Alle medlemmer</a></div>
