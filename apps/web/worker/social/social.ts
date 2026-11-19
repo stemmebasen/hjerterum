@@ -12,7 +12,7 @@ import { prReadyNames } from "../cockpit/prMaterial.js";
 import { facebookEvents } from "../cockpit/fbEvents.js";
 import { instagramName } from "../../pr-material.js";
 import { deletePublished, postPhotosToPage, finishReel, followerCounts, isGone, pageEvents, popularity, freshInstagramImages, ownInstagramMedia, pagePosts, permalinkOf, postPhotoToPage, postToPage, postVideoToPage, publishToInstagram, reelStatus, sendMessengerReply, sentInMessenger, messengerThreads, startReel, type MessengerThread, taggedOnFacebook, taggedOnInstagram, type MetaEnv, type TaggedPost } from "./meta.js";
-import { addDays, at, clock, dateOf, hourOf, dayName, earlyBy, earlySlot, EVERY_EVENT, eventPostTimes, instagramPostTimes, lastPostMs, longWhen, placeFirsts, SERIES_GAP_MS, shoutWindows, mondayOf, nextMonday, pickWeekEvents, plainEventText, PLAIN_WEEK_INTRO, planDue, SITE, weekKey, weekPostTime, weekStart, weekText, whenLines, withEventDate } from "./plan.js";
+import { addDays, at, clock, dateOf, hourOf, dayName, earlyBy, earlySlot, EVERY_EVENT, eventPostTimes, instagramPostTimes, lastPostMs, longWhen, placeFirsts, SERIES_GAP_MS, shoutWindows, mondayOf, nextMonday, pickWeekEvents, plainEventText, PLAIN_WEEK_INTRO, planDue, SITE, weekKey, weekPostTime, weekStart, weekText, whenLines, withEventDate, withSessions } from "./plan.js";
 
 /** The PR cockpit (admin → Kommunikation → PR og SoMe), requested by the chair (3 Nov 2026):
  * "1 Videredele opslag som undervisere laver og tagger os i. 2 Dele 7-10 begivenheder pr uge direkte på fb, bare med et lille opslag.
@@ -36,7 +36,7 @@ export type ShareSource = { network: Channel; id: string; author: string | null;
   sharedAt?: number | null;
   /** Sent to the page in Messenger (meta.ts sentInMessenger), not tagged. */
   via?: "messenger" };
-export type EventSource = { key: string; title: string; startsMs: number; host: string | null };
+export type EventSource = { key: string; title: string; startsMs: number; host: string | null; times?: number[] };
 export type SocialPost = { id: number; kind: SocialKind; source_key: string; week: string | null; channels: Channel[]; text: string; link: string | null; images: string[];
   source: Partial<ShareSource & EventSource> & { instagramText?: string; events?: EventSource[]; collaborators?: string[]; format?: "reel"; video?: string;
     /** The chair's design from Plakater og opslag is the post's picture: on Facebook as a photo post, not a link card. */
@@ -346,6 +346,7 @@ Du får ugens udvalgte events med en reference (E1, E2 ...). Svar KUN med JSON: 
   5. En kort, inviterende afslutning med en emoji (fx ❤️ ✨ 🌿 🙌).
   50-90 ord i alt. Linket til eventet sættes på af systemet, så skriv ingen adresse.
 Friskt, varmt og med begejstring - men ægte, aldrig sælgende. Find ikke på detaljer, der ikke står i beskrivelsen. Ingen helbredsløfter, ingen hashtags.
+Booking (Lisbeth, 19. nov. 2026: "der står tydeligt i event beskrivelsen at man ikke bare skal møde op men booke og betale i forvejen"): skriv aldrig "kom forbi", "kig ind", "bare mød op", "drop ind" eller lignende, medmindre beskrivelsen selv siger, at man bare kan komme. Står der, at man skal booke, tilmelde sig eller betale i forvejen, så sig det tydeligt i afslutningen, fx "Book din tid i forvejen via linket". Står der flere klokkeslæt i "hvornaar_linjer", er det ét tilbud med flere tider at vælge imellem - ikke flere events - og der kan være få pladser til hver tid.
 Emojis: 4-7 i hvert opslag, valgt til netop eventet (🎬 film, 🎶 musik og lyd, 🔔 gong, 🧘 yoga og meditation, 💃 dans, ☕ café, 🍿 film og hygge, 🌿 🍂 🌙 🌸 natur, ❤️ ✨ 🙌 🤍 begejstring og kærlighed). Ved en sætnings slutning eller som markør i starten af en linje.
 Sproget (formanden: "Dette er dårligt dansk"): skriv mundret, naturligt dansk, som en dansk tekstforfatter skriver det, aldrig oversat engelsk.
 - Sammensatte ord skrives i ét ord: aurabalancering, lydhealing, yogaforløb, meditationsaften. Aldrig "aura balancering".
@@ -374,7 +375,7 @@ async function weekWords(env: SagaEnv, deps: SagaDeps, events: NewsletterEvent[]
   const plain: WeekWords = { intro: PLAIN_WEEK_INTRO, events: Object.fromEntries(events.map((e, i) => [`E${i + 1}`, reminder ? `Om en uge: ${plainEventText(e)}` : plainEventText(e)])) };
   if (!env.AI_API_KEY || !env.AI_MODEL || !events.length) return plain;
   const raw = await completeAs("social-week", "mid", 2500)(env, deps, [{ role: "system", content: reminder ? WEEK_SYSTEM + REMINDER_RULE : WEEK_SYSTEM }, { role: "user", content: JSON.stringify(events.map((e, i) => ({
-    ref: `E${i + 1}`, titel: e.title, underviser: e.host, hvornaar: longWhen(e.startsMs), hvornaar_linjer: whenLines(e.startsMs), beskrivelse: e.description.slice(0, 600) }))) }]).catch(() => "");
+    ref: `E${i + 1}`, titel: e.times ? listTitle(e.title) : e.title, underviser: e.host, hvornaar: longWhen(e.startsMs, e.times), hvornaar_linjer: whenLines(e.startsMs, e.times), beskrivelse: e.description.slice(0, 1200) }))) }]).catch(() => "");
   const json = /\{[\s\S]*\}/.exec(raw)?.[0];
   const data = json ? parse<{ uge?: unknown; events?: Record<string, unknown> }>(json, {}) : {};
   const clean = (v: unknown, max: number) => typeof v === "string" ? v.replace(/[ \t]+/g, " ").trim().slice(0, max) : "";
@@ -394,8 +395,10 @@ export async function proposeEventPost(env: SocialEnv, deps: SagaDeps, db: D1Dat
   // "Det skal være et nødstilfælde, hvis et event skal promoveres, når det foregår på samme dag": only when the chair says so.
   if (lastPostMs(start) < now + 30 * MINUTE && !emergency) return "today";
   const monday = mondayOf(start), week = weekKey(monday);
-  const event = (await weekEvents(db, monday, deps.fetcher)).find(e => e.key === key);
-  if (!event) return "not_found";
+  const all = await weekEvents(db, monday, deps.fetcher);
+  const found = all.find(e => e.key === key);
+  if (!found) return "not_found";
+  const event = withSessions(all, found);
   const account = await socialAccount(db);
   const windows = shoutWindows(event.startsMs, now);
   const notBefore = now + 30 * MINUTE;
@@ -405,7 +408,7 @@ export async function proposeEventPost(env: SocialEnv, deps: SagaDeps, db: D1Dat
   const both = Boolean(account?.ig_user_id && event.imageUrl);
   const [igTime] = both ? instagramPostTimes([event], [time], notBefore, await instagramSlots(db, now), placed.latest, fbTaken) : [time];
   const text = (await weekWords(env, deps, [event])).events.E1 ?? plainEventText(event);
-  const source = { key: event.key, title: event.title, startsMs: event.startsMs, host: event.host, shout: 1, shouts: placed.single[0] ? 1 : windows.length,
+  const source = { key: event.key, title: event.title, startsMs: event.startsMs, host: event.host, ...(event.times ? { times: event.times } : {}), shout: 1, shouts: placed.single[0] ? 1 : windows.length,
     ...(both ? { instagramText: instagramEventText(text), collaborators: await instagramNames(db, [event.host]), ...(igTime !== time ? { instagramAtMs: igTime } : {}) } : {}) };
   const sourceKey = `event:${week}:${event.key}`;
   const had = await db.prepare("SELECT id FROM social_posts WHERE source_key = ?").bind(sourceKey).first<{ id: number }>().catch(() => null);
@@ -479,7 +482,7 @@ export async function planWeek(env: SocialEnv, deps: SagaDeps, db: D1Database, m
   const account = await socialAccount(db);
   const notBefore = now + 30 * MINUTE;
   let made = 0;
-  const eventSource = (e: NewsletterEvent): EventSource => ({ key: e.key, title: e.title, startsMs: e.startsMs, host: e.host });
+  const eventSource = (e: NewsletterEvent): EventSource => ({ key: e.key, title: e.title, startsMs: e.startsMs, host: e.host, ...(e.times ? { times: e.times } : {}) });
   if (!planned) {
     // "Ugens events": every event of the week in the list; on Instagram a carousel of up to ten of the week's pictures, the most worth telling first.
     const listed = pickWeekEvents(events, new Set(), 30);
@@ -526,7 +529,7 @@ export async function planShouts(env: SocialEnv, deps: SagaDeps, db: D1Database)
       AND json_extract(source, '$.startsMs') > ? AND NOT EXISTS (SELECT 1 FROM social_posts t WHERE t.source_key = social_posts.source_key || ':2')`, [now], "json_extract(source, '$.startsMs'), id", 60))
     .filter(p => p.source.startsMs && p.source.key && p.source.shouts !== 1 && shoutWindows(p.source.startsMs, now).length === 2);
   if (!firsts.length) return 0;
-  const events = firsts.map(p => ({ key: p.source.key!, title: p.source.title ?? "", startsMs: p.source.startsMs!, host: p.source.host ?? null, description: "", link: p.link ?? "",
+  const events = firsts.map(p => ({ key: p.source.key!, title: p.source.title ?? "", startsMs: p.source.startsMs!, host: p.source.host ?? null, ...(p.source.times ? { times: p.source.times } : {}), description: "", link: p.link ?? "",
     imageUrl: p.images[0] ?? null, endsMs: null, category: null, mornings: false }) as NewsletterEvent);
   const words = await weekWords(env, deps, events, true);
   const second = events.map(e => shoutWindows(e.startsMs, now)[1]!);

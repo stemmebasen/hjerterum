@@ -3,6 +3,7 @@ import { siteLive, toPublicSite } from "../public-site.js";
 import { complete } from "../saga/ai.js";
 import type { SagaDeps, SagaEnv } from "../saga/env.js";
 import { longWhen, whenLines, withEventDate } from "./plan.js";
+import { listTitle } from "../newsletter.js";
 import { firstName, instagramEventText, instagramShareText, type SocialPost } from "./social.js";
 
 /** Requested (the chair, 5 Nov 2026): "Jeg vil gerne have en mulighed for, at AI kan komme med et forslag til delingsteksten. Det skal være en meget moderne
@@ -19,6 +20,8 @@ Hjerterums stemme: frisk, varm og med begejstring - jordnær og nærværende, al
 Skriv nyt hver gang. Find én konkret, sanselig detalje eller et uventet, ømt perspektiv i det, du får - lyden af gongen, den første langsomme vejrtrækning, tæppet over benene, at man må komme træt - og byg teksten op om den. Lad rytmen veksle: korte sætninger og en enkelt længere.
 
 Undgå klicheer og tomme ord. Brug aldrig: "rejse indad", "find din indre ro", "giv dig selv en gave", "unik mulighed", "lad dig forkæle", "magisk", "transformerende", "sjælen", "healende rejse", "Oplev ...", "Glæd dig til ...", "Vi glæder os til at se dig", "noget helt særligt", "i trygge rammer", "tid til dig selv". Ingen helbredsløfter. Find aldrig på fakta, der ikke står i det, du får (ingen priser, materialer eller oplevelser, der ikke er nævnt).
+
+Booking (Lisbeth, 19. nov. 2026: "der står tydeligt i event beskrivelsen at man ikke bare skal møde op men booke og betale i forvejen"): skriv aldrig "kom forbi", "kig ind", "bare mød op", "drop ind" eller lignende, medmindre beskrivelsen selv siger, at man bare kan komme. Står der, at man skal booke, tilmelde sig eller betale i forvejen, så sig det tydeligt i afslutningen, fx "Book din tid i forvejen via linket". Står der flere klokkeslæt i "hvornaar_linjer", er det ét tilbud med flere tider at vælge imellem - ikke flere events - og der kan være få pladser til hver tid.
 
 Dansk som en dansk tekstforfatter skriver det, aldrig oversat engelsk: sammensatte ord i ét ord (lydhealing, yogaforløb), hele sætninger med udsagnsord, dansk kommatering, kun underviserens fornavn, tid som "lørdag d. 21. november kl. 13.00" - altid med dato, for opslaget går ud en til to uger før.
 
@@ -75,7 +78,7 @@ export async function proposeWords(env: SagaEnv, deps: SagaDeps, db: D1Database,
   if (!env.AI_API_KEY || !env.AI_MODEL || (post.kind !== "event" && post.kind !== "share")) return null;
   const s = post.source;
   const facts = post.kind === "event"
-    ? { event: s.title, underviser: s.host ? firstName(s.host) : null, hvornaar: s.startsMs ? longWhen(s.startsMs) : null, hvornaar_linjer: s.startsMs ? whenLines(s.startsMs) : null, beskrivelse: await description(db, s.key) || null }
+    ? { event: s.times ? listTitle(s.title ?? "") : s.title, underviser: s.host ? firstName(s.host) : null, hvornaar: s.startsMs ? longWhen(s.startsMs, s.times) : null, hvornaar_linjer: s.startsMs ? whenLines(s.startsMs, s.times) : null, beskrivelse: await description(db, s.key) || null }
     : { fra: s.author, netvaerk: s.network, deres_tekst: (s.text ?? "").slice(0, 1500) };
   const user = [
     JSON.stringify(facts),

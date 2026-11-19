@@ -24,7 +24,9 @@ const MONTHS = ["januar", "februar", "marts", "april", "maj", "juni", "juli", "a
 const DAYS = ["SØN.", "MAN.", "TIRS.", "ONS.", "TORS.", "FRE.", "LØR."];
 
 export type NewsletterEvent = { key: string; title: string; startsMs: number; endsMs: number | null; host: string | null; category: string | null;
-  imageUrl: string | null; link: string; description: string; mornings: boolean };
+  imageUrl: string | null; link: string; description: string; mornings: boolean;
+  /** The same offer's times that day, when it is in the calendar once per time ("Healing tilbud i Hjerterum - kl. 19.00", "- kl. 19.45" ...). */
+  times?: number[] };
 export type Highlight = { heading: string; byline: string; text: string; image: string | null; link: string };
 export type Issue = { month: string; subject: string; preheader: string; intro: string; highlights: Highlight[]; titles: Record<string, string>;
   status: "draft" | "approved" | "sent" | "failed"; approved_by: string | null; approved_at_ms: number | null; campaign_id: string | null;
@@ -124,7 +126,8 @@ export async function monthEvents(db: D1Database, month: string, fetcher?: typeo
 
 /** A title as the list shows it, when Saga has not given a shorter one: the part before "|", without brackets and "Hjerterum" in front. */
 export function listTitle(title: string): string {
-  const t = (title.split(/\s+\|\s+/)[0] ?? title).replace(/\s*\([^)]*\)/g, "").replace(/^Hjerterum\s+/i, "").replace(/\bwith\b/g, "med")
+  // Lisbeth (19 Nov 2026): one evening's healing is in the calendar once per time - "Healing tilbud i Hjerterum - kl. 19.00" - and is one offer, not three events.
+  const t = (title.split(/\s+\|\s+/)[0] ?? title).replace(/\s*\([^)]*\)/g, "").replace(/\s*[-–—,:]?\s*kl\.?\s*\d{1,2}[.:]\d{2}\s*$/i, "").replace(/^Hjerterum\s+/i, "").replace(/\bwith\b/g, "med")
     .replace(/\s+/g, " ").replace(/[.\s]+$/, "").trim();
   return t ? Cap(t) : title.trim();
 }

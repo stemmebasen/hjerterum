@@ -92,9 +92,17 @@ const sameTitle = (e: NewsletterEvent) => listTitle(e.title).toLocaleLowerCase("
  * Fewer than seven only when the week has fewer. Returned in time order. */
 export function pickWeekEvents(events: NewsletterEvent[], wished: Set<string>, max = WEEK_MAX): NewsletterEvent[] {
   const seen = new Set<string>();
-  const distinct = [...events].sort((a, b) => a.startsMs - b.startsMs).filter(e => { const t = sameTitle(e); if (seen.has(t)) return false; seen.add(t); return true; });
+  const distinct = [...events].sort((a, b) => a.startsMs - b.startsMs).filter(e => { const t = sameTitle(e); if (seen.has(t)) return false; seen.add(t); return true; })
+    .map(e => withSessions(events, e));
   const score = (e: NewsletterEvent) => (wished.has(e.key) ? 8 : 0) + (e.mornings ? 0 : 4) + (e.imageUrl ? 2 : 0) + (e.host ? 1 : 0);
   return distinct.map((e, i) => ({ e, i, s: score(e) })).sort((a, b) => b.s - a.s || a.i - b.i).slice(0, max).map(x => x.e).sort((a, b) => a.startsMs - b.startsMs);
+}
+
+/** Lisbeth (19 Nov 2026): "der er 3 tidspunkter/events i løbet af aftenen med hver 3 tider og de skal ikke forstås som enkeltstående events". An offer that is
+ * in the calendar once per time the same day is told as one, with all its times. */
+export function withSessions(events: NewsletterEvent[], e: NewsletterEvent): NewsletterEvent {
+  const times = [...new Set(events.filter(o => sameTitle(o) === sameTitle(e) && dateOf(o.startsMs) === dateOf(e.startsMs)).map(o => o.startsMs))].sort((a, b) => a - b);
+  return times.length > 1 ? { ...e, startsMs: times[0]!, times } : e;
 }
 
 // ---- When ----
@@ -229,7 +237,12 @@ const MONTH_NAMES = ["januar", "februar", "marts", "april", "maj", "juni", "juli
 /** "lørdag d. 21. november" */
 export const dayDate = (ms: number) => { const p = parts(ms); return `${dayName(ms)} d. ${Number(p.day)}. ${MONTH_NAMES[Number(p.month) - 1]}`; };
 /** "lørdag d. 21. november kl. 10.30" */
-export const longWhen = (ms: number) => `${dayDate(ms)} kl. ${clock(ms)}`;
+export const longWhen = (ms: number, times?: number[]) => `${dayDate(ms)} kl. ${clocks(ms, times)}`;
+/** "19.00", or the times of an offer told as one: "19.00, 19.45 og 20.30". */
+export function clocks(ms: number, times?: number[]): string {
+  const all = times && times.length > 1 ? times.map(clock) : [clock(ms)];
+  return all.length > 1 ? `${all.slice(0, -1).join(", ")} og ${all.at(-1)}` : all[0]!;
+}
 
 /** Reported (the chair, 6 Nov 2026): "Det er en fejl, at der bare står lørdag klokken 10:30, da det først er lørdagen efter." An event's post goes out one
  * or two weeks before, so the day is always told with its date: the event's weekday in the text ("Lørdag kl. 10.30", "på lørdag") gets it, where it has
@@ -249,18 +262,19 @@ export function clockEmoji(ms: number): string {
 }
 /** Asked (the chair, 7 Nov 2026): "Sproget er nødt til at være meget mere friskt, og vi skal bruge emojis til opslagene" - with the time on lines of its own:
  * "📅 Mandag d. 9. november" and "🕡 Kl. 18.45". */
-export const whenLines = (ms: number) => { const d = dayDate(ms); return `📅 ${d.charAt(0).toUpperCase()}${d.slice(1)}\n${clockEmoji(ms)} Kl. ${clock(ms)}`; };
+export const whenLines = (ms: number, times?: number[]) => { const d = dayDate(ms); return `📅 ${d.charAt(0).toUpperCase()}${d.slice(1)}\n${clockEmoji(ms)} Kl. ${clocks(ms, times)}`; };
 
 /** Without Saga: the event in the chair's form - "✨ Workshop: Indre barn med Steven", the day and time on lines of their own, and a warm ending. */
 export function plainEventText(e: NewsletterEvent): string {
-  return `✨ ${listTitle(e.title)}${e.host ? ` med ${firstWord(e.host)}` : ""}\n\n${whenLines(e.startsMs)}\n\nLæs mere og tilmeld dig via linket - vi ses i Hjerterum! ❤️`;
+  const several = Boolean(e.times && e.times.length > 1);
+  return `✨ ${listTitle(e.title)}${e.host ? ` med ${firstWord(e.host)}` : ""}\n\n${whenLines(e.startsMs, e.times)}\n\n${several ? "Vælg din tid og book i forvejen via linket" : "Læs mere og tilmeld dig via linket"} - vi ses i Hjerterum! ❤️`;
 }
 const firstWord = (name: string) => name.trim().split(/\s+/)[0] ?? name;
 export const PLAIN_WEEK_INTRO = "Her er ugens events i Hjerterum. Vi glæder os til at se dig.";
 
 /** The list under "Ugens events": one line per event, as the newsletter writes them ("TORS. 12/11 · 19.00 · Indre barn (Steven)"). */
 export function weekList(events: NewsletterEvent[]): string {
-  return events.map(e => `${SHORT[weekdayOf(e.startsMs)]} ${dayMonth(e.startsMs)} · ${clock(e.startsMs)} · ${listTitle(e.title)}${e.host ? ` (${e.host})` : ""}`).join("\n");
+  return events.map(e => `${SHORT[weekdayOf(e.startsMs)]} ${dayMonth(e.startsMs)} · ${clocks(e.startsMs, e.times)} · ${listTitle(e.title)}${e.host ? ` (${e.host})` : ""}`).join("\n");
 }
 
 /** "Ugens events" in full: Saga's words, the week's list and where to read more (Instagram has no links in the text, so it points to the bio). */
