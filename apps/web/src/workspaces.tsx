@@ -618,7 +618,9 @@ function MemberEvents({
                 <label>Antal dage<select value={days} onChange={e => setDays(Number(e.target.value))}>
                   <option value={1}>1 dag</option><option value={2}>2 dage i træk (fx en weekend)</option><option value={3}>3 dage i træk</option><option value={4}>4 dage i træk</option>
                 </select></label>
-                {days > 1 && plan.date && <small>Samme tider hver dag: {Array.from({ length: days }, (_, i) => { const d = new Date(`${plan.date}T12:00:00`); d.setDate(d.getDate() + i); return longDay(todayKey(d)); }).join(", ")}. Lejen regnes for hver dag, og salen skal være ledig alle dagene. Deltagerne tilmelder sig hele forløbet.</small>}
+                {/* Douglas (19 Nov 2026): "Only shows 2 days even though 3 days are selected" - Google's translation keeps a text made of several pieces as it
+                    was; the line is one piece, so it follows the choice in English too. */}
+                {days > 1 && plan.date && <small>{`Samme tider hver dag: ${Array.from({ length: days }, (_, i) => { const d = new Date(`${plan.date}T12:00:00`); d.setDate(d.getDate() + i); return longDay(todayKey(d)); }).join(", ")}. Lejen regnes for hver dag, og salen skal være ledig alle dagene. Deltagerne tilmelder sig hele forløbet.`}</small>}
               </div>
               <EventVarietyNote clerk={clerk} title={liveTitle} description={readDescription} bookingId={editing?.id ?? null}
                 startsAt={plan.date && plan.start ? planInstants(plan).startsAt : null} endsAt={plan.date && plan.start && plan.end ? planInstants(plan).endsAt : null} />
@@ -858,11 +860,13 @@ export function MemberCalendar({
             </RowText>
             <span className="event-row-more">
               {/* Douglas (13 Nov 2026), signed up for his own test event: "Where it says 'unsubscribe', how can we do that?" - the organiser who is signed up can cancel it too. */}
-              {booking && !booking.isAttending && !full && priceKr === 0 && booking.registrationStatus !== "pending" && (!booking.isOwner) &&
+              {booking && !booking.isAttending && !full && priceKr === 0 && booking.registrationStatus !== "pending" &&
                 <select className="member-seats" aria-label="Antal personer" value={seatsFor[booking.id] ?? 1} onChange={e => setSeatsFor({ ...seatsFor, [booking.id]: Number(e.target.value) })}>
                   {Array.from({ length: Math.min(6, booking.maxAttendees ? Math.max(1, booking.maxAttendees - (booking.attendeeCount ?? 0)) : 6) }, (_, i) => i + 1).map(n => <option key={n} value={n}>{n === 1 ? "1 person" : `${n} pers.`}</option>)}
                 </select>}
-              {booking ? booking.isOwner && !booking.isAttending ? <a className="text-link" href="/member-portal/events">Administrér →</a> : (
+              {/* Douglas (19 Nov 2026): "I still can't sign up for my event" - the organiser can sign up for their own event like anyone else, and still has the way to manage it. */}
+              {booking?.isOwner && <a className="text-link" href="/member-portal/events">Administrér →</a>}
+              {booking ? (
                 <button type="button" className={booking.isAttending ? "pill-button subtle" : "pill-button dark"}
                   disabled={busyId === booking.id || booking.registrationStatus === "pending" || (!booking.isAttending && full)}
                   onClick={() => void toggleAttendance(booking)}>

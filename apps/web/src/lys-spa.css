@@ -1166,6 +1166,10 @@ body, .workspace-shell, .admin-workspace, .auth-shell, .profile-workspace { back
 .rich-text-box.is-empty::before { content: attr(data-placeholder); color: var(--lys-muted); pointer-events: none; }
 .rich-text-box ul { margin: 4px 0; padding-left: 22px; }
 .rich-text-box a { color: var(--lys-terra, #94503f); text-decoration: underline; }
+/* Douglas (19 Nov 2026): "The 'bold' in the editor works, but the 'italic' does not." The page turns off the browser's own slanting (font-synthesis),
+   and the form's font has no italic of its own - in the field the browser may slant it. */
+.rich-text-box, .rich-text-box i, .rich-text-box em { font-synthesis: weight style; }
+.rich-text-box i, .rich-text-box em { font-style: italic; }
 /* Days in a row (a weekend course). */
 .event-days { display: grid; gap: 6px; }
 .event-days select { width: auto; max-width: 100%; }

@@ -2,7 +2,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { apiFetch, type ClerkBrowser } from "./clerk";
 import { englishOn } from "./translate-in-place";
 import {
-  FIRST_HOUR, LAST_HOUR, MIN_MINUTES, EVENING_FROM, PROBLEM_TEXT, RENT_TYPES, BUFFER_CHOICES,
+  FIRST_HOUR, LAST_HOUR, MIN_MINUTES, MAX_MINUTES, EVENING_FROM, PROBLEM_TEXT, RENT_TYPES, BUFFER_CHOICES,
   bufferText, busyDuring, pricedSpan, clockOf, clockOrMidnight, danishClock, endMinutes, endOptions, endRange, entryMinutes, firstFreeStart, hoursText, longDay, minutesOf,
   monthGrid, monthTitle, planProblem, priceText, quoteForPlan, startOptions, todayKey, weekdayOf, windowOf,
   type DayEntry, type Plan, type RentType
@@ -155,6 +155,9 @@ export function EventPlanner({ clerk, plan, onChange, markedDates, ignoreId, onP
 
   const viewingNow = view.year === new Date().getFullYear() && view.month === new Date().getMonth();
   const endChoices = endOptions(plan.start, plan.setup, plan.cleanup);
+  // Douglas (19 Nov 2026): "it won't let me go past 6.30" - the room is rented at most 10 hours with setup and cleanup; say so when that is the limit.
+  const longest = pricedSpan(room.from, room.to + 30);
+  const atMax = Boolean(chosenOk) && plan.end === endChoices.at(-1) && longest.to - longest.from > MAX_MINUTES && room.to + 30 <= LAST_HOUR * 60;
 
   return (
     <fieldset className="planner">
@@ -179,7 +182,8 @@ export function EventPlanner({ clerk, plan, onChange, markedDates, ignoreId, onP
               })}
             </div>
           ))}
-          <p className="planner-key"><span className="planner-dot" /> Der er allerede noget i kalenderen</p>
+          {/* Douglas (19 Nov 2026): "The dot means there is already something on the calendar". */}
+          <p className="planner-key"><span className="planner-dot" /> Prikken betyder, at der allerede er noget i kalenderen</p>
         </div>
 
         <div className="planner-dayview">
@@ -204,14 +208,16 @@ export function EventPlanner({ clerk, plan, onChange, markedDates, ignoreId, onP
                   // Reported: "Hvorfor er de to events i én samlet boks?" - events at the same time stand side by side.
                   const width = `calc((100% - 12px - ${(lane.of - 1) * 6}px) / ${lane.of})`;
                   return <div key={index} className={cls} style={{ top, height: Math.max(bottom - top, 14), width, right: "auto", left: `calc(6px + ${lane.at} * (${width} + 6px))` }}>
-                    <b>{entry.label}</b> <span>{danishClock(range.from)}–{danishClock(range.to)}</span>
+                    <b>{entry.label}</b> <span>{`${danishClock(range.from)}–${danishClock(range.to)}`}</span>
                   </div>;
                 })}
                 {chosenOk && to > from && plan.setup > 0 && <div className="planner-buffer before" style={{ top: topOf(room.from), height: Math.max(topOf(from) - topOf(room.from), 4) }}><span>Klargøring</span></div>}
                 {chosenOk && to > from && plan.cleanup > 0 && <div className="planner-buffer after" style={{ top: topOf(to), height: Math.max(topOf(room.to) - topOf(to), 4) }}><span>Oprydning</span></div>}
                 {chosenOk && to > from && <div className={"planner-chosen" + (problem ? " bad" : "") + (dragging ? " dragging" : "")} style={{ top: topOf(from), height: Math.max(topOf(to) - topOf(from), 14) }}
                   onPointerDown={(e) => startDrag(e, "move")} onPointerMove={onDrag} onPointerUp={endDrag} onPointerCancel={endDrag} onClick={(e) => e.stopPropagation()}>
-                  <b>{title?.trim() || "Dit event"}</b> <span>{danishClock(from)}–{danishClock(to)}</span><span className="planner-length">{hoursText(to - from)}</span>
+                  {/* Douglas (19 Nov 2026): "It also gives the wrong time in the grey box" - in English, Google's translation kept a time made of several
+                      pieces as it first was. Each time is one piece of text, so it follows the event. */}
+                  <b>{title?.trim() || "Dit event"}</b> <span>{`${danishClock(from)}–${danishClock(to)}`}</span><span className="planner-length">{hoursText(to - from)}</span>
                   <div className="planner-resize" title="Træk for at ændre sluttidspunktet" onPointerDown={(e) => startDrag(e, "end")} onPointerMove={onDrag} onPointerUp={endDrag} onPointerCancel={endDrag} />
                 </div>}
               </div>
@@ -246,7 +252,8 @@ export function EventPlanner({ clerk, plan, onChange, markedDates, ignoreId, onP
         </label>
       </div>
       <p className="planner-summary">{plan.date && chosenOk
-        ? <>Salen er din <b>{danishClock(room.from)}–{danishClock(room.to)}</b> med klargøring og oprydning. Lejen regnes for {hoursText(pricedSpan(room.from, room.to).to - pricedSpan(room.from, room.to).from)}.</>
+        ? <>{"Salen er din "}<b>{`${danishClock(room.from)}–${danishClock(room.to)}`}</b>{` med klargøring og oprydning. Lejen regnes for ${hoursText(pricedSpan(room.from, room.to).to - pricedSpan(room.from, room.to).from)}.`}
+          {atMax && <span className="planner-limit">{` Senere kan eventet ikke slutte med denne starttid: salen lejes højst 10 timer i træk, klargøring og oprydning medregnet. Start tidligere, eller gør klargøringen kortere.`}</span>}</>
         : "Salen lejes 2–10 timer i halve timer. Klargøring og oprydning lejes med, så næste event ikke står i døren."}</p>
       {plan.date && problem && <p className="planner-problem" role="alert">{PROBLEM_TEXT[problem]}</p>}
 
