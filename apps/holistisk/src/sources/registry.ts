@@ -21,6 +21,7 @@ import { loeves } from "./loeves.js";
 import { nemtilmeld } from "./nemtilmeld.js";
 import { fof } from "./fof.js";
 import { borabora, filuren, katapult } from "./theatres.js";
+import { aarhusTeater, friheden, moesgaard, paradis } from "./venues.js";
 import { weekly, WEEKLY_SOURCE_ID } from "./weekly.js";
 import { TIMEZONE } from "../time.js";
 
@@ -53,6 +54,10 @@ export const ADAPTERS: Record<SourceConfig["adapter"], SourceAdapter> = {
   filuren,
   katapult,
   borabora,
+  friheden,
+  aarhusteater: aarhusTeater,
+  moesgaard,
+  paradis,
   weekly
 };
 
@@ -579,6 +584,98 @@ export const SOURCES: SourceConfig[] = [
       venues: [{ match: /./, name: "Bora Bora", address: "Valdemarsgade 1", postalCode: "8000", city: "Aarhus C", lat: 56.151826, lon: 10.199036 }]
     },
     options: { url: "https://bora-bora.dk/", maxPages: 20, defaultCategories: ["scenekunst", "dans-bevaegelse"] }
+  },
+  {
+    id: "tivoli-friheden",
+    name: "Tivoli Friheden – Hermans og scenen",
+    adapter: "friheden",
+    homepageUrl: "https://friheden.dk/",
+    permissionBasis: "Tivoli Friheden offentlige arrangementsliste på forsiden (friheden.dk); robots.txt tillader den. Tilføjet efter ønske fra projektejer (2026-11-13).",
+    attribution: "Tivoli Friheden, Skovbrynet 5, Aarhus",
+    imagePolicy: "allowed",
+    descriptionPolicy: "excerpt",
+    priority: 50,
+    requireRelevance: false,
+    completeListing: true,
+    canonicalToSource: false,
+    respectRobots: true,
+    enabled: () => true,
+    defaults: {
+      timezone: TIMEZONE,
+      organizerName: "Tivoli Friheden",
+      organizerUrl: "https://friheden.dk/",
+      venues: [{ match: /./, name: "Tivoli Friheden", address: "Skovbrynet 5", postalCode: "8000", city: "Aarhus C", lat: null, lon: null }]
+    },
+    options: { url: "https://friheden.dk/", daysAhead: 120, hintCategories: { hermans: "foredrag-debat", scenen: "koncerter-musik" } }
+  },
+  {
+    id: "aarhus-teater",
+    name: "Aarhus Teater",
+    adapter: "aarhusteater",
+    homepageUrl: "https://www.aarhusteater.dk/",
+    permissionBasis: "Aarhus Teaters offentlige program, som teatrets egen side henter (aarhusteater.dk/api/shows/); robots.txt tillader alt. Tilføjet efter ønske fra projektejer (2026-11-13).",
+    attribution: "Aarhus Teater, Teatergaden, Aarhus",
+    imagePolicy: "allowed",
+    descriptionPolicy: "excerpt",
+    priority: 50,
+    requireRelevance: false,
+    completeListing: true,
+    canonicalToSource: false,
+    respectRobots: true,
+    enabled: () => true,
+    defaults: {
+      timezone: TIMEZONE,
+      organizerName: "Aarhus Teater",
+      organizerUrl: "https://www.aarhusteater.dk/",
+      venues: [{ match: /./, name: "Aarhus Teater", address: "Teatergaden", postalCode: "8000", city: "Aarhus C", lat: null, lon: null }]
+    },
+    options: { url: "https://www.aarhusteater.dk/api/shows/", daysAhead: 90, defaultCategories: ["scenekunst"], hintCategories: { "for børn": "boern-familie" } }
+  },
+  {
+    id: "moesgaard",
+    name: "Moesgaard Museum",
+    adapter: "moesgaard",
+    homepageUrl: "https://moesgaardmuseum.dk/",
+    permissionBasis: "Moesgaards offentlige kalender, som museets egen side henter (moesgaardmuseum.dk/cms/events); robots.txt tillader den med 5 sekunder mellem kald. De daglige omvisninger er udeladt. Tilføjet efter ønske fra projektejer (2026-11-13).",
+    attribution: "Moesgaard Museum, Moesgård Allé 15, Højbjerg",
+    imagePolicy: "allowed",
+    descriptionPolicy: "excerpt",
+    priority: 50,
+    requireRelevance: false,
+    completeListing: true,
+    canonicalToSource: false,
+    respectRobots: true,
+    enabled: () => true,
+    defaults: {
+      timezone: TIMEZONE,
+      organizerName: "Moesgaard Museum",
+      organizerUrl: "https://moesgaardmuseum.dk/",
+      venues: [{ match: /./, name: "Moesgaard Museum", address: "Moesgård Allé 15", postalCode: "8270", city: "Højbjerg", lat: null, lon: null }]
+    },
+    options: { url: "https://moesgaardmuseum.dk/cms/events", daysAhead: 120, defaultCategories: ["foredrag-debat"], hintCategories: { lectures_and_conversations: "foredrag-debat", outdoor_experiences: "natur" } }
+  },
+  {
+    id: "oest-for-paradis",
+    name: "Øst for Paradis – events",
+    adapter: "paradis",
+    homepageUrl: "https://www.paradisbio.dk/",
+    permissionBasis: "Øst for Paradis' offentlige eventside (paradisbio.dk/cms_page_291) med premierer, filmklubber og særvisninger; almindelige visninger tages ikke med. Tilføjet efter ønske fra projektejer (2026-11-13).",
+    attribution: "Øst for Paradis, Paradisgade 7-9, Aarhus",
+    imagePolicy: "allowed",
+    descriptionPolicy: "excerpt",
+    priority: 50,
+    requireRelevance: false,
+    completeListing: true,
+    canonicalToSource: false,
+    respectRobots: true,
+    enabled: () => true,
+    defaults: {
+      timezone: TIMEZONE,
+      organizerName: "Øst for Paradis",
+      organizerUrl: "https://www.paradisbio.dk/",
+      venues: [{ match: /./, name: "Øst for Paradis", address: "Paradisgade 7-9", postalCode: "8000", city: "Aarhus C", lat: null, lon: null }]
+    },
+    options: { url: "https://www.paradisbio.dk/cms_page_291", daysAhead: 60, defaultCategories: ["kunst-udstillinger"] }
   },
   {
     id: "billetto",

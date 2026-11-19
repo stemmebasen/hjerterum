@@ -60,7 +60,15 @@ function routes(feed: string) {
     "https://katapult.dk/saeson-2026/": { body: fixture("katapult-saeson.html") },
     "https://katapult.dk/": (url: string) => ({ body: fixture(url.includes("don-quixote") ? "katapult-don-quixote.html" : "katapult-storyslam.html") }),
     "https://bora-bora.dk/robots.txt": { status: 404 },
-    "https://bora-bora.dk/": (url: string) => ({ body: url === "https://bora-bora.dk/" ? fixture("borabora-forside.html") : url.includes("/wired/") ? fixture("borabora-wired.html") : "<html></html>" })
+    "https://bora-bora.dk/": (url: string) => ({ body: url === "https://bora-bora.dk/" ? fixture("borabora-forside.html") : url.includes("/wired/") ? fixture("borabora-wired.html") : "<html></html>" }),
+    "https://friheden.dk/robots.txt": { body: "User-agent: *\nDisallow: /umbraco/\n" },
+    "https://friheden.dk/": { body: fixture("friheden-forside.html") },
+    "https://www.aarhusteater.dk/robots.txt": { body: "User-agent: *\n" },
+    "https://www.aarhusteater.dk/api/shows/": { body: fixture("aarhusteater-shows.json"), headers: { "content-type": "application/json" } },
+    "https://moesgaardmuseum.dk/robots.txt": { body: "User-agent: *\nAllow: /\n" },
+    "https://moesgaardmuseum.dk/cms/events": { body: fixture("moesgaard-events.json"), headers: { "content-type": "application/json" } },
+    "https://www.paradisbio.dk/robots.txt": { status: 404 },
+    "https://www.paradisbio.dk/cms_page_291": { body: fixture("paradis-events.html") }
   };
 }
 
