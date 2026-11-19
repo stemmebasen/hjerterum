@@ -75,7 +75,7 @@ function danishLeft(page: string): string[] {
 const OPEN = ["/en", "/en/calendar", "/en/calendar?periode=idag", "/en/calendar?periode=weekend", "/en/today", "/en/map", "/en/activities",
   "/en/organisers", "/en/about", "/en/meet-new-people", "/en/new-in-aarhus", "/en/things-to-do-in-aarhus", "/en/free-and-cheap",
   "/en/join-a-group", "/en/membership", "/en/safety", "/en/for-organisers", "/en/contact", "/en/log-in", "/en/aarhus", "/en/meditation",
-  "/en/meditation/aarhus", "/en/klarsyn/aarhus", "/en/calendar?q=yoga", "/en/calendar?q=zzzzqqq", "/en/findes-ikke"];
+  "/en/klarsyn", "/en/calendar?q=yoga", "/en/calendar?q=zzzzqqq", "/en/findes-ikke"];
 
 describe("no Danish left on the English pages", () => {
   it("finds none, signed out or signed in", async () => {

@@ -321,7 +321,7 @@ export async function periodPage(db: D1Database, ctx: PageContext, regions: stri
   };
 }
 
-// ————————————————————————————————————————— Activities: /meditation, /meditation/aarhus
+// ————————————————————————————————————————— Activities: /meditation (/meditation/aarhus moves there)
 
 export async function activityPage(db: D1Database, ctx: PageContext, regions: string[], activity: Activity, area: Area | null, pageNo = 1): Promise<View> {
   const areas = activeAreas(regions);
@@ -346,7 +346,7 @@ export async function activityPage(db: D1Database, ctx: PageContext, regions: st
       ${events.length ? dayList(events, ctx.now) : html`<div class="empty"><p>Der er ingen kommende arrangementer i ${activity.name.toLowerCase()} i ${place} lige nu. Kalenderen opdateres hver nat.</p>
         <p>${area ? html`<a class="button-secondary" href="/${activity.slug}">${activity.name} i hele ${ctx.regionLabel}</a> ` : ""}<a class="button-secondary" href="/kalender">Hele kalenderen</a></p></div>`}
       ${pagination(emptyFilters({ page: pageNo }), total, PAGE_SIZE, basePath)}
-      ${profiles.some(p => p.offerings.length) ? section("h-regular", `Faste tilbud${area ? ` i ${area.place}` : ""}`, offeringsBlock(profiles)) : html``}
+      ${profiles.some(p => p.offerings.length) ? section("h-regular", `Faste tilbud i ${place}`, offeringsBlock(profiles)) : html``}
     </div>
     <aside class="aside">
       ${profiles.length ? section("h-orgs", "Arrangører", organizerList(profiles)) : html``}
@@ -398,7 +398,7 @@ export async function areaPage(db: D1Database, ctx: PageContext, regions: string
       ${profiles.some(p => p.offerings.length && !isAlternativeOrganizer(p.slug)) ? section("h-regular", `Faste tilbud i ${area.place}`, offeringsBlock(profiles.filter(p => !isAlternativeOrganizer(p.slug)))) : html``}
     </div>
     <aside class="aside">
-      ${activityLinks.length ? section("h-acts", `Aktiviteter i ${area.place}`, linkList(activityLinks.map(x => ({ href: `/${x.a.slug}/${area.slug}`, label: `${x.a.name} i ${area.place}`, count: x.n })), { columns: false })) : html``}
+      ${activityLinks.length ? section("h-acts", `Aktiviteter i ${area.place}`, linkList(activityLinks.map(x => ({ href: `/${x.a.slug}`, label: `${x.a.name} i ${area.place}`, count: x.n })), { columns: false })) : html``}
       ${profiles.length ? section("h-orgs", `Arrangører i ${area.place}`, organizerList(profiles)) : html``}
     </aside>
   </div>
@@ -466,7 +466,7 @@ export async function organizerPage(db: D1Database, ctx: PageContext, regions: s
         <dt>Hjemmeside</dt><dd><a href="${profile.website}" rel="noopener">${profile.website.replace(/^https?:\/\/(www\.)?/, "").replace(/\/$/, "")}</a></dd>
         <dt>Om kalenderen</dt><dd>${profile.eventsNote}</dd>
       </dl>`)}
-      ${activities.length ? section("h-acts", "Aktiviteter", linkList(activities.map(a => ({ href: `/${a.slug}/${area.slug}`, label: `${a.name} i ${area.place}` })), { columns: false })) : html``}
+      ${activities.length ? section("h-acts", "Aktiviteter", linkList(activities.map(a => ({ href: `/${a.slug}`, label: `${a.name} i ${area.place}` })), { columns: false })) : html``}
     </aside>
   </div>
 </div>`;
@@ -529,12 +529,11 @@ export async function eventPage(db: D1Database, ctx: PageContext, regions: strin
   const crumbs: Crumb[] = [
     { name: "Forside", path: "/" },
     ...(firstActivity ? [{ name: firstActivity.name, path: `/${firstActivity.slug}` }] : [{ name: "Kalender", path: "/kalender" }]),
-    ...(firstActivity && area ? [{ name: headingFor(firstActivity, area.place), path: `/${firstActivity.slug}/${area.slug}` }] : []),
     { name: e.title, path: eventPath(e) }
   ];
   const categoryLink = (slug: string) => {
     const c = categoryBySlug(slug);
-    return c ? (area ? `/${c.path}/${area.slug}` : `/${c.path}`) : "/kategorier";
+    return c ? `/${c.path}` : "/kategorier";
   };
   const placeName = e.city?.replace(/\s+[A-ZÆØÅ]{1,2}$/, "") ?? area?.place ?? ctx.regionLabel;
   const body = html`

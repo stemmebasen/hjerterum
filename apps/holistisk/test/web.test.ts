@@ -241,10 +241,10 @@ describe("the calendar", () => {
 });
 
 describe("landing pages: activity, then city", () => {
-  it("an activity across the region and in one city", async () => {
-    const meditation = await text("/meditation");
-    expect(meditation.body).toContain("<h1>Meditation i Aarhus</h1>");
-    const aarhus = await text("/meditation/aarhus");
+  it("an activity's page; the city-scoped address is the same page and moves there", async () => {
+    expect((await get("/meditation/aarhus")).headers.get("location")).toBe("/meditation");
+    expect((await get("/meditation/aarhus?side=2")).headers.get("location")).toBe("/meditation?side=2");
+    const aarhus = await text("/meditation");
     expect(aarhus.status).toBe(200);
     expect(aarhus.body).toContain("<h1>Meditation i Aarhus</h1>");
     expect(aarhus.body).toContain("<title>Meditation i Aarhus – Flokken</title>");
@@ -259,18 +259,18 @@ describe("landing pages: activity, then city", () => {
   });
 
   it("narrow topics people search for: klarsyn, buddhistisk meditation", async () => {
-    const klarsyn = await text("/klarsyn/aarhus");
+    const klarsyn = await text("/klarsyn");
     expect(klarsyn.body).toContain("<h1>Klarsynsaftener i Aarhus</h1>");
     expect(rows(klarsyn.body)).toContain("Klarsyn med Karina Graabæk");
     expect(rows(klarsyn.body)).not.toContain("Dhyana Yoga");
-    const buddhist = await text("/buddhistisk-meditation/aarhus");
+    const buddhist = await text("/buddhistisk-meditation");
     expect(rows(buddhist.body)).toEqual(["Meditation – Julianne Ferenczy", "Compassion and wisdom – Julianne Ferenczy"]);
     expect(buddhist.body).not.toContain("16. Karmapa-meditation hver torsdag kl. 19.30");
   });
 
   it("an empty page with an organiser still has something to offer; one without is kept from search engines", async () => {
     const prod: Env = { ...env, ENVIRONMENT: "production" };
-    const yinYoga = await text("/yin-yoga/aarhus", prod);
+    const yinYoga = await text("/yin-yoga", prod);
     expect(yinYoga.status).toBe(200);
     expect(yinYoga.body).toContain("YO Studios");
     expect(yinYoga.body).toContain('<meta name="robots" content="index, follow');
@@ -294,13 +294,14 @@ describe("landing pages: activity, then city", () => {
     expect(body).toContain("<h1>Arrangementer i Aarhus</h1>");
     expect(body).toContain("<title>Hvad sker der i Aarhus? Events, arrangementer og aktiviteter – Flokken</title>");
     expect(body).toContain("I weekenden i Aarhus");
-    expect(body).toContain('href="/klarsyn/aarhus"');
+    expect(body).toContain('href="/klarsyn"');
+    expect(body).not.toContain('href="/klarsyn/aarhus"');
     expect(body).toContain("Arrangører i Aarhus");
   });
 
   it("old and long addresses move permanently; unknown ones are 404", async () => {
     const moved = async (path: string) => { const r = await get(path); return [r.status, r.headers.get("location")]; };
-    expect(await moved("/aarhus/meditation")).toEqual([301, "/meditation/aarhus"]);
+    expect(await moved("/aarhus/meditation")).toEqual([301, "/meditation"]);
     expect(await moved("/kategori/yoga")).toEqual([301, "/yoga"]);
     expect(await moved("/kategori/aandedraet-breathwork")).toEqual([301, "/breathwork"]);
     expect(await moved("/omraade/aarhus")).toEqual([301, "/aarhus"]);
@@ -333,7 +334,7 @@ describe("organisers", () => {
     expect(yogaskolen.status).toBe(200);
     expect(yogaskolen.body).toContain("Gratis prøvetime i yoga, afspænding og meditation de fleste torsdage kl. 20–21");
     expect((await text("/arrangoerer/yo-studios")).body).toContain("Margrethepladsen 4, 1. sal");
-    const yoga = (await text("/yoga/aarhus")).body;
+    const yoga = (await text("/yoga")).body;
     expect(yoga).toContain('href="/arrangoerer/yo-studios"');
     expect(yoga).toContain('href="/arrangoerer/skandinavisk-yoga-og-meditationsskole-aarhus"');
   });
@@ -397,9 +398,11 @@ describe("search engines and safety", () => {
     const prod: Env = { ...env, ENVIRONMENT: "production", PUBLIC_BASE_URL: "https://holistisk.org" };
     expect((await text("/robots.txt", prod)).body).toContain("Sitemap: https://holistisk.org/sitemap.xml");
     const sitemap = (await text("/sitemap.xml", prod)).body;
-    for (const p of ["/kalender", "/weekend", "/aarhus", "/meditation", "/meditation/aarhus", "/klarsyn/aarhus", "/buddhistisk-meditation/aarhus", "/arrangoerer/lysets-hus", "/arrangoerer/voxhall", "/yin-yoga/aarhus"]) {
+    for (const p of ["/kalender", "/weekend", "/aarhus", "/meditation", "/klarsyn", "/buddhistisk-meditation", "/arrangoerer/lysets-hus", "/arrangoerer/voxhall", "/yin-yoga"]) {
       expect(sitemap).toContain(`<loc>https://holistisk.org${p}</loc>`);
     }
+    // Only one city, so no /meditation/aarhus: it was a second copy of /meditation.
+    expect(sitemap).not.toContain("<loc>https://holistisk.org/meditation/aarhus</loc>");
     expect(sitemap).not.toContain("<loc>https://holistisk.org/kakaoceremoni/randers</loc>");
     expect(sitemap).not.toContain("<loc>https://holistisk.org/horsens</loc>");
     expect((await text("/", prod)).body).toContain('<link rel="canonical" href="https://holistisk.org/">');
@@ -463,12 +466,12 @@ describe("search engines and safety", () => {
   });
 
   it("share cards, language and security headers", async () => {
-    const r = await get("/meditation/aarhus");
+    const r = await get("/meditation");
     const body = await r.text();
     expect(body).toContain('<meta name="twitter:card" content="summary_large_image">');
     expect(body).toContain('<meta property="og:image" content="https://portal.example/assets/og.jpg">');
-    expect(body).toContain('<link rel="alternate" hreflang="da" href="https://portal.example/meditation/aarhus">');
-    expect(body).toContain('<link rel="alternate" hreflang="en" href="https://portal.example/en/meditation/aarhus">');
+    expect(body).toContain('<link rel="alternate" hreflang="da" href="https://portal.example/meditation">');
+    expect(body).toContain('<link rel="alternate" hreflang="en" href="https://portal.example/en/meditation">');
     expect(r.headers.get("content-security-policy")).toContain("default-src 'self'");
     // The profile photo is made small in the browser from a blob: picture.
     expect(r.headers.get("content-security-policy")).toMatch(/img-src [^;]*blob:/);
