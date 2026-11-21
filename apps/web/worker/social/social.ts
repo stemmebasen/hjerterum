@@ -460,6 +460,7 @@ export async function planWeek(env: SocialEnv, deps: SagaDeps, db: D1Database, m
   // With eventsOnly (Saga's proposals for every event as soon as it is in the calendar), "Ugens events" is left for Thursday's plan.
   const planned = options.eventsOnly || Boolean(await db.prepare("SELECT 1 AS yes FROM social_posts WHERE source_key = ?").bind(`week:${week}`).first().catch(() => null));
   if (options.onlyNew && !planned) return { made: 0, events: 0, fresh: 0 };
+  await setAsideLeftToOthers(db, now);
   const events = await weekEvents(db, monday, deps.fetcher);
   if (!events.length) return { made: 0, events: 0, fresh: 0 };
   const chosen = pickWeekEvents(events, await wishedKeys(db), EVERY_EVENT);
@@ -471,7 +472,7 @@ export async function planWeek(env: SocialEnv, deps: SagaDeps, db: D1Database, m
   const series = options.series ?? await seriesMap(db, now);
   const fresh = chosen.filter(e => {
     // The chair (5 Nov 2026): "Det skal være et nødstilfælde, hvis et event skal promoveres, når det foregår på samme dag." - never proposed by Saga on the day.
-    if (known.has(`event:${week}:${e.key}`) || lastPostMs(e.startsMs) < now + 30 * MINUTE) return false;
+    if (known.has(`event:${week}:${e.key}`) || lastPostMs(e.startsMs) < now + 30 * MINUTE || leftToOthers(e)) return false;
     const told = series.get(titleKey(e)) ?? [];
     if (told.some(t => t !== e.startsMs && Math.abs(t - e.startsMs) < SERIES_GAP_MS)) return false;
     series.set(titleKey(e), [...told, e.startsMs]);
@@ -511,6 +512,26 @@ export async function planWeek(env: SocialEnv, deps: SagaDeps, db: D1Database, m
 
 const titleKey = (e: Pick<NewsletterEvent, "title">) => listTitle(e.title).toLocaleLowerCase("da-DK");
 
+/** Lisbeth (20 Nov 2026): "Jeg tænker måske det er bedre at jeg selv laver pr opslag for Healings tilbuddet ... så du kan også bare tage det af som pr" - the
+ * chair: "Ja for 2026". Saga makes no posts of her own about these offers until the end of 2026 (they are still in "Ugens events"' list); the chair can
+ * still make one in Plakater og opslag. */
+export const LEFT_TO_OTHERS: Array<{ title: string; untilMs: number; who: string }> = [
+  { title: "healing tilbud i hjerterum", untilMs: Date.parse("2026-12-31T23:00:00Z"), who: "Lisbeth" }
+];
+export const leftToOthers = (e: Pick<NewsletterEvent, "title" | "startsMs">) =>
+  LEFT_TO_OTHERS.find(r => titleKey(e) === r.title && e.startsMs < r.untilMs) ?? null;
+/** Saga's own proposals about such an offer that are not out yet are set aside. */
+async function setAsideLeftToOthers(db: D1Database, nowMs: number): Promise<void> {
+  for (const r of LEFT_TO_OTHERS) {
+    const rows = await db.prepare(`SELECT id, json_extract(source, '$.title') AS title, json_extract(source, '$.startsMs') AS starts FROM social_posts
+        WHERE kind = 'event' AND status IN ('draft', 'approved') AND json_extract(source, '$.startsMs') < ?`).bind(r.untilMs)
+      .all<{ id: number; title: string | null; starts: number | null }>().then(x => x.results ?? []).catch(() => []);
+    for (const row of rows) if (row.title && row.starts && leftToOthers({ title: row.title, startsMs: row.starts }))
+      await db.prepare("UPDATE social_posts SET status = 'skipped', error = ?, updated_at_ms = ? WHERE id = ? AND status IN ('draft', 'approved')")
+        .bind(`${r.who} laver selv opslagene om dette tilbud`, nowMs, row.id).run();
+  }
+}
+
 /** The events told about lately and ahead, by title: a weekly class gets its own posts every fourth week (SERIES_GAP_MS). */
 async function seriesMap(db: D1Database, nowMs: number): Promise<Map<string, number[]>> {
   const rows = await db.prepare(`SELECT DISTINCT json_extract(source, '$.title') AS title, json_extract(source, '$.startsMs') AS starts FROM social_posts WHERE kind = 'event'
@@ -527,7 +548,8 @@ export async function planShouts(env: SocialEnv, deps: SagaDeps, db: D1Database)
   const now = deps.now();
   const firsts = (await socialPosts(db, `kind = 'event' AND coalesce(json_extract(source, '$.shout'), 1) = 1 AND status IN ('draft', 'approved', 'publishing', 'published')
       AND json_extract(source, '$.startsMs') > ? AND NOT EXISTS (SELECT 1 FROM social_posts t WHERE t.source_key = social_posts.source_key || ':2')`, [now], "json_extract(source, '$.startsMs'), id", 60))
-    .filter(p => p.source.startsMs && p.source.key && p.source.shouts !== 1 && shoutWindows(p.source.startsMs, now).length === 2);
+    .filter(p => p.source.startsMs && p.source.key && p.source.shouts !== 1 && shoutWindows(p.source.startsMs, now).length === 2
+      && !leftToOthers({ title: p.source.title ?? "", startsMs: p.source.startsMs }));
   if (!firsts.length) return 0;
   const events = firsts.map(p => ({ key: p.source.key!, title: p.source.title ?? "", startsMs: p.source.startsMs!, host: p.source.host ?? null, ...(p.source.times ? { times: p.source.times } : {}), description: "", link: p.link ?? "",
     imageUrl: p.images[0] ?? null, endsMs: null, category: null, mornings: false }) as NewsletterEvent);
