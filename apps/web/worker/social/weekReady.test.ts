@@ -40,6 +40,16 @@ describe("telling the chair about Ugens events", () => {
     expect(said()).toHaveLength(1);
   });
 
+  it("says the film goes out by itself, as the weekly job lays it in approved (the chair, 23 Nov 2026: \"Fremover kræver ugens reels ikke godkendelse\")", async () => {
+    const { db, env, services, reel, said } = await setup();
+    await reel();
+    await db.prepare("UPDATE social_posts SET status = 'approved', approved_by = 'Automatisk (ugens reel)' WHERE source_key = 'reel:2026-W47'").run();
+    expect(await tellWeekReady(env, deps(services.fetcher, PLANNED + 3_700_000), db)).toBe("film");
+    expect(said()[0]).toContain("går ud af sig selv");
+    expect(said()[0]).toContain("Fortryd godkendelsen");
+    expect(said()[0]).not.toContain("godkend den her");
+  });
+
   it("tells about the picture post alone when no film has come the day after", async () => {
     const { db, env, services, said } = await setup();
     expect(await tellWeekReady(env, deps(services.fetcher, PLANNED + 20 * 3_600_000), db)).toBeNull();

@@ -1206,7 +1206,11 @@ export async function tellWeekReady(env: SagaEnv, deps: SagaDeps, db: D1Database
     await db.prepare("UPDATE social_posts SET source = json_set(source, '$.videoNotifiedAtMs', ?) WHERE id = ?").bind(now, reel.id).run();
     const { quickLink } = await import("./quickLink.js");
     const link = await quickLink(env, reel.id, now) ?? `${cockpitUrl(env)}/pr/uge`;
-    await tellChair(env, deps, `Filmen med "Ugens events" for uge ${n} er klar. Se den og godkend den her: ${link}\nDen går ud på Facebook og Instagram mandag kl. ${clock(reel.publish_at_ms ?? picture.publish_at_ms ?? now)}.`);
+    // "Fremover kræver ugens reels ikke godkendelse" (the chair, 23 Nov 2026): the film goes out by itself; the chair is told and may look or stop it.
+    const auto = reel.status === "approved";
+    await tellChair(env, deps, auto
+      ? `Filmen med "Ugens events" for uge ${n} er klar og går ud af sig selv på Facebook og Instagram mandag kl. ${clock(reel.publish_at_ms ?? picture.publish_at_ms ?? now)}. Se den her - vil du ikke have den ud, så tryk "Fortryd godkendelsen": ${link}`
+      : `Filmen med "Ugens events" for uge ${n} er klar. Se den og godkend den her: ${link}\nDen går ud på Facebook og Instagram mandag kl. ${clock(reel.publish_at_ms ?? picture.publish_at_ms ?? now)}.`);
     return "film";
   }
   await tellChair(env, deps, `"Ugens events" for uge ${n} er klar som billedopslag - filmen er ikke lavet endnu. Læs det, ret det og godkend her: ${cockpitUrl(env)}/pr/uge`);

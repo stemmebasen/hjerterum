@@ -176,8 +176,10 @@ async function weekJob(weekPath, eventsPath, out, now) {
   // then stays home (social.ts publishOne).
   const at = Number(w.publish_at_ms);
   writeFileSync(join(out, "jobs.json"), JSON.stringify([{ composition: "Week", props, out: `${name}.mp4`, name,
-    sql: "INSERT OR IGNORE INTO social_posts (kind, source_key, week, channels, text, link, images, source, publish_at_ms, status, created_at_ms, updated_at_ms) VALUES " +
-      `('week', ${sql("reel:" + w.week)}, ${sql(w.week)}, '["facebook","instagram"]', ${sql(caption)}, NULL, '[]', ${sql(JSON.stringify(reelSource))}, ${at}, 'draft', ${now}, ${now});` }], null, 2));
+    // The chair (23 Nov 2026): "Fremover kræver ugens reels ikke godkendelse" - the reel is laid in as approved and goes out at its time by itself; the chair
+    // can still see, change or stop it in admin before then.
+    sql: "INSERT OR IGNORE INTO social_posts (kind, source_key, week, channels, text, link, images, source, publish_at_ms, status, approved_by, approved_at_ms, created_at_ms, updated_at_ms) VALUES " +
+      `('week', ${sql("reel:" + w.week)}, ${sql(w.week)}, '["facebook","instagram"]', ${sql(caption)}, NULL, '[]', ${sql(JSON.stringify(reelSource))}, ${at}, 'approved', 'Automatisk (ugens reel)', ${now}, ${now}, ${now});` }], null, 2));
   console.log("Ugens reel:", name, events.length, "events");
 }
 
