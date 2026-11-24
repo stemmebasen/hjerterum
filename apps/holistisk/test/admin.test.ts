@@ -381,7 +381,8 @@ describe("the information meeting (Jake 2026-11-24)", () => {
     expect(words).not.toMatch(/gratis|gave|rabat/i);
     const front = (await call("/")).body;
     expect(front).toContain('<aside class="info-teaser" aria-labelledby="h-info">');
-    expect(front).toContain('<a class="info-note" href="/informationsmoede">');
+    // The top has one quiet line for the meeting and the start-up (Jake 2026-11-24: fewer boxes).
+    expect(front).toContain('Kom til <a href="/informationsmoede">informationsmøde 12. januar</a>');
     expect(front).toContain("Informationsmøde 12. januar");
     // Gone from the front page once the meeting has started; the page then says so after it ends.
     const start = Date.parse("2027-01-12T19:30:00+01:00");

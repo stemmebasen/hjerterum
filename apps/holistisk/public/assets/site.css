@@ -268,9 +268,11 @@ button:active, .button:active { transform: translateY(3px); box-shadow: 0 0 0 va
 .calendar-cta-text span { font-weight: 700; font-size: .98rem; color: var(--berry); }
 .calendar-cta-arrow { flex: none; display: grid; place-items: center; width: 48px; height: 48px; border-radius: 50%; background: var(--ink); color: var(--butter); font: 700 1.6rem/1 var(--display); }
 @media (max-width: 380px) { .calendar-cta { gap: 12px; padding: 12px 14px 12px 12px; } .calendar-cta-icon { width: 42px; height: 42px; } .calendar-cta-arrow { width: 40px; height: 40px; } }
-.startup-note { margin: 22px 0 0; padding: 12px 16px; max-width: 36em; background: var(--paper-2); border-left: 5px solid var(--berry); border-radius: var(--radius-s); font-size: 1rem; line-height: 1.5; }
-.startup-note a { font-weight: 700; white-space: nowrap; }
-.startup-note a::after { content: " →"; }
+/* The top's one quiet line under "Se kalenderen" (Jake 2026-11-24: fewer boxes and less text). */
+.hero-note { display: flex; align-items: center; gap: 12px; margin: 22px 0 0; max-width: 34em; font-size: .98rem; line-height: 1.45; color: var(--ink-2); }
+.hero-note a { color: var(--berry); font-weight: 700; }
+.hero-note-date { flex: none; display: grid; place-items: center; width: 42px; height: 42px; border-radius: 10px; background: var(--berry); color: #fff; font: 700 .64rem/1 var(--display); text-transform: uppercase; }
+.hero-note-date strong { font-size: 1.15rem; line-height: 1; }
 @media (prefers-reduced-motion: reduce) { .calendar-cta, .calendar-cta:hover, .calendar-cta:focus-visible { transform: none; } }
 .quick-links { list-style: none; display: flex; flex-wrap: wrap; gap: 8px; margin: 14px 0 0; padding: 0; }
 .quick-links a { display: inline-block; padding: 6px 14px; border-radius: 999px; background: var(--card); border: 2px solid var(--rule); font-size: .92rem; font-weight: 700; }
@@ -575,12 +577,6 @@ button:active, .button:active { transform: translateY(3px); box-shadow: 0 0 0 va
 .partner-teaser p { margin-bottom: 0; max-width: 40em; }
 .partner-teaser .button { border-color: var(--butter); box-shadow: 0 3px 0 var(--butter); }
 /* Informationsmødet (src/flokken/infoMeeting.ts): a line in the front page's top and a box after the mission. */
-.info-note { display: flex; align-items: center; gap: 12px; margin: 18px 0 0; padding: 10px 16px 10px 10px; max-width: 30em; background: var(--card); color: var(--ink); border: 2px solid var(--berry); border-radius: var(--radius-s); text-decoration: none; line-height: 1.35; }
-.info-note:hover, .info-note:focus-visible { background: var(--berry-soft); }
-.info-note-date { flex: none; display: grid; place-items: center; width: 48px; height: 48px; border-radius: 10px; background: var(--berry); color: #fff; font: 700 .72rem/1 var(--display); text-transform: uppercase; }
-.info-note-date strong { font-size: 1.35rem; line-height: 1; }
-.info-note > span:last-child { display: grid; }
-.info-note > span:last-child > span { font-size: .92rem; color: var(--muted); }
 .info-teaser { margin-top: 40px; display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 12px 24px; background: var(--berry-soft); border: 3px solid var(--berry); border-radius: var(--radius); padding: 26px 30px; }
 .info-teaser > div { max-width: 40em; }
 .info-teaser .hero-kicker { color: var(--berry-dark); background: none; padding: 0; margin-bottom: .4em; }
