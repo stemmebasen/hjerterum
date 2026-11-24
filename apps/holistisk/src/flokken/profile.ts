@@ -29,13 +29,14 @@ export async function profileFor(db: D1Database, memberId: string): Promise<Prof
 export type ProfileValues = { firstName: string; ageGroup: string; intro: string; email: string | null };
 const EMAIL = /^[^\s@<>"(),;:]+@[^\s@<>"(),;:]+\.[a-z]{2,}$/i;
 
-export type ProfileForm = { firstName: string; ageGroup: string; intro: string; email: string; removePhoto: boolean; photoConsent: boolean };
+/** joinClub: the "Yes, jeg vil gerne være gratis medlem" tick above the save button (Jake 2026-11-24), only shown to non-members. */
+export type ProfileForm = { firstName: string; ageGroup: string; intro: string; email: string; removePhoto: boolean; photoConsent: boolean; joinClub?: boolean };
 export type ProfileErrors = Partial<Record<"firstName" | "ageGroup" | "intro" | "email" | "photo", string>>;
 export type Photo = { type: "image/jpeg" | "image/png" | "image/webp"; data: Uint8Array<ArrayBuffer> };
 
 export function readProfileForm(data: FormData): ProfileForm {
   const s = (k: string) => String(data.get(k) ?? "");
-  return { firstName: s("fornavn"), ageGroup: s("alder"), intro: s("om_mig"), email: s("email"), removePhoto: data.get("fjern_foto") === "ja", photoConsent: data.get("foto_samtykke") === "ja" };
+  return { firstName: s("fornavn"), ageGroup: s("alder"), intro: s("om_mig"), email: s("email"), removePhoto: data.get("fjern_foto") === "ja", photoConsent: data.get("foto_samtykke") === "ja", joinClub: data.get("medlem") === "ja" };
 }
 
 export const cleanIntro = (raw: string): string => maskContacts(raw.replace(/[\u0000-\u001f\u007f]/g, " ").replace(/\s+/g, " ").trim());

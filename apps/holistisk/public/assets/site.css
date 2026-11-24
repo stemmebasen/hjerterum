@@ -691,6 +691,10 @@ button:active, .button:active { transform: translateY(3px); box-shadow: 0 0 0 va
 .avatar-large { width: 96px; height: 96px; }
 .small-label { font-size: .88rem; font-weight: 800; }
 .field-check.consent { margin-top: 4px; }
+/* "Yes, jeg vil gerne være gratis medlem" right above the save button on the profile (Jake 2026-11-24). */
+.join-club { background: var(--green-soft); border-radius: var(--radius-s); padding: 12px 14px; }
+.join-club label { align-items: flex-start; }
+.join-club input { flex: none; margin-top: 2px; }
 .field-error { color: var(--alert); font-size: .88rem; font-weight: 800; }
 .form-actions { display: flex; gap: 16px; align-items: center; flex-wrap: wrap; }
 .two-forms { display: grid; gap: 22px; grid-template-columns: 1fr; }
