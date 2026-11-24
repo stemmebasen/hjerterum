@@ -370,6 +370,10 @@ export function SiteHome({ header, month, plans, coming }: { header: ReactNode; 
       <div className="site-section-head"><div><p className="lys-kicker">Vil du selv bruge Hjerterum?</p><h2>Lej salen til dit event</h2><p>{ABOUT_WORDS.teachers}</p></div><a className="lys-link" href="/brug-hjerterum">Brug Hjerterum →</a></div>
       <BookingChoice />
     </section>
+    {/* Douglas (22 Nov 2026): "maybe we should have a link to the donations page be made more visible, even on the start page". */}
+    <section className="site-home-section site-donate">
+      <div className="site-section-head"><div><p className="lys-kicker">Støt Hjerterum</p><h2>Giv en donation</h2><p>Donationer er – sammen med medlemskontingent og leje af salen – det, der får Hjerterum til at løbe rundt. Enhver donation, lille som stor, modtages med stor taknemmelighed.</p></div><a className="lys-btn ghost" href="/stoet">Giv en donation</a></div>
+    </section>
     {/* Reported: "Cirkler mangler sit flotte logo, og jeg er sikker på, at du kan gøre dette vindue flottere" - CIRKLER's own logo
         (public/media/cirkler-logo.png) in their gold, with its rings echoed quietly behind the words. */}
     <section className="site-cirkler">

@@ -53,6 +53,8 @@ export const ENGLISH = { label: "EN", title: "Read this page in English (Google 
 export const translateUrl = (pageUrl: string) => `https://translate.google.com/translate?sl=da&tl=en&u=${encodeURIComponent(pageUrl)}`;
 /** Requested: "relevante links i footeren": Handelsbetingelser, Privatlivspolitik, Cookies, © Hjerterum F.M.B.A. and the version. */
 export const LEGAL_LINKS = [
+  // Douglas (22 Nov 2026): the donations page more visible - on every page's foot too.
+  { label: "Støt Hjerterum", href: "/stoet" },
   { label: "Handelsbetingelser", href: "/handelsbetingelser" },
   { label: "Privatlivspolitik", href: "/privatliv" },
   { label: "Cookies", href: "/cookies" }
@@ -423,8 +425,8 @@ Har du spørgsmål om din donation, så skriv til [[mail]].`,
     path: "/medlemskab/vilkaar", lang: "da", section: "medlemskab",
     kicker: "Medlemskab", title: "Vilkår", em: "for medlemskab",
     lead: "De betingelser, der gælder, når du melder dig ind i Hjerterum F.M.B.A.",
-    description: "Vilkår for medlemskab af Hjerterum: betaling, opsigelse, bindingsperiode og prøveperiode.",
-    card: { title: "Vilkår for medlemskab", text: "Betaling, opsigelse, bindingsperiode og prøveperiode." },
+    description: "Vilkår for medlemskab af Hjerterum: betaling, opsigelse, bindingsperiode, fortrydelsesret og prøveperiode.",
+    card: { title: "Vilkår for medlemskab", text: "Betaling, opsigelse, bindingsperiode, fortrydelsesret og prøveperiode." },
     body: `## Aftalen
 Handelsbetingelserne gælder mellem dig og Hjerterum F.M.B.A. Medlemskabet er personligt og kan ikke overdrages eller deles med andre.
 
@@ -446,6 +448,9 @@ Du opsiger selv dit medlemskab, når du er logget ind: gå til [Min profil → M
 Bindingsperioden er løbende måned + 1 måned. Det betyder, at du betaler én gang mere, efter du har opsagt.
 
 Gennemføres en kortbetaling af en eller anden grund ikke, er du stadig medlem, indtil du opsiger – og betalingen forventes at fortsætte.
+
+## Fortrydelsesret {#fortrydelse}
+Når du køber medlemskab, har du 14 dages fortrydelsesret fra købet. Beder du os om at starte medlemskabet med det samme, og fortryder du inden for de 14 dage, betaler du for den del, du har haft. Fortryd ved at skrive til [[mail]] inden fristen. Læs mere i [handelsbetingelserne](/handelsbetingelser#fortrydelse).
 
 ## Gratis prøveperiode
 Tilbyder vi en gratis prøveperiode, kan den kun bruges én gang. Opsiger du og vil melde dig ind igen, logger du ind på din konto og opdaterer dine betalingsoplysninger.

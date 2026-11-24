@@ -285,7 +285,7 @@ describe("one who joins here", () => {
     const first = await processMemberStripeEvent(db, { id: "evt_new", type: "checkout.session.completed", created: NOW / 1000,
       data: { object: { customer: "cus_Eva", subscription: "sub_Eva", metadata: { clerk_user_id: "user_eva", tier: "reduceret", interval: "year", full_name: "Eva Lund", terms_accepted_at: "1700000000000" },
         customer_details: { email: "eva@example.dk" } } } } as never);
-    expect(first.welcome).toEqual({ email: "eva@example.dk", fullName: "Eva Lund", tier: "reduceret", interval: "year", trialDays: 30 });
+    expect(first.welcome).toEqual({ email: "eva@example.dk", fullName: "Eva Lund", tier: "reduceret", interval: "year", trialDays: 0 });
     expect((await db.prepare("SELECT terms_accepted_at_ms FROM members WHERE clerk_user_id = 'user_eva'").first<{ terms_accepted_at_ms: number }>())!.terms_accepted_at_ms).toBe(1700000000000);
     const again = await processMemberStripeEvent(db, { id: "evt_again", type: "checkout.session.completed", created: NOW / 1000,
       data: { object: { customer: "cus_Eva", subscription: "sub_Eva2", metadata: { clerk_user_id: "user_eva", tier: "standard", interval: "month", full_name: "Eva Lund" },

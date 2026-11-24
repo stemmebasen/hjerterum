@@ -199,7 +199,8 @@ export function EventPlanner({ clerk, plan, onChange, markedDates, ignoreId, onP
               <p className="lys-sub" role="status">{status === "loading" ? "Henter dagen …" : status === "error" ? "Dagen kunne ikke hentes. Du kan stadig vælge tid." : shown.length ? `${shown.length} ting i salen den dag. Tryk på et ledigt tidspunkt, eller træk dit event op og ned.` : "Salen er ledig hele dagen. Tryk på et tidspunkt, eller træk dit event op og ned."}</p>
               <div className="planner-track" style={{ height: TRACK_HEIGHT }} onClick={clickTrack} aria-hidden="true">
                 {Array.from({ length: LAST_HOUR - FIRST_HOUR + 1 }, (_, i) => <span className="planner-hour" key={i} style={{ top: i * HOUR_PX }}>{String(FIRST_HOUR + i).padStart(2, "0")}</span>)}
-                {EVENING_FROM > FIRST_HOUR * 60 && <div className="planner-evening" style={{ top: topOf(EVENING_FROM) }}><span>18.30 · aftentakst</span></div>}
+                {/* Douglas (22 Nov 2026): "The line at 18.30 needs to be removed in the weekends, otherwise it is confusing" - the weekend is evening rate all day. */}
+                {EVENING_FROM > FIRST_HOUR * 60 && weekdayOf(plan.date) > 0 && weekdayOf(plan.date) < 6 && <div className="planner-evening" style={{ top: topOf(EVENING_FROM) }}><span>18.30 · aftentakst</span></div>}
                 {lanes(shown.map((entry) => entryMinutes(entry, plan.date))).map((lane, index) => {
                   const entry = shown[index]!, range = entryMinutes(entry, plan.date);
                   if (!range || !lane) return null;
@@ -252,7 +253,9 @@ export function EventPlanner({ clerk, plan, onChange, markedDates, ignoreId, onP
         </label>
       </div>
       <p className="planner-summary">{plan.date && chosenOk
-        ? <>{"Salen er din "}<b>{`${danishClock(room.from)}–${danishClock(room.to)}`}</b>{` med klargøring og oprydning. Lejen regnes for ${hoursText(pricedSpan(room.from, room.to).to - pricedSpan(room.from, room.to).from)}.`}
+        ? <>{"Salen er din "}<b>{`${danishClock(room.from)}–${danishClock(room.to)}`}</b>{/* Douglas (22 Nov 2026): "Always says rental is for 8.5 hours (at the bottom)" - a text beside other elements is a text node of its own, which React
+            changes behind Google's translation; in a span of its own it is replaced whole and translated again. */}
+          <span>{` med klargøring og oprydning. Lejen regnes for ${hoursText(pricedSpan(room.from, room.to).to - pricedSpan(room.from, room.to).from)}.`}</span>
           {atMax && <span className="planner-limit">{` Senere kan eventet ikke slutte med denne starttid: salen lejes højst 10 timer i træk, klargøring og oprydning medregnet. Start tidligere, eller gør klargøringen kortere.`}</span>}</>
         : "Salen lejes 2–10 timer i halve timer. Klargøring og oprydning lejes med, så næste event ikke står i døren."}</p>
       {plan.date && problem && <p className="planner-problem" role="alert">{PROBLEM_TEXT[problem]}</p>}

@@ -132,12 +132,12 @@ describe("the membership cockpit", () => {
     });
 
     // Douglas (13 Nov 2026), for the board: "There must be an ability to make a free trial period available in the membership levels".
-    it("keep a free trial for each level, 30 days unless changed", async () => {
+    it("keep a free trial for each level, none unless changed", async () => {
       const { call, form, douglas } = await setup();
-      expect(membershipPlans.reduceret.trialDays).toBe(30);
-      await call("/medlemskab/niveauer", { method: "POST", cookie: douglas, body: form({ tier: "reduceret", name: "Reduceret pris medlemskab", description: membershipPlans.reduceret.description, month: "111", year: "1.155", trial: "0" }) });
       expect(membershipPlans.reduceret.trialDays).toBe(0);
-      expect(await (await call("/medlemskab/niveauer", { cookie: douglas })).text()).toContain("prøveperiode: 30 → 0 dage");
+      await call("/medlemskab/niveauer", { method: "POST", cookie: douglas, body: form({ tier: "reduceret", name: "Reduceret pris medlemskab", description: membershipPlans.reduceret.description, month: "111", year: "1.155", trial: "14" }) });
+      expect(membershipPlans.reduceret.trialDays).toBe(14);
+      expect(await (await call("/medlemskab/niveauer", { cookie: douglas })).text()).toContain("prøveperiode: 0 → 14 dage");
       const bad = await call("/medlemskab/niveauer", { method: "POST", cookie: douglas, body: form({ tier: "reduceret", name: "Reduceret pris medlemskab", description: "", month: "111", year: "1.155", trial: "900" }) });
       expect(bad.status).toBe(400);
     });
