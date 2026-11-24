@@ -41,6 +41,10 @@ export const POWERS = {
   "social.manage": { label: "PR og sociale medier: forbinde Facebook og Instagram, dele opslag Hjerterum er tagget i, og godkende ugens opslag", needs: "personal" },
   // Requested: "de designskabeloner, vi har lavet til eventoprettelse, skal kun bruges i cockpittet, så man - eller det vil sige mig til at begynde med - kan bruge dem" (3 Nov 2026).
   "posters.design": { label: "Plakater og opslag: lave opslag med Hjerterums skabeloner af eventets og underviserens materiale, og sætte eventets design på hjemmesiden", needs: "personal" },
+  // Asked (the chair, 24 Nov 2026): "Er det muligt han [Douglas] på en eller måde kan chatte med ai om ændringerne - og så ligger den endelig implementering og
+  // godkendelse stadig hos mig?" - "Ja" (wishes.ts). Douglas and the chair talk wishes through with Saga; only the chair decides.
+  "wishes.write": { label: "Ønsker og fejl: tale et ønske eller en fejl igennem med Saga og sende det til formanden", needs: "personal", also: ["Douglas"] },
+  "wishes.decide": { label: "Ønsker og fejl: godkende eller afvise ønskerne og markere dem som lavet", needs: "personal" },
   // Requested: "Gør mig i stand til at slette CIRKLER-møder som formand" (3 Nov 2026) - new, so the chair's first.
   "cirkler.delete": { label: "Slette et CIRKLER-møde i salen, så salen bliver ledig", needs: "personal" }
 } as const satisfies Record<string, { label: string; needs: "named" | "personal"; also?: readonly string[] }>;
