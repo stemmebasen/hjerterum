@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import { handleCockpitRequest } from "./handler.js";
 import { BOARD, deps, fakeServices, OWNER, personalCookie, sagaEnv, testDatabase, memberCookie } from "../saga/test-support.js";
 import { saveBoardMessage } from "../saga/store.js";
+import { namedPage } from "./wishes.js";
 
 // Asked (the chair, 24 Nov 2026): "Er det muligt han på en eller måde kan chatte med ai om ændringerne - og så ligger den endelig implementering og godkendelse
 // stadig hos mig?" - "Ja".
@@ -21,7 +22,7 @@ async function setup() {
   } });
   const env = sagaEnv(db, { COCKPIT_PASSWORD: "hjerte-2026" });
   const call = (path: string, init: RequestInit & { cookie?: string } = {}) => handleCockpitRequest(new Request(ORIGIN + path, {
-    ...init, redirect: "manual", headers: { ...(init.method === "POST" ? { origin: ORIGIN } : {}), ...(init.cookie ? { cookie: init.cookie } : {}) } }), env, deps(services.fetcher, NOW));
+    ...init, redirect: "manual", headers: { ...(init.method === "POST" ? { origin: ORIGIN } : {}), ...(init.cookie ? { cookie: init.cookie } : {}), ...((init.headers ?? {}) as Record<string, string>) } }), env, deps(services.fetcher, NOW));
   const form = (fields: Record<string, string>) => { const f = new FormData(); for (const [k, v] of Object.entries(fields)) f.append(k, v); return f; };
   const session = ((await call("/login", { method: "POST", body: form({ password: "hjerte-2026" }) })).headers.get("set-cookie") ?? "").split(";")[0]!;
   return { db, call, form, services, asked, lisbeth: await memberCookie(session, "Lisbeth"), chair: await personalCookie("Jacob Hauge", NOW), douglas: await personalCookie("Douglas Crawford", NOW) };
@@ -44,9 +45,17 @@ describe("wishes and faults in admin", () => {
     await call(`/oensker/${id}/send`, { method: "POST", cookie: douglas });
     expect((await db.prepare("SELECT status FROM wishes WHERE id = ?").bind(id).first<{ status: string }>())!.status).toBe("open");
 
-    await call(`/oensker/${id}/besked`, { method: "POST", cookie: douglas, body: form({ text: "The event page" }) });
-    // Saga sees the whole conversation, and what she knows about the system.
+    // The live chat: the message goes without a reload, and the conversation and the wish come back as pieces of the page.
+    const live = await call(`/oensker/${id}/besked`, { method: "POST", cookie: douglas, body: form({ text: "The event page" }), headers: { accept: "application/json" } });
+    expect(live.status).toBe(200);
+    const pieces = await live.json() as { chat: string; card: string; notice: string };
+    expect(pieces.chat).toContain("The event page");
+    expect(pieces.card).toContain("Bigger sign-up button on the event page");
+    // Saga is a sparring partner who knows the system, the board's decisions and the rules.
     expect(asked[1]).toContain("Eventplanlæggeren");
+    expect(asked[1]).toContain("kritisk");
+    expect(asked[1]).toContain("BESTYRELSENS BESLUTNINGER");
+    expect(asked[1]).toContain("LEJE AF SALEN");
     const page = await (await call(`/oensker/${id}`, { cookie: douglas })).text();
     expect(page).toContain("Bigger sign-up button on the event page");
     expect(page).toContain("Send ønsket til formanden");
@@ -73,5 +82,32 @@ describe("wishes and faults in admin", () => {
 
     await call(`/oensker/${id}/lavet`, { method: "POST", cookie: chair });
     expect((await db.prepare("SELECT status FROM wishes WHERE id = ?").bind(id).first<{ status: string }>())!.status).toBe("done");
+
+    // A wish can be let go.
+    const other = (await call("/oensker/ny", { method: "POST", cookie: douglas })).headers.get("location")!.split("/").pop()!;
+    await call(`/oensker/${other}/opgiv`, { method: "POST", cookie: douglas });
+    expect((await db.prepare("SELECT status FROM wishes WHERE id = ?").bind(other).first<{ status: string }>())!.status).toBe("dropped");
+  });
+
+  it("answers the live chat with the conversation and the wish as pieces of the page", async () => {
+    const { call, form, douglas } = await setup();
+    const id = (await call("/oensker/ny", { method: "POST", cookie: douglas })).headers.get("location")!.split("/").pop()!;
+    const response = await call(`/oensker/${id}/besked`, { method: "POST", cookie: douglas, body: form({ text: "The sign-up button is too small" }), headers: { accept: "application/json" } });
+    expect(response.status).toBe(200);
+    const body = await response.json() as { chat: string; card: string; notice: string };
+    expect(body.chat).toContain("The sign-up button is too small");
+    expect(body.chat).toContain("Which page were you on?");
+    expect(body.notice).toBe("");
+  });
+
+  it("reads the page of hjerterum.info that is named - and no other site", async () => {
+    const asked: string[] = [];
+    const fetcher = (async (url: string) => { asked.push(url); return new Response('<html><body><div id="root"><div data-prerender><h1>Lejepriser</h1><p>Standard: 300 kr.</p></div></div></body></html>'); }) as unknown as typeof fetch;
+    const text = await namedPage({ fetcher, now: () => NOW }, "Look at https://www.hjerterum.info/brug-hjerterum/lejepriser, please.");
+    expect(asked).toEqual(["https://www.hjerterum.info/brug-hjerterum/lejepriser"]);
+    expect(text).toContain("Lejepriser");
+    expect(text).toContain("Standard: 300 kr.");
+    expect(await namedPage({ fetcher, now: () => NOW }, "See https://evil.example/x")).toBe("");
   });
 });
+

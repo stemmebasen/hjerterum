@@ -89,7 +89,7 @@ import { memberLang, setMemberLang, translateHtml, type Lang } from "./i18n.js";
 import { signReminder, SIGN_STYLE } from "./signReminder.js";
 import { associationEvents, isAssocMeeting, rsvps, toggleRsvp } from "./assocEvents.js";
 import { cleanupCard, cleanupForChair, decideCleanup } from "./cleanup.js";
-import { decideWish, listWishes, markWishDone, newWish, sendWish, talkAboutWish, wishById, wishesPage, wishMessages, wishPage, type WishError } from "./wishes.js";
+import { decideWish, dropWish, listWishes, markWishDone, newWish, sendWish, talkAboutWish, wishById, wishCard, wishChat, wishesPage, wishMessages, wishPage, type WishError } from "./wishes.js";
 import { autoTranslated, frontPageTexts, translatePage, translatedMinutes, translateMinutes, translateTexts, translations } from "./translate.js";
 import { archivePage, decisionsPage, layout, linkPage, loginPage, meetingPage, meetingsPage, menuForPowers, menuPage, morePage, overviewPage, shortDay, statusPage, whoPage, type PastMeeting } from "./page.js";
 
@@ -549,15 +549,15 @@ async function route(request: Request, env: SagaEnv, deps: SagaDeps, state: Stat
       if (!object) return html(notFound(base, who), 404);
       return new Response(await object.arrayBuffer(), { headers: { "content-type": row!.image_type ?? "application/octet-stream", "cache-control": "private, max-age=3600", "x-content-type-options": "nosniff" } });
     }
-    const match = /^\/oensker\/(\d+)(?:\/(besked|send|afgoer|lavet))?$/.exec(path);
+    const match = /^\/oensker\/(\d+)(?:\/(besked|send|afgoer|lavet|opgiv))?$/.exec(path);
     const wish = match ? await wishById(db, Number(match[1])) : null;
     if (!match || !wish) return html(notFound(base, who), 404);
     const mine = wish.author === who;
     const action = match[2];
+    const errors: Record<WishError, string> = { empty: "Skriv noget til Saga, eller vælg et skærmbillede.", image_type: "Skærmbilledet skal være PNG, JPG, WebP eller GIF.",
+      image_size: "Skærmbilledet må højst fylde 4 MB.", closed: "Samtalen er lukket - start et nyt ønske.", ai: "Saga kunne ikke svare lige nu. Det, du skrev, er gemt - prøv igen om lidt." };
     if (!action && request.method === "GET") {
       const notices: Record<string, string> = { sendt: "Ønsket er sendt til formanden. Du kan se her, når det er afgjort.", godkendt: "Ønsket er godkendt.", afvist: "Ønsket er afvist." };
-      const errors: Record<WishError, string> = { empty: "Skriv noget til Saga, eller vælg et skærmbillede.", image_type: "Skærmbilledet skal være PNG, JPG, WebP eller GIF.",
-        image_size: "Skærmbilledet må højst fylde 4 MB.", closed: "Samtalen er lukket - start et nyt ønske.", ai: "Saga kunne ikke svare lige nu. Det, du skrev, er gemt - prøv igen om lidt." };
       return html(wishPage(base, who, { wish, messages: await wishMessages(db, wish.id), chair, mine, notice: notices[url.searchParams.get("besked") ?? ""] ?? "",
         error: errors[url.searchParams.get("fejl") as WishError] ?? "" }));
     }
@@ -567,7 +567,19 @@ async function route(request: Request, env: SagaEnv, deps: SagaDeps, state: Stat
       if (!mine && !chair) return denied("wishes.decide");
       const file = form?.get("image");
       const failed = await talkAboutWish(env, deps, db, wish, who, { text: String(form?.get("text") ?? ""), image: file && typeof file !== "string" ? file as File : null });
+      // The live chat (wishes.ts CHAT_SCRIPT) takes the conversation and the wish back as pieces of the page.
+      if ((request.headers.get("accept") ?? "").includes("application/json")) {
+        const now2 = (await wishById(db, wish.id)) ?? wish;
+        const view = { wish: now2, messages: await wishMessages(db, wish.id), chair, mine };
+        const english = (fragment: string) => state.lang === "en" ? translateHtml(fragment) : fragment;
+        return answer({ chat: english(wishChat(base, view.messages)), card: english(wishCard(base, view)), notice: failed ? english(`<p class="notice bad">${errors[failed]}</p>`) : "", closed: failed === "closed", title: now2.title });
+      }
       return redirect(`${base}/oensker/${wish.id}${failed ? `?fejl=${failed}` : ""}#bund`);
+    }
+    if (action === "opgiv") {
+      if (!mine && !chair) return denied("wishes.decide");
+      await dropWish(db, wish, now);
+      return redirect(`${base}/oensker`);
     }
     if (action === "send") {
       if (!mine && !chair) return denied("wishes.decide");
