@@ -1,6 +1,12 @@
 import type { D1Database } from "../db.js";
-import { completeAs } from "../saga/ai.js";
+import { complete } from "../saga/ai.js";
 import type { ChatPart, ChatMessage } from "../saga/ai.js";
+import { currentSiteForSaga } from "../site-knowledge.js";
+import { WRITER_MODEL } from "../social/writer.js";
+import { ROOM_RENTAL_RULES } from "../../../../packages/core/src/legacy-room-pricing.js";
+import { allDecisions, approvedMinutes, boardPicture } from "./data.js";
+import { decisionKinds, withKinds } from "./decisionKinds.js";
+import { membershipFacts } from "./membership.js";
 import type { SagaDeps, SagaEnv } from "../saga/env.js";
 import { telegramClient } from "../saga/telegram.js";
 import { esc, layout } from "./page.js";
@@ -11,14 +17,18 @@ import { esc, layout } from "./page.js";
  * Admin → Ønsker og fejl. Douglas (and the chair) talks a wish or a fault through with Saga, in his own words and language, with a screenshot if he
  * likes. Saga asks until it is clear and writes it as one wish; he sends it to the chair, who approves or turns it down with a note. Nothing on the
  * website changes from here: the approved wishes are what the chair hands on to be made (the list at the bottom), and the chair marks them done.
- * Saga answers questions about how things work from what she is told below - and says so when she does not know. */
+ * Saga answers questions about how things work from what she is told below - and says so when she does not know.
+ *
+ * Then (the chair, 24 Nov 2026): "Men tager hun blot imod diktat eller kan hun forstå hvad han forslår og lytte kritisk? Tænker bare det skal være en
+ * chat som her" - "Ja": she is a critical sparring partner in the best model, knows the board's decisions, the website's words, the rules for renting
+ * and membership, and reads a page of hjerterum.info that is named; the conversation is a live chat (no reload), and a wish can be dropped. */
 
-export type WishStatus = "open" | "sent" | "approved" | "rejected" | "done";
+export type WishStatus = "open" | "sent" | "approved" | "rejected" | "done" | "dropped";
 export type Wish = { id: number; author: string; status: WishStatus; title: string | null; summary: string | null; chair_note: string | null; decided_by: string | null;
   decided_at_ms: number | null; sent_at_ms: number | null; done_at_ms: number | null; created_at_ms: number; updated_at_ms: number };
 export type WishMessage = { id: number; wish_id: number; role: "person" | "saga"; author: string | null; text: string; image_key: string | null; image_type: string | null; at_ms: number };
 
-export const STATUS_TEXT: Record<WishStatus, string> = { open: "Under samtale", sent: "Venter på formanden", approved: "Godkendt", rejected: "Afvist", done: "Lavet" };
+export const STATUS_TEXT: Record<WishStatus, string> = { open: "Under samtale", sent: "Venter på formanden", approved: "Godkendt", rejected: "Afvist", done: "Lavet", dropped: "Opgivet" };
 const IMAGE_TYPES: Record<string, string> = { "image/png": "png", "image/jpeg": "jpg", "image/webp": "webp", "image/gif": "gif" };
 export const MAX_IMAGE_BYTES = 4 * 1024 * 1024;
 const MAX_TEXT = 4000;
@@ -55,21 +65,48 @@ const KNOWLEDGE = `Hjerterums nye system (november 2026):
 - Admin (admin.hjerterum.info): Medlemsoverblik (søgning på navn, e-mail, telefon og labels, filtre, eksport, medlemskort med historik, labels og fornyelsesdato), Medlemskaber (navne, beskrivelser, priser, prøveperiode - 0 dage som udgangspunkt - og restance-regel), Events, PR og SoMe (Sagas opslag på Facebook og Instagram; ugens reel går ud af sig selv), Posthus, Nyhedsbrev og Bestyrelse.
 - Priser og regler for leje og medlemskab ændres kun efter en beslutning i bestyrelsen.`;
 
-const SYSTEM = `Du er Saga, Hjerterums assistent, i admin under "Ønsker og fejl". Her fortæller et medlem af bestyrelsen om et ønske til hjemmesiden, medlemssiden eller admin - eller om en fejl, de har fundet. Formanden, Jacob, beslutter, hvad der bliver lavet; du ændrer ikke selv noget og lover aldrig, at noget bliver lavet.
+const SYSTEM = `Du er Saga, Hjerterums assistent, i admin under "Ønsker og fejl". Her taler et medlem af bestyrelsen med dig om et ønske til hjemmesiden, medlemssiden eller admin - eller om en fejl, de har fundet. Formanden, Jacob, beslutter, hvad der bliver lavet; du ændrer ikke selv noget og lover aldrig, at noget bliver lavet.
 
-Din opgave:
-1. Forstå ønsket eller fejlen helt: hvilken side eller hvilket sted, hvad personen gjorde, hvad der skete, og hvad de havde ventet eller ønsker i stedet. Er der et skærmbillede, så se på det.
-2. Spørg om det, der mangler - ét kort spørgsmål ad gangen, aldrig en lang liste. Gæt ikke.
-3. Spørger personen, hvordan noget virker, så svar kort ud fra det, du ved herunder. Ved du det ikke, så sig ærligt, at det kan Jacob svare på - og tilbyd at skrive det som et spørgsmål til ham.
-4. Når det er klart, så skriv ønsket: en kort titel og en beskrivelse, som en udvikler kan gå direkte i gang med - hvor, hvad der sker nu, hvad der ønskes, og personens egne ord, hvor de siger det bedst. Én ting pr. ønske; har personen flere, så tag dem én ad gangen og sig, at de næste kan få deres eget ønske bagefter.
-5. Er ønsket allerede på listen over tidligere ønsker, så sig det.
+Du er en kritisk og varm sparringspartner - ikke en sekretær, der tager diktat. Tænk selv:
+- Forstå først, hvad personen vil opnå, og hvorfor. Spørg til formålet, når det ikke er klart. Ét kort spørgsmål ad gangen.
+- Vurdér ønsket ærligt: Giver det mening for medlemmerne og huset? Strider det mod en beslutning i bestyrelsen, en regel for leje eller medlemskab eller noget, der allerede findes? Hvad kan det gå ud over andre steder (fx dem der bruger siden på telefonen, på engelsk via Google Oversæt, eller undervisere)? Er der en enklere løsning, der giver det samme?
+- Sig din mening, også når du er uenig - venligt og med en begrundelse. Foreslå alternativer. Er ønsket allerede løst, eller er det ikke en god idé, så sig det, og foreslå at lade det falde. Men det er personens ønske: vil de stadig, så skriv det - med din indvending i beskrivelsen, så Jacob kan se den.
+- Er det en fejl, så find ud af præcis hvor, hvad de gjorde, hvad der skete, og hvad de havde ventet - og om det kan skyldes Google Oversæt eller noget, der allerede er rettet.
+- Spørger personen, hvordan noget virker, så svar ud fra det, du ved herunder. Ved du det ikke, så sig ærligt, at det kan Jacob svare på. Du kan ikke se koden; om noget er svært at bygge, vurderer den, der bygger det.
+- Én ting pr. ønske. Har personen flere, så tag dem én ad gangen og sig, at de næste kan få deres eget ønske.
 
-Skriv altid på samme sprog som personen (engelsk til den, der skriver engelsk). Venligt, kort og konkret - ingen lange indledninger.
+Når ønsket er klart og gennemtænkt (eller personen beder dig skrive det), så skriv det: en kort titel og en beskrivelse, som en udvikler kan gå direkte i gang med - hvor, hvad der sker nu, hvad der ønskes og hvorfor, personens egne ord, hvor de siger det bedst, og dine eventuelle indvendinger eller forslag. Skriv ønsket på samme sprog som personen.
 
-${KNOWLEDGE}
+Skriv altid til personen på deres eget sprog (engelsk til den, der skriver engelsk). Kort, konkret og venligt, som i en chat - ingen lange indledninger og ingen gentagelse af det, personen lige har skrevet.
 
 Svar KUN med JSON: {"svar": "dit svar til personen", "oenske": null}
-- eller, når ønsket er klart (eller personen beder dig skrive det): {"svar": "kort: her er ønsket - ret gerne, eller send det til Jacob", "oenske": {"titel": "højst 80 tegn", "beskrivelse": "højst 1500 tegn"}}`;
+- eller, når ønsket er skrevet: {"svar": "kort: her er ønsket - ret gerne, eller send det til Jacob", "oenske": {"titel": "højst 80 tegn", "beskrivelse": "højst 1500 tegn"}}`;
+
+/** What else Saga knows: the board's decisions, the rules for renting and membership, the website's words that fit the conversation, and the
+ * page of hjerterum.info the person named (read now). */
+async function knowledgeFor(env: SagaEnv, deps: SagaDeps, db: D1Database, said: string): Promise<string> {
+  const [minutes, { picture }, kinds] = await Promise.all([approvedMinutes(db).catch(() => []), boardPicture(db, deps.now()).catch(() => ({ picture: null })), decisionKinds(db).catch(() => new Map())]);
+  const decisions = withKinds(allDecisions(minutes, picture), kinds as never).filter(x => x.kind !== "aftale").slice(0, 60)
+    .map(x => `- ${x.date ? `${x.date}: ` : ""}${x.topic ? `${x.topic}: ` : ""}${x.text}`).join("\n");
+  const page = await namedPage(deps, said);
+  return [`BESTYRELSENS BESLUTNINGER (nyeste først):\n${decisions || "(ingen)"}`, `MEDLEMSKAB:\n${membershipFacts()}`, `LEJE AF SALEN - PRISER OG REGLER:\n${ROOM_RENTAL_RULES}`,
+    `HJEMMESIDEN (det, der passer til samtalen):\n${currentSiteForSaga(said, 14_000)}`, page].filter(Boolean).join("\n\n");
+}
+
+/** The last page of the public website named in the conversation, as text - only www.hjerterum.info, read as a search engine reads it. */
+export async function namedPage(deps: SagaDeps, said: string): Promise<string> {
+  const urls = [...said.matchAll(/https?:\/\/(?:www\.)?hjerterum\.info(\/[^\s<>"')]*)?/gi)];
+  const last = urls.at(-1);
+  if (!last) return "";
+  const path = (last[1] ?? "/").replace(/[.,;:!?]+$/, "");
+  const response = await deps.fetcher(`https://www.hjerterum.info${path}`, { headers: { "user-agent": "Saga (Hjerterum admin)" } }).catch(() => null);
+  if (!response?.ok) return "";
+  const html = await response.text().catch(() => "");
+  const body = /<div data-prerender>([\s\S]*?)<\/div>\s*<\/div>/.exec(html)?.[1] ?? html;
+  const text = body.replace(/<(script|style)[\s\S]*?<\/\1>/gi, " ").replace(/<\/(p|h[1-6]|li|div)>/gi, "\n").replace(/<[^>]+>/g, " ")
+    .replace(/&amp;/g, "&").replace(/&lt;/g, "<").replace(/&gt;/g, ">").replace(/&quot;/g, '"').replace(/&#39;/g, "'").replace(/[ \t]+/g, " ").replace(/\n\s*\n+/g, "\n").trim();
+  return text ? `SIDEN https://www.hjerterum.info${path} (læst nu):\n${text.slice(0, 8000)}` : "";
+}
 
 /** A picture as a data URL for the AI. */
 function dataUrl(bytes: ArrayBuffer, type: string): string {
@@ -93,8 +130,11 @@ export async function sagaOnWish(env: SagaEnv, deps: SagaDeps, db: D1Database, w
     const picture = m.image_key && withPictures.has(m.id) && env.BOARD_RECORDINGS ? await env.BOARD_RECORDINGS.get(m.image_key).catch(() => null) : null;
     turns.push({ role: "user", content: picture && m.image_type ? [{ type: "text", text } as ChatPart, { type: "image_url", image_url: { url: dataUrl(await picture.arrayBuffer(), m.image_type) } }] : text });
   }
-  const system = `${SYSTEM}\n\nTidligere ønsker:\n${others || "(ingen endnu)"}${wish.title ? `\n\nDit nuværende udkast til dette ønske:\nTitel: ${wish.title}\n${wish.summary ?? ""}` : ""}`;
-  const raw = await completeAs("oensker", "mid", 1800)(env, deps, [{ role: "system", content: system }, ...turns]);
+  const said = messages.map(m => m.text).join("\n");
+  const system = [SYSTEM, `${KNOWLEDGE}`, await knowledgeFor(env, deps, db, said), `TIDLIGERE ØNSKER:\n${others || "(ingen endnu)"}`,
+    wish.title ? `DIT NUVÆRENDE UDKAST TIL DETTE ØNSKE:\nTitel: ${wish.title}\n${wish.summary ?? ""}` : ""].filter(Boolean).join("\n\n");
+  // "Den bedste model" (the chair, 24 Nov 2026) - the writer's model, never moved down by the day's budget.
+  const raw = await complete(env, deps, [{ role: "system", content: system }, ...turns], { purpose: "oensker", model: env.AI_WRITER_MODEL || WRITER_MODEL, important: true, maxTokens: 2500 });
   const json = /\{[\s\S]*\}/.exec(raw)?.[0];
   let data: { svar?: unknown; oenske?: { titel?: unknown; beskrivelse?: unknown } | null } = {};
   try { data = json ? JSON.parse(json) : {}; } catch { data = {}; }
@@ -186,7 +226,7 @@ export function wishesPage(base: string, who: string | null, d: { wishes: Wish[]
   const row = (w: Wish) => `<li><a href="${base}/oensker/${w.id}"><b translate="no">${esc(w.title ?? "Nyt ønske - under samtale")}</b></a> ${badge(w.status)}<small>#${w.id} · ${esc(w.author)} · ${esc(WHEN.format(w.updated_at_ms))}</small></li>`;
   const group = (title: string, list: Wish[], empty: string) => `<section class="card"><h2>${title}</h2>${list.length ? `<ul class="w-list">${list.map(row).join("")}</ul>` : `<p class="muted small">${empty}</p>`}</section>`;
   const waiting = d.wishes.filter(w => w.status === "sent"), open = d.wishes.filter(w => w.status === "open"), approved = d.wishes.filter(w => w.status === "approved");
-  const closed = d.wishes.filter(w => w.status === "rejected" || w.status === "done");
+  const closed = d.wishes.filter(w => w.status === "rejected" || w.status === "done" || w.status === "dropped");
   const forMaking = d.chair && approved.length ? `<section class="card" id="til-udvikling"><h2>Godkendte ønsker samlet</h2>
 <p class="small muted">Kopiér teksten, og giv den videre, når ønskerne skal laves. Markér hvert ønske som lavet, når det er på siden.</p>
 <textarea class="w-copy" rows="10" readonly translate="no">${esc(approvedText(approved))}</textarea>
@@ -199,37 +239,72 @@ ${group(d.chair ? "Venter på dig" : "Venter på formanden", waiting, "Ingen øn
 ${group("Under samtale", open, "Ingen samtaler i gang.")}
 ${group("Godkendt", approved, "Ingen godkendte ønsker venter på at blive lavet.")}
 ${forMaking}
-${group("Lavet og afvist", closed, "Ingen endnu.")}</main>`;
+${group("Lavet, afvist og opgivet", closed, "Ingen endnu.")}</main>`;
   return layout(base, "Ønsker og fejl", body, { section: "/oensker", who, style: WISH_STYLE });
 }
 
-export function wishPage(base: string, who: string | null, d: { wish: Wish; messages: WishMessage[]; chair: boolean; mine: boolean; notice: string; error: string }): string {
+type WishView = { wish: Wish; messages: WishMessage[]; chair: boolean; mine: boolean };
+
+/** The wish as it stands, with what the reader may do with it. */
+export function wishCard(base: string, d: WishView): string {
   const w = d.wish;
-  const bubble = (m: WishMessage) => `<li class="w-msg ${m.role === "saga" ? "w-from-saga" : "w-from-person"}"><small>${esc(m.role === "saga" ? "Saga" : m.author ?? "")} · ${esc(WHEN.format(m.at_ms))}</small>
-<div translate="no">${esc(m.text).replace(/\n/g, "<br>")}</div>${m.image_key ? `<a href="${base}/oensker/billede/${m.id}" target="_blank" rel="noopener"><img src="${base}/oensker/billede/${m.id}" alt="Skærmbillede" loading="lazy"></a>` : ""}</li>`;
-  const card = w.title ? `<section class="card w-card"><h2>Ønsket</h2><p><b translate="no">${esc(w.title)}</b> ${badge(w.status)}</p><div class="w-summary" translate="no">${esc(w.summary ?? "").replace(/\n/g, "<br>")}</div>
+  if (!w.title) return "";
+  return `<section class="card w-card"><h2>Ønsket</h2><p><b translate="no">${esc(w.title)}</b> ${badge(w.status)}</p><div class="w-summary" translate="no">${esc(w.summary ?? "").replace(/\n/g, "<br>")}</div>
 ${w.chair_note ? `<p class="small"><b>Formandens note:</b> <span translate="no">${esc(w.chair_note)}</span></p>` : ""}
 ${w.status === "open" && (d.mine || d.chair) ? `<form method="post" action="${base}/oensker/${w.id}/send"><button>Send ønsket til formanden</button></form><p class="small muted">Vil du rette noget, så skriv det til Saga herunder, så skriver hun ønsket om.</p>` : ""}
 ${d.chair && (w.status === "sent" || w.status === "open") ? `<form method="post" action="${base}/oensker/${w.id}/afgoer" class="w-decide"><label>Note til ${esc(w.author)} (valgfri)<textarea name="note" rows="3" maxlength="1500"></textarea></label>
 <p><button name="svar" value="godkend">Godkend</button> <button name="svar" value="afvis" class="ghost">Afvis</button></p></form>` : ""}
-${d.chair && w.status === "approved" ? `<form method="post" action="${base}/oensker/${w.id}/lavet"><button class="ghost">Markér som lavet</button></form>` : ""}</section>` : "";
-  const talk = w.status === "open" && (d.mine || d.chair) ? `<form method="post" action="${base}/oensker/${w.id}/besked" enctype="multipart/form-data" class="w-say" onsubmit="const b=this.querySelector('button');b.disabled=true;b.textContent='Saga tænker …'">
-<label>Skriv til Saga<textarea name="text" rows="4" maxlength="${MAX_TEXT}" placeholder="Fx: On the event page, the sign-up button …"></textarea></label>
-<label class="small">Skærmbillede (valgfrit)<input type="file" name="image" accept="image/png,image/jpeg,image/webp,image/gif"></label>
-<p><button>Send</button></p></form>` : w.status !== "open" ? `<p class="muted small">Ønsket er sendt, så samtalen er lukket. Har du noget nyt, så start et nyt ønske.</p>` : "";
+${d.chair && w.status === "approved" ? `<form method="post" action="${base}/oensker/${w.id}/lavet"><button class="ghost">Markér som lavet</button></form>` : ""}</section>`;
+}
+
+/** The conversation's messages. */
+export function wishChat(base: string, messages: WishMessage[]): string {
+  return messages.map(m => `<li class="w-msg ${m.role === "saga" ? "w-from-saga" : "w-from-person"}"><small>${esc(m.role === "saga" ? "Saga" : m.author ?? "")} · ${esc(WHEN.format(m.at_ms))}</small>
+<div translate="no">${esc(m.text).replace(/\n/g, "<br>")}</div>${m.image_key ? `<a href="${base}/oensker/billede/${m.id}" target="_blank" rel="noopener"><img src="${base}/oensker/billede/${m.id}" alt="Skærmbillede" loading="lazy"></a>` : ""}</li>`).join("");
+}
+
+/** "Det skal være en chat som her" (the chair, 24 Nov 2026): the message goes without the page reloading, Saga's answer comes in when she has it,
+ * Enter sends (Shift+Enter makes a new line). Without scripts the form posts as before. */
+const CHAT_SCRIPT = `<script>(()=>{const f=document.querySelector(".w-say");if(!f)return;const chat=document.getElementById("w-chat"),card=document.getElementById("w-card"),note=document.getElementById("w-note"),t=f.querySelector("textarea"),b=f.querySelector("button"),file=f.querySelector("input[type=file]");
+const esc=s=>s.replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"})[c]);const end=()=>{const l=chat.lastElementChild;if(l)l.scrollIntoView({block:"end",behavior:"smooth"})};end();
+t.addEventListener("keydown",e=>{if(e.key==="Enter"&&!e.shiftKey&&!e.isComposing){e.preventDefault();f.requestSubmit()}});
+f.addEventListener("submit",async e=>{e.preventDefault();const data=new FormData(f),text=String(data.get("text")||"").trim(),pic=file.files&&file.files.length;if(!text&&!pic)return;
+const hint=document.getElementById("w-hint");if(hint)hint.remove();
+chat.insertAdjacentHTML("beforeend",'<li class="w-msg w-from-person"><div>'+esc(text).replace(/\\n/g,"<br>")+(pic?" 📎":"")+'</div></li><li class="w-msg w-from-saga w-typing"><div>Saga tænker …</div></li>');
+end();t.value="";file.value="";b.disabled=true;
+try{const r=await fetch(f.action,{method:"POST",body:data,headers:{accept:"application/json"}});const j=await r.json();chat.innerHTML=j.chat;card.innerHTML=j.card;note.innerHTML=j.notice||"";if(j.title){const h=document.querySelector(".w h1");if(h)h.textContent=j.title}if(j.closed)location.reload()}
+catch(_){location.reload();return}b.disabled=false;t.focus();end()})})()</script>`;
+
+export function wishPage(base: string, who: string | null, d: WishView & { notice: string; error: string }): string {
+  const w = d.wish;
+  const talk = w.status === "open" && (d.mine || d.chair) ? `<form method="post" action="${base}/oensker/${w.id}/besked" enctype="multipart/form-data" class="w-say">
+<label>Skriv til Saga<textarea name="text" rows="3" maxlength="${MAX_TEXT}" placeholder="Fx: On the event page, the sign-up button …"></textarea></label>
+<div class="w-say-row"><label class="small">Skærmbillede (valgfrit)<input type="file" name="image" accept="image/png,image/jpeg,image/webp,image/gif"></label><button>Send</button></div>
+<p class="small muted">Enter sender, Shift+Enter giver en ny linje.</p></form>
+<form method="post" action="${base}/oensker/${w.id}/opgiv" class="w-drop"><button class="ghost">Opgiv ønsket</button></form>`
+    : w.status !== "open" ? `<p class="muted small">Samtalen er lukket. Har du noget nyt, så start et nyt ønske.</p>` : "";
   const body = `<main class="w"><p class="small"><a href="${base}/oensker">← Ønsker og fejl</a></p><h1>${w.title ? `<span translate="no">${esc(w.title)}</span>` : "Nyt ønske"}</h1>
 <p class="small muted">#${w.id} · ${esc(w.author)} · ${badge(w.status)}</p>
-${d.notice ? `<p class="notice">${esc(d.notice)}</p>` : ""}${d.error ? `<p class="notice bad">${esc(d.error)}</p>` : ""}
-${card}
-<section class="card" id="bund"><h2>Samtalen</h2>${d.messages.length ? `<ol class="w-chat">${d.messages.map(bubble).join("")}</ol>` : `<p class="muted small">Fortæl Saga, hvad du ønsker, eller hvad der ikke virker - på dansk eller engelsk.</p>`}
-${talk}</section></main>`;
+<div id="w-note">${d.notice ? `<p class="notice">${esc(d.notice)}</p>` : ""}${d.error ? `<p class="notice bad">${esc(d.error)}</p>` : ""}</div>
+<div id="w-card">${wishCard(base, d)}</div>
+<section class="card" id="bund"><h2>Samtalen</h2><ol class="w-chat" id="w-chat">${wishChat(base, d.messages)}</ol>
+${d.messages.length ? "" : `<p class="muted small" id="w-hint">Fortæl Saga, hvad du ønsker, eller hvad der ikke virker - på dansk eller engelsk. Hun tænker med, spørger ind og siger sin mening.</p>`}
+${talk}</section>${CHAT_SCRIPT}</main>`;
   return layout(base, "Ønsker og fejl", body, { section: "/oensker", who, style: WISH_STYLE });
+}
+
+/** The author (or the chair) lets an open wish go. */
+export async function dropWish(db: D1Database, wish: Wish, nowMs: number): Promise<boolean> {
+  if (wish.status !== "open") return false;
+  const changed = await db.prepare("UPDATE wishes SET status = 'dropped', updated_at_ms = ? WHERE id = ? AND status = 'open'").bind(nowMs, wish.id).run();
+  return Boolean(changed.meta?.changes);
 }
 
 const WISH_STYLE = `
 .w .card{margin-top:14px}.w-list{list-style:none;margin:0;padding:0;display:grid}.w-list li{padding:9px 0;border-top:1px solid var(--line)}.w-list li:first-child{border-top:0}
 .w-list small{display:block;color:var(--muted);font-size:12.5px}.w-status{display:inline-block;margin-left:6px;padding:1px 8px;border-radius:999px;font-size:12px;background:var(--line)}
-.w-sent{background:#f3e3c7}.w-approved{background:#dcebd6}.w-rejected{background:#eee}.w-done{background:#d7e4ef}
+.w-sent{background:#f3e3c7}.w-approved{background:#dcebd6}.w-rejected,.w-dropped{background:#eee}.w-done{background:#d7e4ef}
+.w-chat:empty{display:none}.w-typing div{color:var(--muted);font-style:italic}.w-say-row{display:flex;gap:12px;align-items:end;flex-wrap:wrap}.w-say-row label{flex:1 1 240px}.w-drop{margin-top:6px}.w-drop button{font-size:13px}
 .w-chat{list-style:none;margin:0 0 14px;padding:0;display:grid;gap:10px}.w-msg{max-width:84%;padding:10px 12px;border-radius:14px;background:var(--card,#fff);border:1px solid var(--line)}
 .w-msg.w-from-person{justify-self:end;background:#f6efe6}.w-msg small{display:block;color:var(--muted);font-size:12px;margin-bottom:4px}.w-msg img{display:block;max-width:100%;max-height:320px;margin-top:8px;border-radius:8px}
 .w-say textarea,.w-decide textarea,.w-copy{width:100%;box-sizing:border-box}.w-summary{white-space:normal;margin:6px 0 10px;font-size:14.5px}
