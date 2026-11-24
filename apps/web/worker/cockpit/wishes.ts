@@ -42,7 +42,11 @@ export async function wishById(db: D1Database, id: number): Promise<Wish | null>
 export async function wishMessages(db: D1Database, id: number): Promise<WishMessage[]> {
   return (await db.prepare("SELECT * FROM wish_messages WHERE wish_id = ? ORDER BY id").bind(id).all<WishMessage>()).results ?? [];
 }
+/** A new conversation - or the person's own one that has not begun yet, so empty ones do not pile up. */
 export async function newWish(db: D1Database, author: string, nowMs: number): Promise<number> {
+  const empty = await db.prepare(`SELECT id FROM wishes w WHERE author = ? AND status = 'open' AND NOT EXISTS (SELECT 1 FROM wish_messages m WHERE m.wish_id = w.id)
+    ORDER BY id DESC LIMIT 1`).bind(author).first<{ id: number }>();
+  if (empty) return empty.id;
   const made = await db.prepare("INSERT INTO wishes (author, status, created_at_ms, updated_at_ms) VALUES (?, 'open', ?, ?)").bind(author, nowMs, nowMs).run();
   return Number(made.meta?.last_row_id);
 }
@@ -264,7 +268,8 @@ const badge = (s: WishStatus) => `<span class="w-status w-${s}">${STATUS_TEXT[s]
 export function wishesPage(base: string, who: string | null, d: { wishes: Wish[]; chair: boolean; notice: string }): string {
   const row = (w: Wish) => `<li><a href="${base}/forslag/${w.id}"><b translate="no">${esc(w.title ?? "Nyt forslag - under samtale")}</b></a> ${badge(w.status)}<small>#${w.id} · ${esc(w.author)} · ${esc(WHEN.format(w.updated_at_ms))}</small></li>`;
   const group = (title: string, list: Wish[], empty: string) => `<section class="card"><h2>${title}</h2>${list.length ? `<ul class="w-list">${list.map(row).join("")}</ul>` : `<p class="muted small">${empty}</p>`}</section>`;
-  const waiting = d.wishes.filter(w => w.status === "sent"), open = d.wishes.filter(w => w.status === "open"), approved = d.wishes.filter(w => w.status === "approved");
+  // The chair (24 Nov 2026): "Der er ikke nogen grund til at gemme en samtale i 'Under samtale'" - the overview shows what has been sent and what came of it.
+  const waiting = d.wishes.filter(w => w.status === "sent"), approved = d.wishes.filter(w => w.status === "approved");
   const closed = d.wishes.filter(w => w.status === "rejected" || w.status === "done" || w.status === "dropped");
   const forMaking = d.chair && approved.length ? `<section class="card" id="til-udvikling"><h2>Godkendte forslag samlet</h2>
 <p class="small muted">Kopiér teksten, og giv den videre, når forslagene skal laves. Markér hvert forslag som lavet, når det er på siden.</p>
@@ -275,7 +280,6 @@ export function wishesPage(base: string, who: string | null, d: { wishes: Wish[]
 <form method="post" action="${base}/forslag/ny"><button>Nyt forslag</button></form></div>
 ${d.notice ? `<p class="notice">${esc(d.notice)}</p>` : ""}
 ${group(d.chair ? "Venter på dig" : "Venter på godkendelse", waiting, "Ingen forslag venter.")}
-${group("Under samtale", open, "Ingen samtaler i gang.")}
 ${group("Godkendt", approved, "Ingen godkendte forslag venter på at blive lavet.")}
 ${forMaking}
 ${group("Lavet, afvist og opgivet", closed, "Ingen endnu.")}</main>`;

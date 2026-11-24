@@ -94,8 +94,10 @@ describe("wishes and faults in admin", () => {
     expect((await (await call("/udvikling/api/forslag", { headers: { authorization: `Bearer ${TOKEN}` } })).json() as { forslag: unknown[] }).forslag).toEqual([]);
     expect((await db.prepare("SELECT status FROM wishes WHERE id = ?").bind(id).first<{ status: string }>())!.status).toBe("done");
 
-    // A wish can be let go.
+    // A wish can be let go. An empty conversation is used again rather than a new one, and conversations are not kept on the overview.
     const other = (await call("/forslag/ny", { method: "POST", cookie: douglas })).headers.get("location")!.split("/").pop()!;
+    expect((await call("/forslag/ny", { method: "POST", cookie: douglas })).headers.get("location")!.split("/").pop()).toBe(other);
+    expect(await (await call("/forslag", { cookie: douglas })).text()).not.toContain("Under samtale");
     await call(`/forslag/${other}/opgiv`, { method: "POST", cookie: douglas });
     expect((await db.prepare("SELECT status FROM wishes WHERE id = ?").bind(other).first<{ status: string }>())!.status).toBe("dropped");
   });
