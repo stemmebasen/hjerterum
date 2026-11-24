@@ -32,6 +32,22 @@ export async function englishReaders(db: D1Database): Promise<string[]> {
 // ---- The cockpit's own words ----
 
 export const EN: Record<string, string> = {
+  // Wishes and faults (cockpit/wishes.ts) - Douglas talks his wishes through with Saga (the chair, 24 Nov 2026).
+  "Ønsker og fejl": "Wishes and faults", "Nyt ønske": "New wish", "Nyt ønske - under samtale": "New wish - being talked through",
+  "Fortæl Saga om et ønske til hjemmesiden, medlemssiden eller admin - eller om en fejl, du har fundet. Hun spørger, til det er klart, og skriver det som ét ønske. Du sender det til formanden, som godkender eller afviser det. Intet ændres på siden herfra.": "Tell Saga about a wish for the website, the member pages or admin - or about a fault you have found. She asks until it is clear and writes it up as one wish. You send it to the chair, who approves or turns it down. Nothing on the site changes from here.",
+  "Venter på dig": "Waiting for you", "Venter på formanden": "Waiting for the chair", "Under samtale": "Being talked through", "Afvist": "Turned down", "Lavet": "Done", "Lavet og afvist": "Done and turned down",
+  "Ingen ønsker venter.": "No wishes are waiting.", "Ingen samtaler i gang.": "No conversations going.", "Ingen godkendte ønsker venter på at blive lavet.": "No approved wishes are waiting to be made.",
+  "Godkendte ønsker samlet": "Approved wishes together", "Kopieret": "Copied",
+  "Kopiér teksten, og giv den videre, når ønskerne skal laves. Markér hvert ønske som lavet, når det er på siden.": "Copy the text and hand it on when the wishes are to be made. Mark each wish as done when it is on the site.",
+  "← Ønsker og fejl": "← Wishes and faults", "Ønsket": "The wish", "Samtalen": "The conversation", "Formandens note:": "The chair's note:",
+  "Send ønsket til formanden": "Send the wish to the chair", "Vil du rette noget, så skriv det til Saga herunder, så skriver hun ønsket om.": "If you want to change something, write it to Saga below, and she will rewrite the wish.",
+  "Markér som lavet": "Mark as done", "Skriv til Saga": "Write to Saga", "Skærmbillede (valgfrit)": "Screenshot (optional)",
+  "Fortæl Saga, hvad du ønsker, eller hvad der ikke virker - på dansk eller engelsk.": "Tell Saga what you wish for, or what does not work - in English or Danish.",
+  "Ønsket er sendt, så samtalen er lukket. Har du noget nyt, så start et nyt ønske.": "The wish has been sent, so the conversation is closed. If you have something new, start a new wish.",
+  "Ønsket er sendt til formanden. Du kan se her, når det er afgjort.": "The wish has been sent to the chair. You can see here when it has been decided.", "Ønsket er godkendt.": "The wish is approved.", "Ønsket er afvist.": "The wish is turned down.", "Ønsket er markeret som lavet.": "The wish is marked as done.",
+  "Skriv noget til Saga, eller vælg et skærmbillede.": "Write something to Saga, or choose a screenshot.", "Skærmbilledet skal være PNG, JPG, WebP eller GIF.": "The screenshot must be PNG, JPG, WebP or GIF.",
+  "Skærmbilledet må højst fylde 4 MB.": "The screenshot may be 4 MB at most.", "Samtalen er lukket - start et nyt ønske.": "The conversation is closed - start a new wish.",
+  "Saga kunne ikke svare lige nu. Det, du skrev, er gemt - prøv igen om lidt.": "Saga could not answer right now. What you wrote is saved - try again in a moment.",
   // Menus and frame
   // The menu with its groups (page.ts MENU), and the chair's card on Profil
   "Bestyrelse": "Board", "Kommunikation": "Communication", "Beslutninger og afstemninger": "Decisions and votes", "Alle events": "All events", "Nyt event": "New event",
