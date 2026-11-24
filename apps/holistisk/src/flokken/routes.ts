@@ -1,4 +1,5 @@
 import type { D1Database } from "../db.js";
+import { interestOpen, SIGNUP_CLOSES_MS } from "../lastCall.js";
 import { groupBySlug } from "../groups.js";
 import type { Env } from "../env.js";
 import { eventBySlug, relatedEvents, type EventRow } from "../web/queries.js";
@@ -320,6 +321,7 @@ export async function flokkenRoute(request: Request, env: Env, db: D1Database, p
     // Only a posted tick, or the way back with the tick in the cookie, saves anything.
     if (!post && !readChoices(request).includes(e.slug)) return go(`${back}#flokke`);
     if (e.status !== "scheduled" || e.starts_at <= now) return go(withMessage(back, "event_closed") + "#besked", clearChoiceCookie());
+    if (!interestOpen(e, now)) return go(withMessage(back, "interesse_lukket") + "#besked", clearChoiceCookie());
     if (!m) return go(`/log-ind?naeste=${encodeURIComponent(self)}`, choiceCookie([e.slug]));
     if (!(await ready(m.id))) return go(profileForList(self), choiceCookie([e.slug]));
     await saveInterests(db, m.id, [e.slug], [], regions, now);
@@ -353,7 +355,7 @@ export async function flokkenRoute(request: Request, env: Env, db: D1Database, p
     ])].slice(0, 5);
     const cancelled = (await Promise.all(cancelledSlugs.map(async slug => {
       const event = await eventBySlug(db, slug);
-      return event ? { event, similar: await relatedEvents(db, event, regions, now, 3) } : null;
+      return event ? { event, similar: await relatedEvents(db, event, regions, now + SIGNUP_CLOSES_MS, 3) } : null;
     }))).filter((x): x is NonNullable<typeof x> => !!x);
     const active = interests.filter(i => i.event_status !== "cancelled");
     return { view: myFlocksPage(pc, m, flocks, message, { top: cancelledSection(cancelled, now), interests: interestsSection(active, now), outings }) };

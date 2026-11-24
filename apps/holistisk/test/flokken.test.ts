@@ -27,7 +27,7 @@ beforeAll(async () => {
   });
   await runIngest({ DB: db }, { trigger: "test", now: NOW, fetcher, sleep: noSleep, sources: SOURCES.filter(s => ["hjerterum", "lysetshus"].includes(s.id)) });
   env = { DB: db, ENVIRONMENT: "staging", ACTIVE_REGIONS: "ostjylland", INGEST_TOKEN: "x".repeat(32), EDITION: "portal" };
-  const rows = db.raw.prepare("SELECT id, slug, starts_at, title FROM events WHERE status = 'scheduled' AND starts_at > ? AND venue_name IS NOT NULL ORDER BY starts_at").all(NOW + 86_400_000) as Array<typeof event>;
+  const rows = db.raw.prepare("SELECT id, slug, starts_at, title FROM events WHERE status = 'scheduled' AND starts_at > ? AND venue_name IS NOT NULL ORDER BY starts_at").all(NOW + 4 * 86_400_000) as Array<typeof event>;
   event = rows[0]!;
   later = rows.find(r => r.starts_at > event.starts_at + 7 * 86_400_000)!;
 });
@@ -574,14 +574,14 @@ describe("Lad os komme godt i gang", () => {
     // Nobody yet: no line at all, so the list does not look empty.
     expect(after.find(e => !e.others && !/flok/i.test(e.line))?.line).toBe("");
     expect((await call("/kom-godt-i-gang")).body).not.toContain("Ingen endnu");
-    // The first-visit pop-up asks for the next two days only.
+    // The first-visit pop-up asks for the first two days one can still join (the list closes 3 days before).
     const soon = (await call("/api/kom-godt-i-gang?dage=2")).body;
     const slugsSoon = (JSON.parse(soon) as Kickoff).events.map(e => e.slug);
     expect(slugsSoon.length).toBeGreaterThan(0);
     for (const s of slugsSoon) {
       const at = (db.raw.prepare("SELECT starts_at FROM events WHERE slug = ?").all(s)[0] as { starts_at: number }).starts_at;
-      expect(at).toBeGreaterThan(NOW + 3 * 3600_000);
-      expect(at).toBeLessThan(NOW + 2 * 86_400_000);
+      expect(at).toBeGreaterThan(NOW + 3 * 86_400_000);
+      expect(at).toBeLessThan(NOW + 5 * 86_400_000);
     }
   });
 
@@ -737,8 +737,34 @@ describe("Lad os komme godt i gang", () => {
     expect(["Nils", "Otto", "Pia"].map(n => statusOf(n, slug))).toEqual(["invited", "invited", "invited"]);
   });
 
+  it("closes Jeg vil gerne med! 3 days before; those already on the list keep their place until the day before", async () => {
+    const slug = (await fresh()).find(sl => (db.raw.prepare("SELECT starts_at FROM events WHERE slug = ?").all(sl)[0] as { starts_at: number }).starts_at > NOW + 5 * 86_400_000)!;
+    const startsAt = (db.raw.prepare("SELECT starts_at FROM events WHERE slug = ?").all(slug)[0] as { starts_at: number }).starts_at;
+    const button = `action="/events/${slug}/interesse" class="inline-form interest-form"`;
+    expect((await call(`/events/${slug}`, {}, startsAt - 4 * 86_400_000)).body).toContain(button);
+    const closed = (await call(`/events/${slug}`, {}, startsAt - 2 * 86_400_000)).body;
+    expect(closed).not.toContain(button);
+    expect(closed).toContain("Flokke samles senest 3 dage før arrangementet, så her kan du ikke længere finde en flok.");
+    expect(closed).not.toContain("start selv en flok");
+    expect((await call(`/en/events/${slug}`, {}, startsAt - 2 * 86_400_000)).body).toContain("Groups are gathered no later than 3 days before the event");
+    const cookie = await ready("Sofus");
+    const late = await call(`/events/${slug}/interesse`, { cookie, form: {} }, startsAt - 2 * 86_400_000);
+    expect(late.headers.get("location")).toBe(`/events/${slug}?besked=interesse_lukket#besked`);
+    expect(statusOf("Sofus", slug)).toBe(null);
+    // On the list in time: still on it 2 days before, and told the day before that it did not turn into a flock.
+    await choose([slug], cookie);
+    expect((await call(`/events/${slug}`, { cookie }, startsAt - 2 * 86_400_000)).body).toContain("Du er på listen");
+    const last = (await call(`/events/${slug}`, { cookie }, startsAt - 12 * 3600_000)).body;
+    expect(last).not.toContain("Du er på listen");
+    expect(last).toContain("Det blev ikke til en flok til det her arrangement.");
+    await call(`/events/${slug}/interesse/fjern`, { cookie, form: {} });
+  });
+
   it("tells those going when an event is cancelled and suggests three similar ones", async () => {
-    const slug = (await fresh())[0]!;
+    // One with a similar arrangement more than 3 days ahead (the suggestions are ones you can still join).
+    const hasSimilar = (slug: string) => (db.raw.prepare(`SELECT COUNT(*) AS n FROM events o JOIN events e ON e.slug = ? JOIN event_categories c ON c.event_id = o.id
+      WHERE o.id != e.id AND o.status = 'scheduled' AND o.starts_at > ? AND c.category IN (SELECT category FROM event_categories WHERE event_id = e.id)`).all(slug, NOW + 4 * 86_400_000)[0] as { n: number }).n > 0;
+    const slug = (await fresh()).find(hasSimilar)!;
     const cookie = await ready("Rune");
     await choose([slug], cookie);
     db.raw.prepare("UPDATE events SET status = 'cancelled' WHERE slug = ?").run(slug);

@@ -1,4 +1,5 @@
 import type { EventRow } from "../web/queries.js";
+import { gatheringOpen, interestOpen } from "../lastCall.js";
 import { eventPath, placeLine, seats } from "../web/components.js";
 import { html, raw, type SafeHtml } from "../web/html.js";
 import { crumbsNav, page, type Crumb, type PageContext } from "../web/layout.js";
@@ -53,6 +54,7 @@ const MESSAGES: Record<string, string> = {
 };
 const ERRORS: Record<string, string> = {
   event_closed: "Arrangementet er gået i gang, afholdt eller aflyst, så flokken kan ikke ændres.",
+  interesse_lukket: "Flokke samles senest 3 dage før arrangementet, så her kan du ikke længere finde en flok. Du er stadig velkommen til at tage afsted på egen hånd.",
   already_in_flock: "Du er allerede i en flok til dette arrangement. Forlad den først, hvis du vil skifte.",
   too_many: "Du har oprettet mange flokke i dag. Prøv igen i morgen.",
   full: "Den her flok er fuld.",
@@ -123,8 +125,15 @@ export function flockPanel(e: EventRow, flocks: FlockRow[], member: Member | nul
 /** The lines under "Jeg vil gerne med!" at the top of the event page: whether others are interested and starting a
  * flock yourself. Nothing once you are in a flock or the event can no longer be joined. Kept to one underlined link
  * (Jake 2026-11-18: too many underlined lines); the safety page is linked from the flock panel, the menu and the footer. */
-export function flockLine(e: EventRow, member: Member | null, myFlockId: string | null, now: number, interest: EventInterest = { others: 0, mine: null }): SafeHtml {
+export function flockLine(e: EventRow, member: Member | null, myFlockId: string | null, now: number, interest: EventInterest = { others: 0, mine: null }, related = false): SafeHtml {
   if (e.status !== "scheduled" || e.starts_at <= now || (myFlockId && member)) return html``;
+  const stillWaiting = interest.mine === "waiting" && gatheringOpen(e, now);
+  if (!interestOpen(e, now) && !stillWaiting) {
+    // The list closes 3 days before (Jake 2026-11-24), so a friendly word instead of the button. Those already on it
+    // are still gathered until the day before.
+    const head = interest.mine === "waiting" ? "Det blev ikke til en flok til det her arrangement." : "Flokke samles senest 3 dage før arrangementet, så her kan du ikke længere finde en flok.";
+    return html`<div class="event-flock"><p class="flock-closed">${head} Du er stadig velkommen til at tage afsted på egen hånd.${related ? html` <a href="#h-related">Se lignende arrangementer længere ude</a>` : ""}</p></div>`;
+  }
   const create = `${eventPath(e)}/opret-flok`;
   const count = interest.others > 0 ? html`<p class="interest-count">${othersLine(interest.others)}</p>` : "";
   const start = interest.mine === "invited" ? "" : html`<p class="flock-create">Eller <a href="${member ? create : loginPath(create)}">start selv en flok</a> med din egen tid og dit eget mødested.</p>`;
@@ -134,7 +143,7 @@ export function flockLine(e: EventRow, member: Member | null, myFlockId: string 
 /** "Fjern mig fra listen" beside the calendar button, once you are on the interest list for an event that can still
  * be joined. A quiet grey text button, not underlined. */
 export function interestUndo(e: EventRow, now: number, interest: EventInterest = { others: 0, mine: null }): SafeHtml {
-  if (interest.mine !== "waiting" || e.status !== "scheduled" || e.starts_at <= now) return html``;
+  if (interest.mine !== "waiting" || !gatheringOpen(e, now)) return html``;
   return html`<form method="post" action="${eventPath(e)}/interesse/fjern" class="inline-form"><button type="submit" class="button-link">Fjern mig fra listen</button></form>`;
 }
 
@@ -144,8 +153,10 @@ export function interestUndo(e: EventRow, now: number, interest: EventInterest =
 export function interestButton(e: EventRow, member: Member | null, myFlockId: string | null, now: number, interest: EventInterest = { others: 0, mine: null }): SafeHtml {
   if (e.status !== "scheduled" || e.starts_at <= now) return html``;
   if (myFlockId && member) return html`<a class="button-secondary" href="${flockPath(myFlockId)}">Se din flok</a>`;
-  if (interest.mine === "invited") return html`<a class="button-secondary" href="/flokke#interesser">Din flok er klar!</a>`;
-  if (interest.mine === "waiting") return html`<span class="button-secondary is-on"><span class="tick" aria-hidden="true">✓</span> Du er på listen</span>`;
+  if (interest.mine === "invited" && gatheringOpen(e, now)) return html`<a class="button-secondary" href="/flokke#interesser">Din flok er klar!</a>`;
+  if (interest.mine === "waiting" && gatheringOpen(e, now)) return html`<span class="button-secondary is-on"><span class="tick" aria-hidden="true">✓</span> Du er på listen</span>`;
+  // The list closes 3 days before (Jake 2026-11-24); flockLine explains it.
+  if (!interestOpen(e, now)) return html``;
   return html`<form method="post" action="${eventPath(e)}/interesse" class="inline-form interest-form"><button type="submit" class="button-alt">Jeg vil gerne med!</button></form>`;
 }
 

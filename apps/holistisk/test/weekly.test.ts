@@ -54,7 +54,7 @@ async function weeklyRun() {
   // Meditation is not shown among the front page's standing offerings (a broad selection, src/mainstream.ts).
   const front = await (await handle(new Request("https://portal.example/"), env, NOW)).text();
   expect(front).not.toContain('<a href="/kalender?q=Aftenmeditation">Se datoerne i kalenderen</a>');
-  const slug = (db.raw.prepare("SELECT slug FROM events WHERE title = 'Aftenmeditation' ORDER BY starts_at LIMIT 1").all()[0] as { slug: string }).slug;
+  const slug = (db.raw.prepare("SELECT slug FROM events WHERE title = 'Aftenmeditation' AND starts_at > ? ORDER BY starts_at LIMIT 1").all(NOW + 4 * 86_400_000)[0] as { slug: string }).slug;
   const page = await (await handle(new Request(`https://portal.example/events/${slug}`), env, NOW)).text();
   expect(page).toContain("Et fast tilbud hos Brahma Kumaris Aarhus.");
   expect(page).toContain(`href="/log-ind?naeste=${encodeURIComponent(`/events/${slug}/opret-flok`)}"`);
