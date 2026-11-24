@@ -64,7 +64,7 @@ export function validateInfo(f: InfoForm): InfoErrors {
 
 export function confirmationMail(env: Env, f: InfoForm) {
   const site = mailSiteUrl(env);
-  return letter({
+  return { ...letter({
     to: f.email,
     subject: `Du er tilmeldt informationsmødet ${INFO_MEETING.shortDate}`,
     greeting: `Kære ${f.name}`,
@@ -76,7 +76,7 @@ export function confirmationMail(env: Env, f: InfoForm) {
       "Det er helt uforpligtende at komme. Kan du alligevel ikke, så svar bare på denne mail."
     ],
     button: { label: "Se informationsmødet", url: `${site}${INFO_PATH}` }
-  });
+  }), kind: "informationsmoede" };
 }
 
 /** Saves the sign-up and sends the confirmation. Signing up again with the same e-mail updates the name and the
@@ -89,7 +89,7 @@ export async function saveInfo(db: D1Database, env: Env, f: InfoForm, now: numbe
   }
   const today = await db.prepare("SELECT COUNT(*) AS n FROM info_meeting_signups WHERE created_at > ? AND mail IN ('sent', 'failed')").bind(now - 86_400_000).first<{ n: number }>();
   let result: SendResult | null = null;
-  if ((today?.n ?? 0) < MAILS_PER_DAY) result = await send(env, confirmationMail(env, f));
+  if ((today?.n ?? 0) < MAILS_PER_DAY) result = await send(env, confirmationMail(env, f), fetch, now);
   const mail = !result ? "held" : result.ok ? "sent" : result.error === "off" ? "off" : "failed";
   const error = result && !result.ok && mail === "failed" ? result.error.slice(0, 300) : null;
   if (error) console.error(JSON.stringify({ event: "mail_failed", kind: "info_meeting", error }));

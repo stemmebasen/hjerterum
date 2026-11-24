@@ -90,3 +90,18 @@ a.sk-more { color: var(--berry); font-weight: 700; font-size: .9rem; }
 .sk-table thead th { font-size: .8rem; color: var(--muted); font-weight: 700; }
 .sk-table tbody tr:last-child > * { border-bottom: 0; }
 .sk-copy { width: 100%; box-sizing: border-box; font: .9rem/1.4 ui-monospace, monospace; padding: 8px 10px; border-radius: 8px; border: 1px solid var(--rule, #d9d2c3); background: #fff; }
+
+/* Sendt post (/admin/post, src/adminMail.ts) */
+.sk-filter { display: flex; flex-wrap: wrap; gap: 6px; margin: 0 0 14px; }
+.sk-filter a { padding: 6px 12px; border: 2px solid var(--ink); border-radius: 999px; background: var(--card); color: var(--ink); text-decoration: none; font-weight: 700; font-size: .9rem; }
+.sk-filter a[aria-current="page"] { background: var(--ink); color: var(--card); }
+.sk-filter small { font-weight: 600; opacity: .75; }
+.sk-pager { display: flex; justify-content: space-between; align-items: center; gap: 12px; margin: 12px 0 0; }
+.sk-mail-subject { overflow-wrap: anywhere; margin: 0 0 12px !important; font-size: 1.6rem !important; }
+.sk-meta { margin: 0; display: grid; gap: 8px; }
+.sk-meta div { display: grid; grid-template-columns: 7.5em minmax(0, 1fr); gap: 8px; }
+.sk-meta dt { font-weight: 800; }
+.sk-meta dd { margin: 0; overflow-wrap: anywhere; }
+.sk-mail-frame { display: block; width: 100%; height: 75vh; min-height: 420px; border: 2px solid var(--ink); border-radius: var(--radius-s); background: #f6f1e7; margin: 0 0 16px; }
+.sk-mail-text summary { cursor: pointer; font-weight: 800; }
+.sk-mail-text pre { white-space: pre-wrap; overflow-wrap: anywhere; font: .9rem/1.5 var(--sans); margin: 12px 0 0; }

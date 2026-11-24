@@ -11,6 +11,7 @@ import { INFO_MEETING } from "./flokken/infoMeeting.js";
 import { adminInfoMeetingRoute } from "./adminInfoMeeting.js";
 import { adminMembersRoute } from "./adminMembers.js";
 import { adminPicksRoute } from "./adminPicks.js";
+import { adminMailRoute } from "./adminMail.js";
 
 /** Socialklubben's admin overview at /admin: visits, members, interest per arrangement, flocks, recent activity and
  * mails, on one page that reads well on a phone. Only the admin gets in: a login link is sent to the admin address
@@ -107,6 +108,7 @@ export async function adminRoute(request: Request, env: Env, db: D1Database, pc:
   if (!(await isAdmin(db, request, now))) return { status: 303, body: "", redirect: "/admin" };
   if (path === "/admin/udvalg" || path.startsWith("/admin/udvalg/")) return adminPicksRoute(request, db, pc, path, url, now);
   if (path === "/admin/informationsmoede" || path.startsWith("/admin/informationsmoede/")) return adminInfoMeetingRoute(request, db, pc, path, url, now);
+  if (path === "/admin/post" || path.startsWith("/admin/post/")) return adminMailRoute(request, env, db, pc, path, url, now);
   return adminMembersRoute(request, db, pc, path, url, now);
 }
 
@@ -209,7 +211,7 @@ export async function overview(db: D1Database, now: number, mailOn = true): Prom
 
 // ————————————————————————————————————————— Pages
 
-const STYLE = ["/assets/admin.css?v=5"];
+const STYLE = ["/assets/admin.css?v=6"];
 export const when = (at: number, now: number) => `${dayLabel(at, now)} kl. ${hhmm(at)}`;
 /** "for 5 min. siden", "i går kl. 14.05" – how long ago, as a person would say it. */
 export function ago(at: number, now: number): string {
@@ -318,7 +320,7 @@ function overviewView(pc: PageContext, o: Overview, now: number): AdminView {
     <h1>Overblik</h1>
     <form method="post" action="/admin/log-ud"><button type="submit" class="button-link">Log ud</button></form>
   </div>
-  <p class="sk-updated">Opdateret ${when(now, now)}. Genindlæs siden for de nyeste tal. <a class="sk-more" href="/admin/udvalg">Dagens fem i kalenderen</a></p>
+  <p class="sk-updated">Opdateret ${when(now, now)}. Genindlæs siden for de nyeste tal. <a class="sk-more" href="/admin/udvalg">Dagens fem i kalenderen</a> · <a class="sk-more" href="/admin/post">Sendt post</a></p>
 
   <section class="sk-card" aria-labelledby="besog">
     <h2 id="besog">Besøg</h2>
@@ -383,7 +385,7 @@ function overviewView(pc: PageContext, o: Overview, now: number): AdminView {
   </section>
 
   <section class="sk-card" aria-labelledby="mails">
-    <h2 id="mails">Mails</h2>
+    <div class="sk-head"><h2 id="mails">Mails</h2><a class="sk-more" href="/admin/post">Sendt post</a></div>
     ${o.mail.configured ? null : html`<p class="sk-warn">Siden sender ikke mails: RESEND_API_KEY er ikke sat.</p>`}
     ${o.mail.byKind.length ? html`<ul class="sk-rows">${o.mail.byKind.map(k => html`<li><div>${MAIL_KIND[k.kind] ?? k.kind}</div><div class="sk-counts"><span class="sk-tag sk-tag-green">${k.sent} sendt</span>${k.failed ? html`<span class="sk-tag sk-tag-berry">${k.failed} fejlede</span>` : null}</div></li>`)}</ul><p class="sk-note">Seneste 7 dage.</p>` : html`<p class="sk-empty">Ingen mails de seneste 7 dage.</p>`}
     ${o.mail.recent.some(m => m.status === "failed") ? html`<h3>Seneste fejl</h3><ul class="sk-rows">${o.mail.recent.filter(m => m.status === "failed").map(m => html`<li><div>${MAIL_KIND[m.kind] ?? m.kind}<br><span class="sk-muted">${m.error ?? ""}</span></div><time>${ago(m.created_at, now)}</time></li>`)}</ul>` : null}

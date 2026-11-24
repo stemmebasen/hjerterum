@@ -410,6 +410,8 @@ describe("the information meeting (Jake 2026-11-24)", () => {
     expect(mail.text).toContain("tirsdag den 12. januar 2027, kl. 19.30–20.45 på Guldsmedgade 26B, 8000 Aarhus C");
     expect(mail.text).toContain("styregruppen");
     expect(mail.text).toContain("uforpligtende");
+    // Kept in "Sendt post" too.
+    expect(db.raw.prepare("SELECT kind, to_email FROM sent_mails WHERE kind = 'informationsmoede'").all()).toEqual([{ kind: "informationsmoede", to_email: "birgit@example.dk" }]);
     // The same e-mail again: no second row and no second mail.
     await call("/informationsmoede", { form: { navn: "Birgit H.", email: "BIRGIT@example.dk" } });
     expect(sent.length).toBe(before + 1);
