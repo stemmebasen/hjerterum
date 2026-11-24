@@ -11,6 +11,7 @@ import { chatAccess, chatMessages, chatOpen, postMessage, reportedMessages, repo
 import { linkState, requestLoginLink, useLoginLink, validToken } from "./loginLink.js";
 import { listSignups, readSignup, saveSignup, validateSignup } from "./membership.js";
 import { sendWelcome } from "./welcome.js";
+import { inviteToJoin, joinRoute, JOIN_PATH } from "./join.js";
 import { listInquiries, partnerPage } from "./partners.js";
 import { contactInbox } from "../mail.js";
 import { contactPage, emptyContact, filledByPerson, listContacts, readContact, senderOf, sendContact, tooMany, topicFrom, validateContact } from "./contact.js";
@@ -176,6 +177,8 @@ export async function flokkenRoute(request: Request, env: Env, db: D1Database, p
     // The same way back as with the link from the e-mail: to the page the person came from, with "Du er logget ind".
     return go(withMessage(back, "logget_ind"), await startSession(db, found.id, now));
   }
+  // The link in the "Vil du være medlem?" mail (src/flokken/join.ts).
+  if (path === JOIN_PATH) return { view: await joinRoute(request, env, db, pc, url, now) };
   if (path === "/bliv-medlem" && !post) return { view: membershipPage(pc, !!(await member()), { sent: message === "tak" }) };
   if (path === "/bliv-medlem/meld-ind" && post) {
     const data = await formData(request);
@@ -305,6 +308,8 @@ export async function flokkenRoute(request: Request, env: Env, db: D1Database, p
     if (!m) return go(`/log-ind?naeste=${encodeURIComponent(self)}`, choiceCookie([e.slug]));
     if (!(await ready(m.id))) return go(profileForList(self), choiceCookie([e.slug]));
     await saveInterests(db, m.id, [e.slug], [], regions, now);
+    // Not a member yet: one mail asking if they would like to be (src/flokken/join.ts), the first time only.
+    await inviteToJoin(db, env, m.id, pc.origin, pc.lang ?? "da", now);
     // Back on the event page, scrolled to the thank-you above the buttons (Jake 2026-11-18: landing at the very top hid
     // it below the picture, so most people never saw it).
     return go(withMessage(back, "interesse_her") + "#besked", clearChoiceCookie());

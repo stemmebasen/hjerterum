@@ -10,7 +10,7 @@ import { ORGANISER_EMAIL } from "./web/layout.js";
 
 /** `replyTo` takes the place of the contact address as the mail's reply-to (the contact form: the sender). */
 export type Mail = { to: string; subject: string; text: string; html: string; replyTo?: string };
-export type MailKind = "login" | "invitation" | "reminder" | "welcome";
+export type MailKind = "login" | "invitation" | "reminder" | "welcome" | "join";
 export type SendResult = { ok: true } | { ok: false; error: string };
 
 /** The part of Cloudflare's send_email binding used here. */

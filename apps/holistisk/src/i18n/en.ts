@@ -5,6 +5,21 @@ import { ACTIVITY_TEXT, englishDates, hasDate, onlyDate } from "./en-rules.js";
 
 export const EN_TEXT: Record<string, string> = {
   ...ACTIVITY_TEXT,
+  // "Vil du være medlem?" link page (src/flokken/join.ts).
+  "Vil du være medlem af Socialklubben?": "Would you like to be a member of Socialklubben?",
+  "Velkommen som medlem!": "Welcome as a member!",
+  "Du er allerede medlem": "You're already a member",
+  "Linket er udløbet": "The link has expired",
+  "Linket virker ikke": "The link doesn't work",
+  "Tryk på knappen, så er du medlem. Du skal ikke udfylde noget.": "Press the button and you're a member. There's nothing to fill in.",
+  "Medlemskabet koster ikke noget, mens vi er under opstart, frem til 1. marts 2027.": "Membership costs nothing while we're starting up, until 1 March 2027.",
+  "Du er aldrig forpligtet til noget, hverken til at deltage eller til at blive ved med at være medlem. Du kan melde dig ud, når du vil.": "You're never obliged to anything: not to take part, and not to stay a member. You can leave whenever you like.",
+  "Ja, jeg vil gerne være medlem": "Yes, I'd like to be a member",
+  "Tak, du er nu medlem af Socialklubben. Vi har sendt dig en velkomstmail. Du er aldrig forpligtet til noget, og du kan melde dig ud, når du vil.": "Thank you, you're now a member of Socialklubben. We've sent you a welcome e-mail. You're never obliged to anything, and you can leave whenever you like.",
+  "Tak, du er allerede medlem af Socialklubben.": "Thank you, you're already a member of Socialklubben.",
+  "Du kan stadig blive medlem med dit navn og din e-mail.": "You can still become a member with your name and e-mail.",
+  "Bliv medlem af Socialklubben.": "Become a member of Socialklubben.",
+  "Bliv medlem – Socialklubben": "Become a member – Socialklubben",
   "Jeg vil gerne med!": "I'd like to come along!",
   "Om Socialklubben – en social forening i Aarhus": "About Socialklubben – a social club in Aarhus",
   "Bliv medlem af Socialklubben i Aarhus": "Become a member of Socialklubben in Aarhus",

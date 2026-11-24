@@ -7,6 +7,7 @@ import { sendDueMails } from "../src/flokken/notify.js";
 import { sendMail, type EmailBinding } from "../src/mail.js";
 import { MAILS_PER_DAY } from "../src/flokken/contact.js";
 import { welcomeMail } from "../src/flokken/welcome.js";
+import { joinMail, sendJoinInvites } from "../src/flokken/join.js";
 import { englishPath } from "../src/i18n/paths.js";
 import type { Env } from "../src/env.js";
 import { testDb } from "./d1.js";
@@ -182,6 +183,54 @@ describe("the 'Velkommen som medlem' mail", () => {
     expect(later.text).not.toContain("1. marts 2027");
     expect(later.text).not.toContain("informationsmøde");
     expect(later.text).toContain("aldrig forpligtet");
+  });
+});
+
+describe("the 'Vil du være medlem?' mail", () => {
+  it("asks someone who showed interest but is not a member, once; the link makes them a member", async () => {
+    const cookie = await member("Mette", "mette@example.dk");
+    sent.length = 0;
+    expect((await call(`/events/${event.slug}/interesse`, { cookie, form: {} })).status).toBe(303);
+    expect(sent).toHaveLength(1);
+    const m = sent[0]!;
+    expect(m.to).toBe("mette@example.dk");
+    expect(m.subject).toBe("Vil du være medlem af Socialklubben?");
+    expect(m.text).toContain("Hej Mette");
+    expect(m.text).toContain("aldrig forpligtet");
+    expect(m.text).toContain("frem til 1. marts 2027");
+    expect(m.text).toContain("Tilmeld dig her (");
+    for (const word of ["gave", "rabat", "støttemedlem", "event", "gratis"]) expect(m.text.toLowerCase()).not.toContain(word);
+    const token = /\/bliv-medlem\/ja\?t=([A-Za-z0-9_-]+)/.exec(m.text)![1]!;
+    // Opening the link (as a mail program checking it would) makes nobody a member.
+    const opened = await call(`/bliv-medlem/ja?t=${token}`);
+    expect(opened.body).toContain("Ja, jeg vil gerne være medlem");
+    expect(db.raw.prepare("SELECT COUNT(*) AS n FROM membership_signups WHERE email = 'mette@example.dk'").all()[0]).toEqual({ n: 0 });
+    const yes = await call("/bliv-medlem/ja", { form: { t: token } });
+    expect(yes.body).toContain("Velkommen som medlem!");
+    expect(db.raw.prepare("SELECT name FROM membership_signups WHERE email = 'mette@example.dk'").all()[0]).toEqual({ name: "Mette" });
+    expect(sent.at(-1)!.subject).toBe("Velkommen som medlem af Socialklubben");
+    expect((await call("/bliv-medlem/ja", { form: { t: token } })).body).toContain("Du er allerede medlem");
+    // Another tick sends nothing more, and nor does the cron.
+    sent.length = 0;
+    await call(`/events/${event.slug}/interesse/fjern`, { cookie, form: {} });
+    await call(`/events/${event.slug}/interesse`, { cookie, form: {} });
+    expect(await sendJoinInvites(db, env, ORIGIN, NOW)).toBe(0);
+    expect(sent.filter(x => x.subject.includes("medlem"))).toHaveLength(0);
+    expect((await call("/bliv-medlem/ja?t=" + "x".repeat(43))).body).toContain("Linket virker ikke");
+    db.raw.prepare("DELETE FROM event_interests WHERE member_id = ?").run(idOf("Mette"));
+  });
+
+  it("is sent by the cron to those who ticked before, never twice and never to members", async () => {
+    await member("Per", "per@example.dk");
+    await member("Rikke", "rikke@example.dk");
+    await call("/bliv-medlem/meld-ind", { form: { navn: "Rikke R", email: "RIKKE@example.dk" } });
+    for (const name of ["Per", "Rikke"]) db.raw.prepare("INSERT INTO event_interests (member_id, event_id, status, created_at, updated_at) VALUES (?, ?, 'waiting', ?, ?)").run(idOf(name), event.id, NOW, NOW);
+    sent.length = 0;
+    expect(await sendJoinInvites(db, env, ORIGIN, NOW)).toBe(1);
+    expect(sent.map(x => x.to)).toEqual(["per@example.dk"]);
+    expect(await sendJoinInvites(db, env, ORIGIN, NOW + 3600_000)).toBe(0);
+    for (const name of ["Per", "Rikke"]) db.raw.prepare("DELETE FROM event_interests WHERE member_id = ?").run(idOf(name));
+    expect(joinMail("x@example.dk", "Sam", `${ORIGIN}/en/membership/ja?t=x`, ORIGIN, "en", NOW).text).toContain("Hi Sam");
   });
 });
 
