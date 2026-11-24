@@ -14,6 +14,7 @@ import { sendWelcome } from "./welcome.js";
 import { inviteToJoin, joinRoute, JOIN_PATH } from "./join.js";
 import { listInquiries, partnerPage } from "./partners.js";
 import { contactInbox } from "../mail.js";
+import { INFO_PATH, infoMeetingPage, meetingOver, readInfo, saveInfo, signupOpen, validateInfo } from "./infoMeeting.js";
 import { contactPage, emptyContact, filledByPerson, listContacts, readContact, senderOf, sendContact, tooMany, topicFrom, validateContact } from "./contact.js";
 import { choiceCookie, clearChoiceCookie, cleanChoices, cancelledSection, confirmInterest, declineInterest, interestsSection, KICKOFF_PATH, kickoffJson, kickoffPage, memberInterests, readChoices, removeInterest, saveInterests } from "./kickoff.js";
 import { createFlock, eventOver, flockById, flockHost, joinFlock, leaveFlock, memberFlocks, updateFlock, upcomingFlocks } from "./store.js";
@@ -179,6 +180,20 @@ export async function flokkenRoute(request: Request, env: Env, db: D1Database, p
   }
   // The link in the "Vil du være medlem?" mail (src/flokken/join.ts).
   if (path === JOIN_PATH) return { view: await joinRoute(request, env, db, pc, url, now) };
+  // Informationsmødet (Jake 2026-11-24): the page and its sign-up form.
+  if (path === INFO_PATH && !post) return { view: infoMeetingPage(pc, { sent: message === "tak" }) };
+  if (path === INFO_PATH && post) {
+    const thanks = go(withMessage(INFO_PATH, "tak") + "#tilmelding");
+    const data = await formData(request);
+    if (!data) return { view: infoMeetingPage(pc, { status: 400, errors: { form: "Formularen kunne ikke læses. Prøv igen." } }) };
+    if (String(data.get("website_url") ?? "")) return thanks;
+    if (!signupOpen(now) || meetingOver(now)) return go(INFO_PATH + "#tilmelding");
+    const form = readInfo(data);
+    const errors = validateInfo(form);
+    if (Object.keys(errors).length) return { view: infoMeetingPage(pc, { form, errors, status: 400 }) };
+    await saveInfo(db, env, form, now);
+    return thanks;
+  }
   if (path === "/bliv-medlem" && !post) return { view: membershipPage(pc, !!(await member()), { sent: message === "tak" }) };
   if (path === "/bliv-medlem/meld-ind" && post) {
     const data = await formData(request);

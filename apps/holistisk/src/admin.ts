@@ -7,6 +7,8 @@ import { capitalize, dayLabel, hhmm, localDate, addDays } from "./time.js";
 import { html, raw, type SafeHtml } from "./web/html.js";
 import { ORGANISER_EMAIL, page, type PageContext } from "./web/layout.js";
 import { TOPICS, type Topic } from "./flokken/contact.js";
+import { INFO_MEETING } from "./flokken/infoMeeting.js";
+import { adminInfoMeetingRoute } from "./adminInfoMeeting.js";
 import { adminMembersRoute } from "./adminMembers.js";
 import { adminPicksRoute } from "./adminPicks.js";
 import { adminMailRoute } from "./adminMail.js";
@@ -105,6 +107,7 @@ export async function adminRoute(request: Request, env: Env, db: D1Database, pc:
   // Everything else under /admin is for the admin only.
   if (!(await isAdmin(db, request, now))) return { status: 303, body: "", redirect: "/admin" };
   if (path === "/admin/udvalg" || path.startsWith("/admin/udvalg/")) return adminPicksRoute(request, db, pc, path, url, now);
+  if (path === "/admin/informationsmoede" || path.startsWith("/admin/informationsmoede/")) return adminInfoMeetingRoute(request, db, pc, path, url, now);
   if (path === "/admin/post" || path.startsWith("/admin/post/")) return adminMailRoute(request, env, db, pc, path, url, now);
   return adminMembersRoute(request, db, pc, path, url, now);
 }
@@ -125,6 +128,8 @@ export type Overview = {
   /** The contact form's newest messages (src/flokken/contact.ts). */
   contacts: Array<{ topic: string; name: string; email: string; organisation: string | null; message: string; mail: string; created_at: number }>;
   reports: number;
+  /** Sign-ups for the information meeting (src/flokken/infoMeeting.ts). */
+  infoMeeting: { total: number; steering: number; newest: Array<{ name: string; email: string; steering: number; created_at: number }> };
 };
 
 /** Profiles made on Socialklubben (Samfolk's members share the table: they have joined Samfolk or help run it). */
@@ -169,6 +174,11 @@ export async function overview(db: D1Database, now: number, mailOn = true): Prom
     n("SELECT COUNT(DISTINCT r.message_id) AS n FROM flock_message_reports r JOIN flock_messages c ON c.id = r.message_id WHERE c.hidden_at IS NULL OR r.created_at > ?", week),
     db.prepare("SELECT topic, name, email, organisation, message, mail, created_at FROM contact_messages ORDER BY created_at DESC LIMIT 10").all<Overview["contacts"][number]>()
   ]);
+  const [infoTotal, infoSteering, infoNewest] = await Promise.all([
+    n("SELECT COUNT(*) AS n FROM info_meeting_signups"),
+    n("SELECT COUNT(*) AS n FROM info_meeting_signups WHERE steering = 1"),
+    db.prepare("SELECT name, email, steering, created_at FROM info_meeting_signups ORDER BY created_at DESC LIMIT 6").all<Overview["infoMeeting"]["newest"][number]>()
+  ]);
   const newestPeople = [
     ...people.results.map(p => ({ ...p, kind: "profil" as const })),
     ...signupRows.results.map(s => ({ ...s, kind: "indmelding" as const, age_group: null }))
@@ -179,7 +189,8 @@ export async function overview(db: D1Database, now: number, mailOn = true): Prom
     ...ticks.results.map(t => ({ at: t.at, text: `${t.who} vil gerne med til ${t.title}`, href: `/events/${t.slug}` })),
     ...joins.results.map(j => ({ at: j.at, text: `${j.who} kom med i en flok til ${j.title}`, href: `/flokke/${j.id}` })),
     ...inquiries.results.map(q => ({ at: q.created_at, text: `${q.organisation} skrev om samarbejde`, href: null })),
-    ...contacts.results.map(c => ({ at: c.created_at, text: `${c.organisation ?? c.name} skrev via kontaktformularen`, href: null }))
+    ...contacts.results.map(c => ({ at: c.created_at, text: `${c.organisation ?? c.name} skrev via kontaktformularen`, href: null })),
+    ...infoNewest.results.map(i => ({ at: i.created_at, text: `${i.name} tilmeldte sig informationsmødet`, href: "/admin/informationsmoede" }))
   ].sort((a, b) => b.at - a.at).slice(0, 20);
   return {
     visits,
@@ -193,13 +204,14 @@ export async function overview(db: D1Database, now: number, mailOn = true): Prom
     mail: { configured: mailOn, byKind: mailKinds.results, recent: mailRecent.results },
     inquiries: inquiries.results,
     contacts: contacts.results,
-    reports
+    reports,
+    infoMeeting: { total: infoTotal, steering: infoSteering, newest: infoNewest.results }
   };
 }
 
 // ————————————————————————————————————————— Pages
 
-const STYLE = ["/assets/admin.css?v=5"];
+const STYLE = ["/assets/admin.css?v=6"];
 export const when = (at: number, now: number) => `${dayLabel(at, now)} kl. ${hhmm(at)}`;
 /** "for 5 min. siden", "i går kl. 14.05" – how long ago, as a person would say it. */
 export function ago(at: number, now: number): string {
@@ -344,6 +356,15 @@ function overviewView(pc: PageContext, o: Overview, now: number): AdminView {
     </div>
     <h3>Nyeste</h3>
     ${o.newestPeople.length ? html`<ul class="sk-rows">${o.newestPeople.map(p => html`<li><div><a href="${p.kind === "profil" ? `/admin/medlemmer/${p.id}` : "/admin/medlemmer#indmeldelser"}"><strong>${p.name}</strong></a> ${p.kind === "indmelding" ? html`<span class="sk-tag">indmeldt</span>` : html`<span class="sk-tag sk-tag-green">profil</span>`}${p.age_group ? html` <span class="sk-muted">${p.age_group} år</span>` : null}${p.email ? html`<br><a class="sk-muted" href="mailto:${p.email}">${p.email}</a>` : null}</div><time>${ago(p.at, now)}</time></li>`)}</ul>` : html`<p class="sk-empty">Ingen endnu.</p>`}
+  </section>
+
+  <section class="sk-card" aria-labelledby="infomoede">
+    <div class="sk-head"><h2 id="infomoede">Informationsmøde ${INFO_MEETING.shortDate}</h2><a class="sk-more" href="/admin/informationsmoede">Alle tilmeldte</a></div>
+    <div class="sk-tiles">
+      ${tile(o.infoMeeting.total, "tilmeldte")}
+      ${tile(o.infoMeeting.steering, "måske styregruppe")}
+    </div>
+    ${o.infoMeeting.newest.length ? html`<ul class="sk-rows">${o.infoMeeting.newest.map(i => html`<li><div><strong>${i.name}</strong>${i.steering ? html` <span class="sk-tag sk-tag-green">styregruppe?</span>` : null}<br><a class="sk-muted" href="mailto:${i.email}">${i.email}</a></div><time>${ago(i.created_at, now)}</time></li>`)}</ul>` : html`<p class="sk-empty">Ingen tilmeldte endnu.</p>`}
   </section>
 
   <section class="sk-card" aria-labelledby="interesse">

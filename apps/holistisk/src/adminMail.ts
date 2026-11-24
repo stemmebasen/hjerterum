@@ -24,6 +24,7 @@ export const KIND_LABEL: Record<string, string> = {
   welcome: "Velkommen som medlem",
   join: "Vil du være medlem?",
   kontakt: "Kontaktformular",
+  informationsmoede: "Informationsmøde",
   anden: "Anden"
 };
 const STATUS: Record<string, string> = { failed: "Fejlede", off: "Ikke sendt (mail slået fra)" };
@@ -69,7 +70,7 @@ async function listView(pc: PageContext, db: D1Database, url: URL, now: number, 
   return shell(pc, "Sendt post", html`
   <nav class="sk-crumbs" aria-label="Brødkrumme"><a href="/admin">Overblik</a> / Sendt post</nav>
   <h1>Sendt post</h1>
-  <p class="sk-lead">Alle mails, siden har sendt: login-links, invitationer, påmindelser, statusmails og beskeder fra kontaktformularen. Tryk på en mail for at se den, som modtageren fik den.</p>
+  <p class="sk-lead">Alle mails, siden har sendt: login-links, invitationer, påmindelser, statusmails, tilmeldinger til informationsmødet og beskeder fra kontaktformularen. Tryk på en mail for at se den, som modtageren fik den.</p>
   ${fetched !== null ? html`<p class="sk-ok">${fetched === "0" ? "Der var ikke flere mails at hente fra Resend." : `Hentede ${fetched} ${fetched === "1" ? "mail" : "mails"} fra Resend.`}${url.searchParams.get("mere") ? " Der er flere: tryk igen." : ""}</p>` : null}
   ${error ? html`<p class="sk-warn">Kunne ikke hente fra Resend: ${error}</p>` : null}
   <form class="sk-search" method="get" action="/admin/post" role="search">
@@ -154,6 +155,7 @@ export function kindFromSubject(subject: string): string {
   if (/^Vil du være medlem|^Would you like to be a member/i.test(subject)) return "join";
   if (/login-link|Log ind på Socialklubbens overblik|^Velkommen til Socialklubben/i.test(subject)) return "login";
   if (/^(Kontakt|Arrangør):/.test(subject)) return "kontakt";
+  if (/informationsmødet/i.test(subject)) return "informationsmoede";
   if (/påmindelse|husk/i.test(subject)) return "reminder";
   if (/plads i en flok|flok/i.test(subject)) return "invitation";
   return "anden";
