@@ -10,7 +10,7 @@ import { ORGANISER_EMAIL } from "./web/layout.js";
 
 /** `replyTo` takes the place of the contact address as the mail's reply-to (the contact form: the sender). */
 export type Mail = { to: string; subject: string; text: string; html: string; replyTo?: string };
-export type MailKind = "login" | "invitation" | "reminder";
+export type MailKind = "login" | "invitation" | "reminder" | "status";
 export type SendResult = { ok: true } | { ok: false; error: string };
 
 /** The part of Cloudflare's send_email binding used here. */
@@ -78,21 +78,30 @@ export async function sendLogged(db: D1Database, env: Env, kind: MailKind, membe
   return result;
 }
 
-/** A plain, friendly mail: greeting, paragraphs, one button, and a closing line. Both an HTML and a text version. */
-export function letter(opts: { to: string; subject: string; greeting: string; paragraphs: string[]; button: { label: string; url: string }; after?: string[] }): Mail {
+export type LetterLink = { label: string; url: string };
+/** A closing paragraph, optionally ending in a link (e.g. "Bliv medlem"). */
+export type LetterPart = string | { text: string; link: LetterLink };
+/** A plain, friendly mail: greeting, paragraphs, an optional list of links, one button, and closing lines. Both an
+ * HTML and a text version. */
+export function letter(opts: { to: string; subject: string; greeting: string; paragraphs: string[]; links?: LetterLink[]; button: LetterLink; after?: LetterPart[] }): Mail {
   const after = opts.after ?? [];
-  const p = (t: string) => `<p style="margin:0 0 16px;font-size:16px;line-height:1.5;color:#1d1d1b">${escapeHtml(t)}</p>`;
+  const links = opts.links ?? [];
+  const style = "margin:0 0 16px;font-size:16px;line-height:1.5;color:#1d1d1b";
+  const a = (l: LetterLink) => `<a href="${escapeHtml(l.url)}" style="color:#1d1d1b;font-weight:bold">${escapeHtml(l.label)}</a>`;
+  const p = (t: LetterPart) => typeof t === "string" ? `<p style="${style}">${escapeHtml(t)}</p>` : `<p style="${style}">${escapeHtml(t.text)} ${a(t.link)}</p>`;
+  const pText = (t: LetterPart) => typeof t === "string" ? t : `${t.text}\n${t.link.label}: ${t.link.url}`;
   const html = `<!doctype html><html lang="da"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width"><title>${escapeHtml(opts.subject)}</title></head>
 <body style="margin:0;padding:0;background:#f6f1e7">
 <div style="max-width:520px;margin:0 auto;padding:28px 20px;font-family:Helvetica,Arial,sans-serif">
 <p style="margin:0 0 20px;font-size:20px;font-weight:bold;color:#1d1d1b">Socialklubben</p>
 ${p(opts.greeting)}
 ${opts.paragraphs.map(p).join("\n")}
+${links.length ? `<ul style="margin:0 0 16px;padding-left:20px;font-size:16px;line-height:1.5;color:#1d1d1b">${links.map(l => `<li style="margin:0 0 8px">${a(l)}</li>`).join("")}</ul>` : ""}
 <p style="margin:24px 0"><a href="${escapeHtml(opts.button.url)}" style="display:inline-block;background:#1d1d1b;color:#ffffff;text-decoration:none;font-weight:bold;padding:12px 20px;border-radius:8px">${escapeHtml(opts.button.label)}</a></p>
 ${after.map(p).join("\n")}
 <p style="margin:24px 0 0;font-size:16px;line-height:1.5;color:#1d1d1b">Kærlig hilsen<br>Socialklubben</p>
 </div></body></html>`;
-  const text = [opts.greeting, ...opts.paragraphs, `${opts.button.label}: ${opts.button.url}`, ...after, "Kærlig hilsen\nSocialklubben"].join("\n\n");
+  const text = [opts.greeting, ...opts.paragraphs, ...links.map(l => `${l.label}: ${l.url}`), `${opts.button.label}: ${opts.button.url}`, ...after.map(pText), "Kærlig hilsen\nSocialklubben"].join("\n\n");
   return { to: opts.to, subject: opts.subject, html, text };
 }
 

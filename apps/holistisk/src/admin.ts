@@ -266,7 +266,7 @@ function visitChart(days: VisitSummary["days"]): SafeHtml {
 const tile = (value: number, label: string, sub?: string) => html`<div class="sk-tile"><strong>${num(value)}</strong><span>${label}</span>${sub ? html`<small>${sub}</small>` : null}</div>`;
 const sum = (days: VisitSummary["days"], key: "views" | "visitors") => days.reduce((s, d) => s + d[key], 0);
 const CONTACT_MAIL: Record<string, string> = { failed: "Mail fejlede", off: "Ikke mailet", held: "Ikke mailet (dagens grænse)" };
-const MAIL_KIND: Record<string, string> = { login: "Login-links", invitation: "Invitationer til flokke", reminder: "Påmindelser" };
+const MAIL_KIND: Record<string, string> = { login: "Login-links", invitation: "Invitationer til flokke", reminder: "Påmindelser", status: "Status før arrangementet" };
 
 /** "Vejen til medlem": how many people reached each step, beside the visitors, so it shows where people stop. */
 function funnelView(o: Overview, d: VisitSummary["days"]) {

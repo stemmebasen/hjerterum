@@ -2,8 +2,8 @@ import { beforeAll, describe, expect, it } from "vitest";
 import { handle } from "../src/index.js";
 import { runIngest } from "../src/ingest/run.js";
 import { SOURCES } from "../src/sources/registry.js";
-import { saveInterests } from "../src/flokken/kickoff.js";
-import { sendDueMails } from "../src/flokken/notify.js";
+import { gather, saveInterests } from "../src/flokken/kickoff.js";
+import { sendDueMails, sendStatusMails } from "../src/flokken/notify.js";
 import { sendMail, type EmailBinding } from "../src/mail.js";
 import { MAILS_PER_DAY } from "../src/flokken/contact.js";
 import type { Env } from "../src/env.js";
@@ -178,6 +178,53 @@ describe("mails about flock places", () => {
     expect((await sendDueMails(db, failing, NOW)).invitations).toBe(0);
     expect((db.raw.prepare("SELECT COUNT(*) AS n FROM mail_log WHERE status = 'failed'").all()[0] as { n: number }).n).toBe(3);
     expect((await sendDueMails(db, env, NOW)).invitations).toBe(3);
+  });
+});
+
+describe("status mails before the arrangement", () => {
+  it("tells those still waiting 7, 3 and 1 day before, with the member part, and stops gathering the day before", async () => {
+    const DAY = 86_400_000;
+    const e = (db.raw.prepare("SELECT id, slug, title, starts_at FROM events WHERE status = 'scheduled' AND starts_at > ? AND venue_name IS NOT NULL ORDER BY starts_at").all(NOW + 4 * DAY) as Array<typeof event>)[2]!;
+    const regions = ["ostjylland"];
+    await member("Gry", "gry@example.dk");
+    await member("Hans", "hans@example.dk");
+    await member("Jonna", "jonna@example.dk");
+    expect((await call("/bliv-medlem/meld-ind", { form: { navn: "Hans Holm", email: "Hans@Example.dk" } })).status).toBe(303);
+    for (const n of ["Gry", "Hans"]) await saveInterests(db, idOf(n), [e.slug], [], regions, e.starts_at - 10 * DAY);
+    sent.length = 0;
+
+    expect(await sendStatusMails(db, noMail(), regions, e.starts_at - 7 * DAY + 3600_000)).toEqual({ status: 0 });
+    expect(await sendStatusMails(db, env, regions, e.starts_at - 8 * DAY)).toEqual({ status: 0 });
+    expect(await sendStatusMails(db, env, regions, e.starts_at - 7 * DAY + 3600_000)).toEqual({ status: 2 });
+    const gry = sent.find(m => m.to === "gry@example.dk")!;
+    const hans = sent.find(m => m.to === "hans@example.dk")!;
+    expect(gry.subject).toContain(`Status på ${e.title}`);
+    expect(gry.text).toContain("Vi skal være mindst 3, og der er stadig en uge til.");
+    expect(gry.text).toContain("Husk, at din interesse er helt uforpligtende.");
+    expect(gry.text).toContain("Det koster ikke noget i opstarten frem til 1. marts 2027");
+    expect(gry.text).toContain("du kan melde dig ud, når du vil.");
+    expect(gry.text).toContain("Bliv medlem: https://socialklubben.dk/bliv-medlem");
+    expect(hans.text).toContain("Tak fordi du er medlem af Socialklubben.");
+    expect(hans.text).not.toContain("Bliv medlem:");
+    expect(await sendStatusMails(db, env, regions, e.starts_at - 6 * DAY)).toEqual({ status: 0 });
+
+    sent.length = 0;
+    expect(await sendStatusMails(db, env, regions, e.starts_at - 3 * DAY + 3600_000)).toEqual({ status: 2 });
+    expect(sent[0]!.subject).toBe(`Stadig på vej: ${e.title}`);
+    expect(sent[0]!.text).toContain("Vi prøver frem til dagen før");
+
+    // The day before, a third one ticks: no flock any more, and no mail to the late one.
+    await saveInterests(db, idOf("Jonna"), [e.slug], [], regions, e.starts_at - DAY + 1800_000);
+    expect(await gather(db, e.id, e.starts_at - DAY + 1800_000)).toBe(0);
+    sent.length = 0;
+    expect(await sendStatusMails(db, env, regions, e.starts_at - DAY + 3600_000)).toEqual({ status: 2 });
+    expect(sent.map(m => m.to).sort()).toEqual(["gry@example.dk", "hans@example.dk"]);
+    expect(sent[0]!.subject).toBe(`Det blev ikke til en flok denne gang: ${e.title}`);
+    expect(sent[0]!.text).toContain("Du står ikke længere på listen til dette arrangement, og du skal ikke gøre noget.");
+    expect(sent[0]!.text).toContain("Find et andet arrangement: https://socialklubben.dk/kom-godt-i-gang");
+    expect(sent[0]!.html).not.toContain("<script");
+    expect(await sendStatusMails(db, env, regions, e.starts_at - DAY + 7200_000)).toEqual({ status: 0 });
+    expect((db.raw.prepare("SELECT COUNT(*) AS n FROM mail_log WHERE kind = 'status' AND status = 'sent'").all()[0] as { n: number }).n).toBe(6);
   });
 });
 
