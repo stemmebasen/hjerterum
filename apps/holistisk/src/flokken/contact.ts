@@ -1,6 +1,6 @@
 import type { D1Database } from "../db.js";
 import type { Env } from "../env.js";
-import { sendMail, type SendResult } from "../mail.js";
+import { sendMail, type Mail, type SendResult } from "../mail.js";
 import { escapeHtml, html, raw, type SafeHtml } from "../web/html.js";
 import { crumbsNav, organiserEmail, page, type Crumb, type PageContext } from "../web/layout.js";
 import { sha256 } from "./auth.js";
@@ -79,7 +79,7 @@ export async function tooMany(db: D1Database, sender: string, now: number): Prom
   return (r?.hour ?? 0) >= PER_HOUR || (r?.day ?? 0) >= PER_DAY;
 }
 
-export function contactMail(f: ContactForm, to: string): { to: string; subject: string; text: string; html: string; replyTo: string } {
+export function contactMail(f: ContactForm, to: string): Mail & { replyTo: string } {
   const rows: Array<[string, string]> = [["Emne", TOPICS[f.topic]], ["Navn", f.name], ["E-mail", f.email],
     ...(f.organisation ? [["Forening eller sted", f.organisation] as [string, string]] : []),
     ...(f.website ? [["Hjemmeside", f.website] as [string, string]] : [])];
@@ -95,14 +95,14 @@ export function contactMail(f: ContactForm, to: string): { to: string; subject: 
 <div style="background:#fffdf8;border:1px solid #d9d2c3;border-radius:8px;padding:14px 16px;font-size:16px;line-height:1.5;color:#1d1d1b;white-space:pre-wrap">${escapeHtml(f.message)}</div>
 <p style="margin:18px 0 0;font-size:14px;color:#5b5b55">Svar på denne mail, så går svaret direkte til ${escapeHtml(f.name)}.</p>
 </div></body></html>`;
-  return { to, subject, text, html: body, replyTo: f.email };
+  return { to, subject, text, html: body, replyTo: f.email, kind: "kontakt" };
 }
 
 /** Saves the message and mails it (unless the day's mail budget is used). */
 export async function sendContact(db: D1Database, env: Env, f: ContactForm, sender: string, to: string, now: number, send: typeof sendMail = sendMail): Promise<void> {
   const today = await db.prepare("SELECT COUNT(*) AS n FROM contact_messages WHERE created_at > ? AND mail IN ('sent', 'failed')").bind(now - 86_400_000).first<{ n: number }>();
   let result: SendResult | null = null;
-  if ((today?.n ?? 0) < MAILS_PER_DAY) result = await send(env, contactMail(f, to));
+  if ((today?.n ?? 0) < MAILS_PER_DAY) result = await send(env, contactMail(f, to), fetch, now);
   const mail = !result ? "held" : result.ok ? "sent" : result.error === "off" ? "off" : "failed";
   const error = result && !result.ok && mail === "failed" ? result.error.slice(0, 300) : null;
   if (error) console.error(JSON.stringify({ event: "mail_failed", kind: "contact", error }));
