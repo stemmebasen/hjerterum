@@ -71,7 +71,7 @@ describe("front page", () => {
     expect(body).toContain('<h2 id="h-mission">Derfor findes Flokken</h2>');
     expect(body).toContain("så er du IKKE alene");
     // The intro carries both aims and promises no savings.
-    expect(body).toMatch(/<p class="standfirst">Vi vil have flere ud at opleve Aarhus sammen\. Find noget blandt \d+ arrangement(?:er)? i Aarhus – fra de store scener til de små spillesteder og foreninger, som fortjener at blive opdaget – og tryk (&quot;|")Jeg vil gerne med!(&quot;|") Så samler vi en lille flok, du kan følges med\.<\/p>/);
+    expect(body).toMatch(/<p class="standfirst">Find noget blandt \d+ arrangement(?:er)? – fra de store scener til de små foreninger – og tryk (&quot;|")Jeg vil gerne med!(&quot;|") Så samler vi en lille flok, du kan følges med\.<\/p>/);
     // The association's two aims and a line for newcomers who read English.
     expect(body).toContain("Flokken er en social forening med to formål");
     expect(body).toContain('<p class="mission-en" lang="en">New in Aarhus?');
@@ -165,7 +165,12 @@ describe("the calendar", () => {
 
   it("invites organisers in the top banner instead of calling the site a test version", async () => {
     const { body } = await text("/");
-    expect(body).toContain('Mangler jeres arrangement på siden? <a href="/kontakt?emne=arrangoer">Skriv til os her</a>');
+    // While we start up (until 1 March 2027) the band carries the start-up, the meeting and membership (Jake 2026-11-24).
+    expect(body).toContain('<div class="env-banner startup-banner" role="note">');
+    expect(body).toContain('<a class="startup-banner-item" href="/informationsmoede">');
+    const later = await (await handle(new Request("https://portal.example/"), env, Date.parse("2027-03-02T12:00:00Z"))).text();
+    expect(later).toContain('Mangler jeres arrangement på siden? <a href="/kontakt?emne=arrangoer">Skriv til os her</a>');
+    expect(later).not.toContain("startup-banner");
     // No private address anywhere on the site (Jake 2026-11-17): only kontakt@socialklubben.dk.
     expect(body).not.toContain("jacobhauge.com\"");
     expect(body).not.toMatch(/mailto:(?!kontakt@socialklubben\.dk)/);

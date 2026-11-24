@@ -125,12 +125,6 @@ export function infoMeetingTeaser(now: number): SafeHtml | "" {
   </aside>`;
 }
 
-/** A short line in the front page's top, under "Se kalenderen", until the meeting starts. */
-export function infoMeetingNote(now: number): SafeHtml | "" {
-  if (!signupOpen(now)) return "";
-  return html`<a class="info-note" href="${INFO_PATH}"><span class="info-note-date" aria-hidden="true"><strong>12</strong>jan</span><span><strong>Informationsmøde ${INFO_MEETING.shortDate}</strong><span>${timeLabel()} · ${INFO_MEETING.place} · Tilmeld dig</span></span></a>`;
-}
-
 const capital = (s: string) => s.charAt(0).toUpperCase() + s.slice(1);
 
 export function infoMeetingPage(ctx: PageContext, state: { form?: InfoForm; errors?: InfoErrors; sent?: boolean; status?: number } = {}): View {

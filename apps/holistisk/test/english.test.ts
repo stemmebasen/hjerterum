@@ -81,7 +81,7 @@ describe("the English site", () => {
     expect(r.body).toContain('href="/en/calendar"');
     expect(r.body).toContain("I&#39;d like to come along!");
     expect(r.body).toContain("Aarhus is full of great experiences");
-    expect(r.body).toContain('href="/assets/site.css?v=55"');
+    expect(r.body).toContain('href="/assets/site.css?v=57"');
     expect(r.body).not.toContain('href="/kalender"');
   });
 
