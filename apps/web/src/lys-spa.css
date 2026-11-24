@@ -1087,10 +1087,12 @@ body, .workspace-shell, .admin-workspace, .auth-shell, .profile-workspace { back
 .event-row-photo-link { display: block; line-height: 0; }
 .member-row-meta { font-size: 13.5px; color: var(--lys-muted); }
 .member-row-meta a { color: var(--lys-terra); }
-.member-event-rows .event-row-more { display: flex; justify-content: flex-end; }
+.member-event-rows .event-row-more { display: flex; flex-wrap: wrap; justify-content: flex-end; align-items: center; gap: 6px 0; }
+.member-event-rows .event-row-more .member-row-note, .member-event-rows .event-row-more .row-manage { flex-basis: 100%; text-align: right; }
+.member-event-rows .event-row-more .row-manage { font-size: 13px; }
 .member-event-rows .event-row-more .pill-button { white-space: nowrap; }
 .member-event-row.is-attending .event-row-date b { color: var(--lys-terra); }
-@media (max-width: 900px) { .member-event-rows .event-row-more { justify-content: flex-start; margin-top: 4px; } .event-row-photo-link { grid-area: photo; } }
+@media (max-width: 900px) { .member-event-rows .event-row-more { justify-content: flex-start; margin-top: 4px; } .member-event-rows .event-row-more .member-row-note, .member-event-rows .event-row-more .row-manage { text-align: left; } .event-row-photo-link { grid-area: photo; } }
 /* Guests sign up on the event's own page (event-page.tsx SignUp). */
 .event-guest { display: grid; gap: 10px; max-width: 420px; }
 .event-guest label { display: grid; gap: 4px; font: 600 13px/1.2 var(--lys-sans); color: var(--lys-muted); }

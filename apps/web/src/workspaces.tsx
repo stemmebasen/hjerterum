@@ -865,7 +865,6 @@ export function MemberCalendar({
                   {Array.from({ length: Math.min(6, booking.maxAttendees ? Math.max(1, booking.maxAttendees - (booking.attendeeCount ?? 0)) : 6) }, (_, i) => i + 1).map(n => <option key={n} value={n}>{n === 1 ? "1 person" : `${n} pers.`}</option>)}
                 </select>}
               {/* Douglas (19 Nov 2026): "I still can't sign up for my event" - the organiser can sign up for their own event like anyone else, and still has the way to manage it. */}
-              {booking?.isOwner && <a className="text-link" href="/member-portal/events">Administrér →</a>}
               {booking ? (
                 <button type="button" className={booking.isAttending ? "pill-button subtle" : "pill-button dark"}
                   disabled={busyId === booking.id || booking.registrationStatus === "pending" || (!booking.isAttending && full)}
@@ -874,6 +873,8 @@ export function MemberCalendar({
                 </button>)
                 : href ? <a className="text-link" href={href} {...linkProps}>Læs mere{away ? " ↗" : " →"}</a> : <span className="member-row-meta">Kontakt arrangøren</span>}
               {booking && rowNote?.id === booking.id && <small className="member-row-note" role="status">{rowNote.text}</small>}
+              {/* Douglas (19 Nov 2026): "the layout here is a bit strange" - the organiser's way to manage the event goes under the button. */}
+              {booking?.isOwner && <a className="text-link row-manage" href="/member-portal/events">Administrér →</a>}
             </span>
           </div></li>;
         })}

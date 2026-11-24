@@ -111,7 +111,8 @@ export function readFilter(params: URLSearchParams): CockpitFilter {
 }
 export function applyFilter(list: CockpitMember[], f: CockpitFilter): CockpitMember[] {
   const q = f.q.toLowerCase();
-  const out = list.filter(m => (!q || `${m.name} ${m.email} ${m.phone ?? ""}`.toLowerCase().includes(q))
+  // Douglas (19 Nov 2026): "I added a new label for myself ... 'Judge'. I am not able to search for that label" - the labels are searched too.
+  const out = list.filter(m => (!q || `${m.name} ${m.email} ${m.phone ?? ""} ${m.labels.join(" ")}`.toLowerCase().includes(q))
     && (!f.status || m.status === f.status) && (!f.tier || m.tier === f.tier) && (!f.billing || m.billing === f.billing) && (!f.teacher || m.teacher));
   if (f.sort === "siden") out.sort((a, b) => (a.joinedOn ?? "9999").localeCompare(b.joinedOn ?? "9999"));
   if (f.sort === "betaling") out.sort((a, b) => (a.nextPayment ?? "9999").localeCompare(b.nextPayment ?? "9999"));
@@ -191,7 +192,7 @@ ${d.notice ? `<p class="notice">${esc(d.notice)}</p>` : ""}
 <div class="card"><h2>Nuværende medlemmer efter indmeldelsesår</h2><div class="mc-bars">${fig.joinedByYear.map(y => `<div><span>${y.year}</span><i style="width:${Math.round(y.count / max * 100)}%"></i><b>${y.count}</b></div>`).join("")}</div></div>
 </section>
 <form class="mc-filter" method="get" action="${base}/medlemskab">
-<input name="q" value="${esc(f.q)}" placeholder="Søg navn, e-mail eller telefon" aria-label="Søg">
+<input name="q" value="${esc(f.q)}" placeholder="Søg navn, e-mail, telefon eller label" aria-label="Søg">
 <select name="status" aria-label="Status">${opt("", "Alle statusser", f.status)}${(["aktiv", "restance", "opsagt", "uden"] as const).map(s => opt(s, STATUS_LABEL[s], f.status)).join("")}</select>
 <select name="type" aria-label="Medlemskab">${opt("", "Alle medlemskaber", f.tier)}${tiers.map(t => opt(t, planName(t), f.tier)).join("")}</select>
 <select name="betaling" aria-label="Betaling">${opt("", "Alle betalingsformer", f.billing)}${(["kort", "manuel", "gratis"] as const).map(b => opt(b, BILLING_LABEL[b], f.billing)).join("")}</select>

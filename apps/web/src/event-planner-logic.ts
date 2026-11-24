@@ -183,7 +183,8 @@ export function quoteFor(date: string, start: string, end: string, type: RentTyp
 export const priceText = (quote: Quote): string => quote ? (quote.totalKr === 0 ? "0 kr." : kr(quote.totalKr)) : "-";
 
 export const RENT_TYPES: Array<{ id: RentType; name: string; text: string }> = [
-  { id: "standard", name: "Standard", text: "Fast pris, ingen medlemsrabat for deltagerne" },
+  // Douglas (19 Nov 2026): "it might be clearer and consistent with the other boxes to say: 'Fixed price, no member discount to participate.'"
+  { id: "standard", name: "Standard", text: "Fast pris, ingen medlemsrabat for at deltage" },
   { id: "reduced", name: "Reduceret", text: "Medlemmer betaler mindre end ikke-medlemmer for at deltage" },
   { id: "free", name: "Gratis leje", text: "Medlemmer deltager gratis" }
 ];

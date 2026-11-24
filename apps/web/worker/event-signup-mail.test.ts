@@ -54,6 +54,11 @@ describe("the organiser's sign-up mails", () => {
     await guestReceipt(ENV, fetcher, (await publicEvent(db, id))!, { name: "Bo", email: "bo@x.dk" }, "https://www.hjerterum.info/events/h1");
     expect(String(sent[0]!.text)).toContain("Besked fra Anna Ananda:\nTag en måtte med.\nDøren åbner 18.45.");
     expect(String(sent[0]!.html)).toContain("Tag en måtte med.<br>Døren åbner 18.45.");
+    // Douglas (19 Nov 2026): one who cannot come writes to the organiser, not to team@ - and a member can cancel on the member pages.
+    expect(String(sent[0]!.text)).toContain("Kan du ikke komme alligevel, så skriv til anna@x.dk");
+    expect(sent[0]!.reply_to).toBe("anna@x.dk");
+    await guestReceipt(ENV, fetcher, (await publicEvent(db, id))!, { name: "Eva", email: "eva@x.dk" }, "https://www.hjerterum.info/events/h1", true);
+    expect(String(sent[1]!.text)).toContain("afmeld dig under Kalender på Min side, eller skriv til anna@x.dk");
   });
 });
 

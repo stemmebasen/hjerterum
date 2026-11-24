@@ -448,7 +448,7 @@ async function attendBooking(
     }, !membership.member, seats);
     // Douglas (12 Nov 2026): "Does a participant get an email when they sign up for an event?" - a guest did; now one who signs up logged in too.
     const row = await publicEvent(env.DB, bookingId).catch(() => null);
-    if (row) await guestReceipt(env, fetch, row, { name: membership.fullName, email: membership.email.trim().toLowerCase(), seats }, `${CURRENT_SITE}/events/h${bookingId}`);
+    if (row) await guestReceipt(env, fetch, row, { name: membership.fullName, email: membership.email.trim().toLowerCase(), seats }, `${CURRENT_SITE}/events/h${bookingId}`, true);
     await notifyOrganiser(env, fetch, bookingId, { name: membership.fullName, email: membership.email.trim().toLowerCase(), clerkUserId: user.userId, seats }, CURRENT_SITE);
     return json({ status: "attending" }, { status: 201 });
   } catch (error) {

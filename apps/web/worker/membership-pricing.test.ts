@@ -38,7 +38,9 @@ describe("published Hjerterum membership prices", () => {
     const input = parseCheckoutInput({ tier: "standard", interval: "month", email: "test@example.invalid", fullName: "Test", acceptedTerms: true });
     await createMembershipCheckout(db, "test-secret", "https://staging.example.invalid", "user_test", input);
     expect(stripeRequest).toHaveBeenCalledWith("test-secret", "POST", "/checkout/sessions",
-      expect.objectContaining({ "subscription_data[trial_period_days]": 30, "metadata[terms_accepted_at]": expect.stringMatching(/^\d+$/) }));
+      expect.objectContaining({ "metadata[terms_accepted_at]": expect.stringMatching(/^\d+$/) }));
+    // Douglas (19 Nov 2026): "Free trial period should be '0' days unless we change it" - no trial is sent to Stripe then.
+    expect(Object.keys(vi.mocked(stripeRequest).mock.calls.at(-1)![3] as Record<string, unknown>)).not.toContain("subscription_data[trial_period_days]");
   });
 
   it("rejects invalid and inherited plan names", () => {
