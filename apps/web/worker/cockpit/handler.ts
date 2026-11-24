@@ -532,32 +532,34 @@ async function route(request: Request, env: SagaEnv, deps: SagaDeps, state: Stat
     return redirect(String(form?.get("back") ?? "") === "/profil" ? `${base}/profil?${saved ? "ansvar=gemt" : "ansvar=tom"}#ansvar` : `${base}/`);
   }
   // Asked (the chair, 24 Nov 2026): Douglas talks his wishes through with Saga, and the chair decides (wishes.ts).
-  if (path === "/oensker" || path.startsWith("/oensker/")) {
+  // The chair (24 Nov 2026): "Brug i stedet udtryk som: Forslag til udvikling / Development requests" - the first address leads there.
+  if ((path === "/oensker" || path.startsWith("/oensker/")) && request.method === "GET") return redirect(`${base}/forslag${path.slice("/oensker".length)}${url.search}`);
+  if (path === "/forslag" || path.startsWith("/forslag/")) {
     if (!who) return redirect(`${base}/hvem`);
     if (!may("wishes.write")) return denied("wishes.write");
     const chair = may("wishes.decide");
     const cockpitUrl = `${url.origin}${base}`;
-    if (path === "/oensker" && request.method === "GET") {
-      const notice = ({ lavet: "Ønsket er markeret som lavet." } as Record<string, string>)[url.searchParams.get("besked") ?? ""] ?? "";
+    if (path === "/forslag" && request.method === "GET") {
+      const notice = ({ lavet: "Forslaget er markeret som lavet." } as Record<string, string>)[url.searchParams.get("besked") ?? ""] ?? "";
       return html(wishesPage(base, who, { wishes: await listWishes(db), chair, notice }));
     }
-    if (path === "/oensker/ny" && request.method === "POST") return redirect(`${base}/oensker/${await newWish(db, who, now)}`);
-    const picture = /^\/oensker\/billede\/(\d+)$/.exec(path);
+    if (path === "/forslag/ny" && request.method === "POST") return redirect(`${base}/forslag/${await newWish(db, who, now)}`);
+    const picture = /^\/forslag\/billede\/(\d+)$/.exec(path);
     if (picture && request.method === "GET") {
       const row = await db.prepare("SELECT image_key, image_type FROM wish_messages WHERE id = ?").bind(Number(picture[1])).first<{ image_key: string | null; image_type: string | null }>();
       const object = row?.image_key && env.BOARD_RECORDINGS ? await env.BOARD_RECORDINGS.get(row.image_key).catch(() => null) : null;
       if (!object) return html(notFound(base, who), 404);
       return new Response(await object.arrayBuffer(), { headers: { "content-type": row!.image_type ?? "application/octet-stream", "cache-control": "private, max-age=3600", "x-content-type-options": "nosniff" } });
     }
-    const match = /^\/oensker\/(\d+)(?:\/(besked|send|afgoer|lavet|opgiv))?$/.exec(path);
+    const match = /^\/forslag\/(\d+)(?:\/(besked|send|afgoer|lavet|opgiv))?$/.exec(path);
     const wish = match ? await wishById(db, Number(match[1])) : null;
     if (!match || !wish) return html(notFound(base, who), 404);
     const mine = wish.author === who;
     const action = match[2];
     const errors: Record<WishError, string> = { empty: "Skriv noget til Saga, eller vælg et skærmbillede.", image_type: "Skærmbilledet skal være PNG, JPG, WebP eller GIF.",
-      image_size: "Skærmbilledet må højst fylde 4 MB.", closed: "Samtalen er lukket - start et nyt ønske.", ai: "Saga kunne ikke svare lige nu. Det, du skrev, er gemt - prøv igen om lidt." };
+      image_size: "Skærmbilledet må højst fylde 4 MB.", closed: "Samtalen er lukket - start et nyt forslag.", ai: "Saga kunne ikke svare lige nu. Det, du skrev, er gemt - prøv igen om lidt." };
     if (!action && request.method === "GET") {
-      const notices: Record<string, string> = { sendt: "Ønsket er sendt til formanden. Du kan se her, når det er afgjort.", godkendt: "Ønsket er godkendt.", afvist: "Ønsket er afvist." };
+      const notices: Record<string, string> = { sendt: "Forslaget er sendt til godkendelse. Du kan se her, når det er afgjort.", godkendt: "Forslaget er godkendt.", afvist: "Forslaget er afvist." };
       return html(wishPage(base, who, { wish, messages: await wishMessages(db, wish.id), chair, mine, notice: notices[url.searchParams.get("besked") ?? ""] ?? "",
         error: errors[url.searchParams.get("fejl") as WishError] ?? "" }));
     }
@@ -574,28 +576,28 @@ async function route(request: Request, env: SagaEnv, deps: SagaDeps, state: Stat
         const english = (fragment: string) => state.lang === "en" ? translateHtml(fragment) : fragment;
         return answer({ chat: english(wishChat(base, view.messages)), card: english(wishCard(base, view)), notice: failed ? english(`<p class="notice bad">${errors[failed]}</p>`) : "", closed: failed === "closed", title: now2.title });
       }
-      return redirect(`${base}/oensker/${wish.id}${failed ? `?fejl=${failed}` : ""}#bund`);
+      return redirect(`${base}/forslag/${wish.id}${failed ? `?fejl=${failed}` : ""}#bund`);
     }
     if (action === "opgiv") {
       if (!mine && !chair) return denied("wishes.decide");
       await dropWish(db, wish, now);
-      return redirect(`${base}/oensker`);
+      return redirect(`${base}/forslag`);
     }
     if (action === "send") {
       if (!mine && !chair) return denied("wishes.decide");
       await sendWish(env, deps, db, wish, cockpitUrl);
-      return redirect(`${base}/oensker/${wish.id}?besked=sendt`);
+      return redirect(`${base}/forslag/${wish.id}?besked=sendt`);
     }
     if (!chair) return denied("wishes.decide");
     if (action === "afgoer") {
       const approve = form?.get("svar") === "godkend";
       if (await decideWish(env, deps, db, wish, approve, String(form?.get("note") ?? ""), who, cockpitUrl))
-        await audit(db, actor, "wishes.decide", `${approve ? "Godkendte" : "Afviste"} ønske #${wish.id} fra ${wish.author}: ${wish.title ?? ""}`, now);
-      return redirect(`${base}/oensker/${wish.id}?besked=${approve ? "godkendt" : "afvist"}`);
+        await audit(db, actor, "wishes.decide", `${approve ? "Godkendte" : "Afviste"} forslag #${wish.id} fra ${wish.author}: ${wish.title ?? ""}`, now);
+      return redirect(`${base}/forslag/${wish.id}?besked=${approve ? "godkendt" : "afvist"}`);
     }
     if (action === "lavet") {
       await markWishDone(db, wish, now);
-      return redirect(`${base}/oensker?besked=lavet`);
+      return redirect(`${base}/forslag?besked=lavet`);
     }
     return html(notFound(base, who), 404);
   }
