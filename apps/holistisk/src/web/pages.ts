@@ -176,6 +176,7 @@ export async function homePage(db: D1Database, ctx: PageContext, regions: string
       ${searchForm({})}
       <a class="calendar-cta" href="/kalender">${CALENDAR_ICON}<span class="calendar-cta-text"><strong>Se kalenderen</strong><span>${eventsLabel(total)} – dag for dag</span></span><span class="calendar-cta-arrow" aria-hidden="true">→</span></a>
       ${infoMeetingNote(ctx.now)}
+      ${freeMembership(ctx.now) ? html`<p class="startup-note"><strong>Vi er under opstart.</strong> Støt os ved at vise din interesse og blive medlem – det er gratis til ${FREE_MEMBERSHIP_DATE} og forpligter dig ikke til noget. <a href="/bliv-medlem">Bliv medlem</a></p>` : ""}
     </div>
     <div class="hero-visual">${ticketStack(heroTickets)}</div>
   </div>
@@ -193,15 +194,18 @@ export async function homePage(db: D1Database, ctx: PageContext, regions: string
     <p class="mission-en" lang="en">${ENGLISH_LINE}</p>
   </aside>
   ${infoMeetingTeaser(ctx.now)}
+  <aside class="partner-teaser member-teaser" aria-labelledby="h-member">
+    ${freeMembership(ctx.now)
+      ? html`<div><p class="hero-kicker">Vi er under opstart</p><h2 id="h-member">Støt os – bliv medlem</h2>
+    <p>Flokken er en helt ny forening, og vi bygger den op sammen med jer. Et godt fællesskab kræver et solidt fundament, og det fundament er medlemmerne: jo flere vi er, jo flere initiativer kan vi sætte i gang. Den bedste måde at støtte os på er at vise din interesse ved at blive medlem.</p>
+    <p>Det er gratis til ${FREE_MEMBERSHIP_DATE} og forpligter dig ikke til noget: du bestemmer selv, om og hvornår du vil med, og du kan melde dig ud, når du vil.</p></div>
+    <p><a class="button button-alt" href="/bliv-medlem">Bliv medlem</a></p>`
+      : html`<div><p class="hero-kicker">Foreningen</p><h2 id="h-member">Bliv medlem</h2>
+    <p>Flokken er en forening, der findes, fordi folk er med. Du kan deltage i de første ${FREE_OUTINGS} udflugter uden at være medlem – og bagefter holder du som medlem fællesskabet i gang.</p></div>
+    <p><a class="button button-alt" href="/bliv-medlem">Læs om medlemskab</a></p>`}
+  </aside>
   ${testimonialCard(TESTIMONIAL)}
   ${section("h-how", "Sådan virker Flokken", howItWorks)}
-  <aside class="partner-teaser member-teaser" aria-labelledby="h-member">
-    <div><p class="hero-kicker">Foreningen</p><h2 id="h-member">Bliv medlem</h2>
-    <p>${freeMembership(ctx.now)
-      ? `Flokken er en forening, der findes, fordi folk er med. Vi er lige gået i gang, så medlemskab er gratis til ${FREE_MEMBERSHIP_DATE}. Meld dig ind, og vær med til at holde fællesskabet i gang.`
-      : `Flokken er en forening, der findes, fordi folk er med. Du kan deltage i de første ${FREE_OUTINGS} udflugter uden at være medlem – og bagefter holder du som medlem fællesskabet i gang.`}</p></div>
-    <p><a class="button button-alt" href="/bliv-medlem">Læs om medlemskab</a></p>
-  </aside>
   <section class="section savings" aria-labelledby="h-save">
     <div class="section-head"><div><p class="section-kicker">Gratis og billigt</p><h2 id="h-save">Gratis de næste 7 dage</h2></div><a class="more" href="/gratis-og-billigt">Gratis og billigt →</a></div>
     ${freeCards.length ? cardGrid(freeCards, ctx.now) : html`<p class="empty">Ingen gratis arrangementer med kendt pris de næste 7 dage lige nu. <a href="/gratis-og-billigt">Se gratis og billige arrangementer</a>.</p>`}
@@ -688,6 +692,8 @@ export async function aboutPage(db: D1Database, ctx: PageContext): Promise<View>
     <dt>Inddragelse</dt><dd>Flokken bygges sammen med dem, der bruger den. Medlemmer og arrangører er med til at bestemme, hvad vi laver, og hvordan.</dd>
     <dt>Inklusion</dt><dd>Alle er velkomne, uanset sprog og hvor meget man har brug for at blive taget i hånden.</dd>
   </dl>
+  ${freeMembership(ctx.now) ? html`<h2 id="opstart">Vi er under opstart</h2>
+  <p>Flokken er en helt ny forening, og vi bygger den op sammen med jer. Et godt fællesskab kræver et solidt fundament, og det fundament er medlemmerne. Jo flere vi er, jo flere initiativer kan vi sætte i gang. Medlemskab er gratis til ${FREE_MEMBERSHIP_DATE} og forpligter dig ikke til noget. <a href="/bliv-medlem">Bliv medlem</a>.</p>` : ""}
   <h2>Fællesskabet før profitten</h2>
   <p>Flokken drives ikke for at tjene penge til nogen. Hvis der bliver et overskud, går det tilbage til fællesskabet og til at få flere med.</p>
   <h2>Hvor kommer arrangementerne fra?</h2>

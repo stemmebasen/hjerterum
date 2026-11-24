@@ -26,8 +26,9 @@ export const GATHER_MAX = 6;
 export const RESPOND_MS = 48 * 3600_000;
 /** The suggested meeting time: this long before the event starts. */
 export const MEET_BEFORE_MS = 90 * 60_000;
-/** No flock is gathered, and no invitation can be confirmed, this close to the start. */
-const LAST_CALL_MS = 3 * 3600_000;
+/** No flock is gathered, and no invitation can be confirmed, this close to the start: the day before is the final
+ * status (Jake 2026-11-24: three hours before was too late to buy a ticket and plan). */
+export const LAST_CALL_MS = 24 * 3600_000;
 /** At most this many events in the list, ten shown at a time. */
 export const LIST_SIZE = 40;
 export const PAGE_STEP = 10;
@@ -98,7 +99,7 @@ export async function saveInterests(db: D1Database, memberId: string, chosen: st
     if (!e || !e.region || !regions.includes(e.region) || e.status !== "scheduled" || e.starts_at <= now) continue;
     if (await memberFlockForEvent(db, e.id, memberId)) continue;
     const r = await db.prepare(`INSERT INTO event_interests (member_id, event_id, status, created_at, updated_at) VALUES (?, ?, 'waiting', ?, ?)
-      ON CONFLICT (member_id, event_id) DO UPDATE SET status = 'waiting', flock_id = NULL, invited_at = NULL, respond_by = NULL, created_at = excluded.created_at, updated_at = excluded.updated_at
+      ON CONFLICT (member_id, event_id) DO UPDATE SET status = 'waiting', flock_id = NULL, invited_at = NULL, respond_by = NULL, status_stage = NULL, created_at = excluded.created_at, updated_at = excluded.updated_at
       WHERE event_interests.status IN ('declined', 'expired')`).bind(memberId, e.id, now, now).run();
     if ((r.meta?.changes ?? 0) > 0) { added++; touched.add(e.id); }
   }

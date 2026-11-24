@@ -770,11 +770,19 @@ describe("Lad os komme godt i gang", () => {
     const later = (await call("/bliv-medlem", {}, FREE_MEMBERSHIP_UNTIL)).body;
     expect(later).toContain("<strong>250 kr. om året</strong>");
     expect(later).toContain("Du kan deltage i de første 3 udflugter uden at være medlem.");
-    expect((await call("/")).body).toContain("medlemskab er gratis til 1. marts 2027");
+    // Start-up (Jake 2026-11-24): the front page, /bliv-medlem and /om say we are just starting and need members.
+    const front = (await call("/")).body;
+    expect(front).toContain('<p class="startup-note"><strong>Vi er under opstart.</strong>');
+    expect(front).toContain("det er gratis til 1. marts 2027 og forpligter dig ikke til noget");
+    expect(front).toContain("jo flere vi er, jo flere initiativer kan vi sætte i gang");
+    expect(m.body).toContain('<h2 id="opstart">Vi er under opstart</h2>');
+    expect(m.body).toContain("du kan melde dig ud, når du vil");
+    expect((await call("/om")).body).toContain('<h2 id="opstart">Vi er under opstart</h2>');
+    expect((await call("/", {}, FREE_MEMBERSHIP_UNTIL)).body).not.toContain("under opstart");
     expect((await call("/moed-nye-mennesker")).body).toContain("Medlemskab af foreningen er gratis til 1. marts 2027.");
     expect(m.body).toContain('href="/log-ind?naeste=/kom-godt-i-gang"');
     expect((await call("/log-ind")).body).toContain('<button type="submit">Opret profil</button>');
-    expect((await call("/")).body).toContain('<h2 id="h-member">Bliv medlem</h2>');
+    expect((await call("/")).body).toContain('<h2 id="h-member">Støt os – bliv medlem</h2>');
     // Membership without a profile: a name and an e-mail. No "støttemedlem" – you are a member or you are not.
     expect(m.body).toContain('<h2 id="meld-ind">Meld dig ind</h2>');
     expect(m.body).not.toMatch(/støttemedlem/i);
