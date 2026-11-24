@@ -268,6 +268,9 @@ button:active, .button:active { transform: translateY(3px); box-shadow: 0 0 0 va
 .calendar-cta-text span { font-weight: 700; font-size: .98rem; color: var(--berry); }
 .calendar-cta-arrow { flex: none; display: grid; place-items: center; width: 48px; height: 48px; border-radius: 50%; background: var(--ink); color: var(--butter); font: 700 1.6rem/1 var(--display); }
 @media (max-width: 380px) { .calendar-cta { gap: 12px; padding: 12px 14px 12px 12px; } .calendar-cta-icon { width: 42px; height: 42px; } .calendar-cta-arrow { width: 40px; height: 40px; } }
+.startup-note { margin: 22px 0 0; padding: 12px 16px; max-width: 36em; background: var(--paper-2); border-left: 5px solid var(--berry); border-radius: var(--radius-s); font-size: 1rem; line-height: 1.5; }
+.startup-note a { font-weight: 700; white-space: nowrap; }
+.startup-note a::after { content: " →"; }
 @media (prefers-reduced-motion: reduce) { .calendar-cta, .calendar-cta:hover, .calendar-cta:focus-visible { transform: none; } }
 .quick-links { list-style: none; display: flex; flex-wrap: wrap; gap: 8px; margin: 14px 0 0; padding: 0; }
 .quick-links a { display: inline-block; padding: 6px 14px; border-radius: 999px; background: var(--card); border: 2px solid var(--rule); font-size: .92rem; font-weight: 700; }
@@ -571,6 +574,7 @@ button:active, .button:active { transform: translateY(3px); box-shadow: 0 0 0 va
 .partner-teaser .hero-kicker, .partner-teaser .section-kicker { color: var(--butter); background: none; padding: 0; }
 .partner-teaser p { margin-bottom: 0; max-width: 40em; }
 .partner-teaser .button { border-color: var(--butter); box-shadow: 0 3px 0 var(--butter); }
+.member-teaser p + p { margin-top: .6em; }
 .member-teaser { margin-top: 40px; background: var(--butter); color: inherit; }
 .member-teaser h2 { color: inherit; }
 .member-teaser .hero-kicker { color: inherit; }
