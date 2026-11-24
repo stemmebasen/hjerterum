@@ -7,6 +7,7 @@ import { sendDueMails } from "../src/flokken/notify.js";
 import { sendMail, type EmailBinding } from "../src/mail.js";
 import { MAILS_PER_DAY } from "../src/flokken/contact.js";
 import { welcomeMail } from "../src/flokken/welcome.js";
+import { englishPath } from "../src/i18n/paths.js";
 import type { Env } from "../src/env.js";
 import { testDb } from "./d1.js";
 import { fakeFetch, fixture, FEED_URL, MW_ROBOTS, noSleep } from "./helpers.js";
@@ -173,7 +174,8 @@ describe("the 'Velkommen som medlem' mail", () => {
     expect(m.text).toContain("until 1 March 2027");
     expect(m.text).toContain("\"I'd like to come along!\"");
     expect(m.text).toContain(`${ORIGIN}/en/calendar`);
-    expect(m.text).toContain(`${ORIGIN}/en/informationsmoede`);
+    // The English sign-up page's own path (/en/information-meeting once that page is there).
+    expect(m.text).toContain(`${ORIGIN}${englishPath("/informationsmoede")}`);
     expect(m.text).toContain("Warm regards");
     expect(m.html).toContain('<html lang="en">');
     const later = welcomeMail("x@example.dk", "Ole", ORIGIN, "da", Date.parse("2027-03-02T12:00:00Z"));
