@@ -1,4 +1,5 @@
 import { eventTranslation } from "../i18n/machine.js";
+import { interestOpen, SIGNUP_CLOSES_MS } from "../lastCall.js";
 import { ACTIVITIES, TOPICS, activityBySlug, headingFor, type Activity } from "../activities.js";
 import { categoryBySlug } from "../categories.js";
 import type { D1Database } from "../db.js";
@@ -508,7 +509,8 @@ export async function eventPage(db: D1Database, ctx: PageContext, regions: strin
   const e = await eventBySlug(db, slug);
   if (!e || !e.region || !regions.includes(e.region)) return null;
   const [related, flocks, myFlockId, interest] = await Promise.all([
-    relatedEvents(db, e, regions, ctx.now),
+    // The list is closed (3 days or less to go): similar arrangements further out, which one can still join the list for.
+    relatedEvents(db, e, regions, e.status === "scheduled" && !interestOpen(e, ctx.now) ? ctx.now + SIGNUP_CLOSES_MS : ctx.now),
     extras ? extras.flocks(e.id) : Promise.resolve([] as FlockRow[]),
     extras ? extras.myFlock(e.id) : Promise.resolve(null),
     extras?.interest ? extras.interest(e.id) : Promise.resolve(undefined)
@@ -562,7 +564,7 @@ export async function eventPage(db: D1Database, ctx: PageContext, regions: strin
           ${e.signup_url && e.status !== "cancelled" && !over ? html`<a class="button" href="${e.signup_url}" rel="noopener" target="_blank">${e.is_free === 1 ? "Tilmeld dig" : "Køb billet"}<span class="visually-hidden"> hos arrangøren (åbner i nyt vindue)</span></a>` : ""}
         </div>
         ${!over && e.status !== "withdrawn" ? html`<div class="event-extras"><a class="calendar-button" href="${eventPath(e)}.ics" download><svg class="calendar-button-icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="5" width="18" height="16" rx="3"/><path d="M3 10h18M8 3v4M16 3v4"/></svg>Tilføj til kalender</a>${interestUndo(e, ctx.now, interest)}</div>` : ""}
-        ${flockLine(e, extras?.member ?? null, myFlockId, ctx.now, interest)}
+        ${flockLine(e, extras?.member ?? null, myFlockId, ctx.now, interest, related.length > 0)}
       </div>
     </div>
   </header>

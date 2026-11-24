@@ -311,7 +311,7 @@ describe("the way to becoming a member", () => {
   const at = (r: Response) => new URL(r.headers.get("location")!, SITE).pathname + new URL(r.headers.get("location")!, SITE).search;
 
   it("counts each step once per person and day, without cookies of its own", async () => {
-    const event = db.raw.prepare("SELECT slug FROM events WHERE status = 'scheduled' AND starts_at > ? ORDER BY starts_at LIMIT 1").all(NOW + 86_400_000)[0] as { slug: string };
+    const event = db.raw.prepare("SELECT slug FROM events WHERE status = 'scheduled' AND starts_at > ? ORDER BY starts_at LIMIT 1").all(NOW + 4 * 86_400_000)[0] as { slug: string };
     jar = {};
     expect((await visit(`/events/${event.slug}`)).status).toBe(200);
     await visit(`/events/${event.slug}`);

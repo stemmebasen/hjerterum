@@ -21,6 +21,10 @@ export const EN_TEXT: Record<string, string> = {
   "Bliv medlem af Socialklubben.": "Become a member of Socialklubben.",
   "Bliv medlem – Socialklubben": "Become a member – Socialklubben",
   "Jeg vil gerne med!": "I'd like to come along!",
+  // The list closes 3 days before (src/lastCall.ts).
+  "Flokke samles senest 3 dage før arrangementet, så her kan du ikke længere finde en flok. Du er stadig velkommen til at tage afsted på egen hånd.": "Groups are gathered no later than 3 days before the event, so you can no longer find a group here. You're still welcome to go on your own.",
+  "Det blev ikke til en flok til det her arrangement. Du er stadig velkommen til at tage afsted på egen hånd.": "It didn't turn into a group for this event. You're still welcome to go on your own.",
+  "Se lignende arrangementer længere ude": "See similar events further ahead",
   // Informationsmødet (src/flokken/infoMeeting.ts).
   "Informationsmøde": "Information meeting",
   "Informationsmøde 12. januar": "Information meeting on 12 January",

@@ -1,4 +1,5 @@
 import type { D1Database } from "../db.js";
+import { SIGNUP_CLOSES_MS } from "../lastCall.js";
 import { localDate, nextLocalDate, startOfLocalDay, wallClock } from "../time.js";
 import { dateWindow, type Filters } from "./filters.js";
 import { activityBySlug } from "../activities.js";
@@ -151,7 +152,7 @@ export async function heroEvents(db: D1Database, regions: string[], now: number)
  * already has room come first, then the soonest; one per organiser in each ten where there are enough others, events that last all day at the back. From
  * twelve hours from now (time to gather a flock) and four weeks ahead, unless `window` says otherwise (the first-visit
  * pop-up: the next two days). */
-export async function kickoffEvents(db: D1Database, regions: string[], now: number, skip: string[] = [], limit = 20, window: { from: number; to: number } = { from: now + 12 * 3600_000, to: now + 28 * 86400_000 }): Promise<EventRow[]> {
+export async function kickoffEvents(db: D1Database, regions: string[], now: number, skip: string[] = [], limit = 20, window: { from: number; to: number } = { from: now + SIGNUP_CLOSES_MS, to: now + 28 * 86400_000 }): Promise<EventRow[]> {
   const w = visible(regions, now);
   w.sql.push("e.status = 'scheduled'", "e.starts_at > ?", "e.starts_at < ?", PICKED_SQL);
   w.params.push(window.from, window.to);

@@ -1,4 +1,5 @@
 import { CATEGORIES, categoryBySlug } from "../categories.js";
+import { interestOpen } from "../lastCall.js";
 import { areaBySlug } from "../geo.js";
 import { priceLabel } from "../price.js";
 import { capitalize, dateBadge, dayLabel, hhmm, localDate, timeRangeLabel, wallClock } from "../time.js";
@@ -79,9 +80,9 @@ export function eventChips(e: EventRow, now: number): SafeHtml {
 
 /** "Jeg vil gerne med!" under an event in a list or on a card: the same tick as the button on the event page (one
  * label everywhere). It sits outside the event's link, as a form can't be inside a link. Nothing when the event can no
- * longer be joined. */
+ * longer be joined, or when it is 3 days away or less (the list closes then). */
 export function interestAction(e: EventRow, now: number): SafeHtml {
-  if (e.status !== "scheduled" || e.starts_at <= now) return html``;
+  if (!interestOpen(e, now)) return html``;
   return html`<form method="post" action="${eventPath(e)}/interesse" class="interest-form"><button type="submit" class="button-alt interest-button">Jeg vil gerne med!</button></form>`;
 }
 

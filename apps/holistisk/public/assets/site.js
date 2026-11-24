@@ -306,7 +306,7 @@
       if (text != null) n.textContent = text;
       return n;
     };
-    // The events of the next two days (Jake 2026-11-11); on a quiet stretch with none, the coming weeks instead.
+    // The first two days one can still join (3 days ahead, src/lastCall.ts; Jake 2026-11-11 and 2026-11-24); on a quiet stretch with none, the coming weeks instead.
     var load = function (query) {
       return fetch(base + "api/kom-godt-i-gang" + query, { headers: { accept: "application/json" }, credentials: "same-origin" })
         .then(function (r) { return r.ok ? r.json() : null; });

@@ -9,6 +9,8 @@ import { eventBySlug, flockRoom, kickoffEvents, type EventRow } from "../web/que
 import { flash, type View } from "./pages.js";
 import { membershipLine } from "./profile.js";
 import { suggestedMeetingPlace } from "./meetingPoints.js";
+import { interestOpen, LAST_CALL_MS, SIGNUP_CLOSES_MS } from "../lastCall.js";
+export { LAST_CALL_MS };
 import { eventOver, flockById, joinFlock, memberFlockForEvent, memberFlocks } from "./store.js";
 
 /** "Lad os komme godt i gang": the interest list. A newcomer ticks the coming events they would like to go to with
@@ -26,9 +28,6 @@ export const GATHER_MAX = 6;
 export const RESPOND_MS = 48 * 3600_000;
 /** The suggested meeting time: this long before the event starts. */
 export const MEET_BEFORE_MS = 90 * 60_000;
-/** No flock is gathered, and no invitation can be confirmed, this close to the start: the day before is the final
- * status (Jake 2026-11-24: three hours before was too late to buy a ticket and plan). */
-export const LAST_CALL_MS = 24 * 3600_000;
 /** At most this many events in the list, ten shown at a time. */
 export const LIST_SIZE = 40;
 export const PAGE_STEP = 10;
@@ -96,7 +95,7 @@ export async function saveInterests(db: D1Database, memberId: string, chosen: st
   const touched = new Set<string>();
   for (const slug of cleanChoices(chosen)) {
     const e = await eventBySlug(db, slug);
-    if (!e || !e.region || !regions.includes(e.region) || e.status !== "scheduled" || e.starts_at <= now) continue;
+    if (!e || !e.region || !regions.includes(e.region) || !interestOpen(e, now)) continue;
     if (await memberFlockForEvent(db, e.id, memberId)) continue;
     const r = await db.prepare(`INSERT INTO event_interests (member_id, event_id, status, created_at, updated_at) VALUES (?, ?, 'waiting', ?, ?)
       ON CONFLICT (member_id, event_id) DO UPDATE SET status = 'waiting', flock_id = NULL, invited_at = NULL, respond_by = NULL, status_stage = NULL, created_at = excluded.created_at, updated_at = excluded.updated_at
@@ -252,7 +251,8 @@ const details = (e: EventRow) => html`<details class="kickoff-details"><summary>
 async function candidates(db: D1Database, regions: string[], memberId: string | null, now: number, days?: number): Promise<{ list: Candidate[]; inFlock: boolean; interests: InterestRow[] }> {
   const flocks = memberId ? (await memberFlocks(db, memberId)).filter(f => !eventOver(f, now)) : [];
   const interests = memberId ? await memberInterests(db, memberId) : [];
-  const window = days ? { from: now + LAST_CALL_MS, to: now + days * 86_400_000 } : undefined;
+  // ?dage=2 counts from when the list is still open (3 days ahead), so the pop-up shows the first days one can join.
+  const window = days ? { from: now + SIGNUP_CLOSES_MS, to: now + SIGNUP_CLOSES_MS + days * 86_400_000 } : undefined;
   const events = await kickoffEvents(db, regions, now, flocks.map(f => f.event_slug), LIST_SIZE, window);
   const counts = await interestCounts(db, events.map(e => e.id));
   const mine = new Set(interests.filter(i => i.status === "waiting" || i.status === "invited").map(i => i.event_id));
