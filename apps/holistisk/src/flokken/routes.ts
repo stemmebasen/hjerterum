@@ -243,19 +243,35 @@ export async function flokkenRoute(request: Request, env: Env, db: D1Database, p
     const next = safeNext(url.searchParams.get("naeste"));
     const joinId = /^[0-9a-f-]{36}$/.test(url.searchParams.get("flok") ?? "") ? url.searchParams.get("flok")! : null;
     const requireEmail = url.searchParams.get("mail") === "1";
-    const state = { next, joinId, profile, firstTime: !profileComplete(profile), requireEmail, outings: await outingsUsed(db, m.id, now) };
+    // Not a member yet (no membership sign-up with the profile's e-mail): offer it right above the save button.
+    const isMember = !!profile.email && !!(await db.prepare("SELECT 1 AS y FROM membership_signups WHERE lower(email) = lower(?) LIMIT 1").bind(profile.email).first<{ y: number }>());
+    const state = { next, joinId, profile, firstTime: !profileComplete(profile), requireEmail, offerMembership: !isMember, outings: await outingsUsed(db, m.id, now) };
     const action = `/profil${url.search}`;
-    if (!post) return { view: profilePage(pc, { ...state, action, form: { firstName: profile.first_name, ageGroup: profile.age_group ?? "", intro: profile.intro ?? "", email: profile.email ?? "", removePhoto: false, photoConsent: false }, errors: {} }) };
+    if (!post) return { view: profilePage(pc, { ...state, action, form: { firstName: profile.first_name, ageGroup: profile.age_group ?? "", intro: profile.intro ?? "", email: profile.email ?? "", removePhoto: false, photoConsent: false, joinClub: true }, errors: {} }) };
     const data = await formData(request, PROFILE_MAX_BODY);
-    if (!data) return { view: profilePage(pc, { ...state, action, form: { firstName: profile.first_name, ageGroup: profile.age_group ?? "", intro: profile.intro ?? "", email: profile.email ?? "", removePhoto: false, photoConsent: false }, errors: { photo: "Billedet var for stort til at blive sendt (højst 250 KB), så intet blev gemt. Udfyld felterne igen, og vælg et mindre billede eller gem uden billede." }, status: 400 }) };
+    if (!data) return { view: profilePage(pc, { ...state, action, form: { firstName: profile.first_name, ageGroup: profile.age_group ?? "", intro: profile.intro ?? "", email: profile.email ?? "", removePhoto: false, photoConsent: false, joinClub: true }, errors: { photo: "Billedet var for stort til at blive sendt (højst 250 KB), så intet blev gemt. Udfyld felterne igen, og vælg et mindre billede eller gem uden billede." }, status: 400 }) };
     const form = readProfileForm(data);
     const checked = validateProfile(form, { requireEmail: requireEmail && !profile.email });
     const photo = await readPhoto(data);
     const photoError = photo && "error" in photo ? photo.error : photo && !form.photoConsent ? PHOTO_CONSENT_ERROR : null;
-    const errors = { ...("errors" in checked ? checked.errors : {}), ...(photoError ? { photo: photoError } : {}) };
-    if ("errors" in checked || photoError) return { view: profilePage(pc, { ...state, action, form, errors, status: 400 }) };
+    const joining = state.offerMembership && !!form.joinClub;
+    // Membership goes by e-mail, so the tick needs one.
+    const joinError = joining && !form.email.trim() && !profile.email ? "Skriv din e-mail for at blive medlem, eller fjern krydset ved medlemskab." : null;
+    const errors = { ...("errors" in checked ? checked.errors : {}), ...(photoError ? { photo: photoError } : {}), ...(joinError && !("errors" in checked && checked.errors.email) ? { email: joinError } : {}) };
+    if ("errors" in checked || photoError || joinError) return { view: profilePage(pc, { ...state, action, form, errors, status: 400 }) };
     const saved = await saveProfile(db, m.id, checked.values, photo && !("error" in photo) ? photo : null, form.removePhoto, now);
     if ("error" in saved) return { view: profilePage(pc, { ...state, action, form, errors: { email: "Den e-mail bruges allerede af en anden profil. Log ind med koden for den, eller brug en anden e-mail." }, status: 400 }) };
+    // The tick above the save button: the same as /bliv-medlem, welcome mail included. Being a member now, they get
+    // no "Vil du være medlem?" mail after the interest tick that follows (src/flokken/join.ts only asks non-members).
+    let joined = false;
+    if (joining) {
+      const email = (checked.values.email ?? profile.email ?? "").trim();
+      const name = checked.values.firstName;
+      if (email && await saveSignup(db, { name, email }, now)) {
+        joined = true;
+        await sendWelcome(db, env, email, name, pc.origin, pc.lang ?? "da", now);
+      }
+    }
     if (joinId) {
       const f = await flockById(db, joinId, m.id);
       if (f) {
@@ -263,7 +279,7 @@ export async function flokkenRoute(request: Request, env: Env, db: D1Database, p
         return go(withMessage(flockPath(f.id), "error" in result ? result.error : "tilsluttet"));
       }
     }
-    return go(withMessage(next, "profil_gemt"));
+    return go(withMessage(next, joined ? "profil_medlem" : "profil_gemt"));
   }
 
   // "Lad os komme godt i gang": the interest list (the pop-up's JSON and the page), and answering an invitation.

@@ -234,6 +234,45 @@ describe("the 'Vil du være medlem?' mail", () => {
   });
 });
 
+describe("the membership tick on the profile", () => {
+  it("is ticked from the start, makes them a member with a welcome mail, and then no 'Vil du være medlem?' mail follows", async () => {
+    const r = await call("/bliv-medlem", { form: { fornavn: "Vibe", naeste: "/flokke" } });
+    const cookie = cookieOf(r);
+    const tick = `/events/${event.slug}/interesse`;
+    const toProfile = `/profil?naeste=${encodeURIComponent(tick)}&mail=1`;
+    const form = (await call(toProfile, { cookie })).body;
+    expect(form).toContain('<input type="checkbox" name="medlem" value="ja" checked aria-describedby="hint-join"> Yes, jeg vil gerne være gratis medlem af Socialklubben</label>');
+    expect(form).toContain("Vi er under opstart, så medlemskab er gratis til 1. marts 2027. Du er aldrig forpligtet til noget");
+    // Right above the save button.
+    expect(form.indexOf('name="medlem"')).toBeLessThan(form.indexOf('<div class="form-actions">'));
+    expect(form.indexOf('name="foto_samtykke"')).toBeLessThan(form.indexOf('name="medlem"'));
+    sent.length = 0;
+    const saved = await call(toProfile, { cookie, form: { fornavn: "Vibe", alder: "40-49", om_mig: "Glad for musik", email: "vibe@example.dk", medlem: "ja" } });
+    expect(saved.headers.get("location")).toBe(`${tick}?besked=profil_medlem`);
+    expect(db.raw.prepare("SELECT name FROM membership_signups WHERE email = 'vibe@example.dk'").all()[0]).toEqual({ name: "Vibe" });
+    expect(sent.map(m => m.subject)).toEqual(["Velkommen som medlem af Socialklubben"]);
+    await call(`/events/${event.slug}/interesse`, { cookie, form: {} });
+    expect(sent).toHaveLength(1);
+    // A member is not asked again.
+    expect((await call("/profil", { cookie })).body).not.toContain('name="medlem"');
+    db.raw.prepare("DELETE FROM event_interests WHERE member_id = ?").run(idOf("Vibe"));
+  });
+
+  it("unticked it saves the profile only; ticked without an e-mail it asks for one", async () => {
+    const cookie = cookieOf(await call("/bliv-medlem", { form: { fornavn: "Wilma", naeste: "/flokke" } }));
+    const noMailYet = await call("/profil", { cookie, form: { fornavn: "Wilma", alder: "40-49", om_mig: "Hej med jer", email: "", medlem: "ja" } });
+    expect(noMailYet.status).toBe(400);
+    expect(noMailYet.body).toContain("Skriv din e-mail for at blive medlem, eller fjern krydset ved medlemskab.");
+    sent.length = 0;
+    const plain = await call("/profil", { cookie, form: { fornavn: "Wilma", alder: "40-49", om_mig: "Hej med jer", email: "wilma@example.dk" } });
+    expect(plain.headers.get("location")).toBe("/flokke?besked=profil_gemt");
+    expect(db.raw.prepare("SELECT COUNT(*) AS n FROM membership_signups WHERE email = 'wilma@example.dk'").all()[0]).toEqual({ n: 0 });
+    expect(sent).toHaveLength(0);
+    // Still offered (ticked) next time, since they are not a member.
+    expect((await call("/profil", { cookie })).body).toContain('name="medlem" value="ja" checked');
+  });
+});
+
 describe("mails about flock places", () => {
   it("mails each one offered a place once, with a login button, and reminds them before the deadline", async () => {
     const names = ["Asta", "Bo", "Cille"];

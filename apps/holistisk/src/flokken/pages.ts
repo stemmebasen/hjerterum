@@ -46,6 +46,7 @@ const MESSAGES: Record<string, string> = {
   tak: "Tak for din henvendelse. Vi vender tilbage.",
   meldt: "Tak. Beskeden er meldt og skjult for dig. Vi kigger på den.",
   profil_gemt: "Din profil er gemt.",
+  profil_medlem: "Din profil er gemt. Velkommen som medlem af Socialklubben! Vi har sendt dig en velkomstmail.",
   interesser_gemt: "Tak! Du står på listen – helt uforpligtende. Når vi er en håndfuld, der vil med til det samme, samler vi en flok og spørger dig, om du vil med.",
   interesse_fjernet: "Arrangementet er fjernet fra din liste.",
   interesse_her: "Tak! Du har vist interesse – helt uforpligtende. Når 3-6 mennesker vil med, tilbyder vi dig en konkret plads i flokken. Du får en e-mail og kan også se det under Mine flokke. Du har 48 timer til at sige ja. Billetten køber du selv.",
@@ -604,7 +605,7 @@ function ownCard(p: Profile, outings: number): SafeHtml {
   </section>`;
 }
 
-export function profilePage(ctx: PageContext, state: { action: string; next: string; joinId: string | null; profile: Profile; firstTime: boolean; requireEmail?: boolean; outings: number; form: ProfileForm; errors: ProfileErrors; status?: number }): View {
+export function profilePage(ctx: PageContext, state: { action: string; next: string; joinId: string | null; profile: Profile; firstTime: boolean; requireEmail?: boolean; offerMembership?: boolean; outings: number; form: ProfileForm; errors: ProfileErrors; status?: number }): View {
   const { form, errors } = state;
   const err = (k: keyof ProfileErrors) => errors[k] ? html`<span class="field-error" id="err-${k}">${errors[k]}</span>` : "";
   const describedBy = (k: keyof ProfileErrors, hint?: string) => errors[k] ? raw(` aria-describedby="err-${k}${hint ? ` ${hint}` : ""}" aria-invalid="true"`) : hint ? raw(` aria-describedby="${hint}"`) : "";
@@ -659,6 +660,10 @@ export function profilePage(ctx: PageContext, state: { action: string; next: str
       <div class="field-check consent"><label><input type="checkbox" name="foto_samtykke" value="ja" data-photo-consent${form.photoConsent ? raw(" checked") : ""}> Mit billede må ses af andre i mine flokke</label></div>
       ${err("photo")}
     </fieldset>
+    ${state.offerMembership ? html`<div class="field field-check join-club">
+      <label><input type="checkbox" name="medlem" value="ja"${form.joinClub ? raw(" checked") : ""} aria-describedby="hint-join"> ${freeMembership(ctx.now) ? "Yes, jeg vil gerne være gratis medlem af Socialklubben" : "Yes, jeg vil gerne være medlem af Socialklubben"}</label>
+      <span class="hint" id="hint-join">${freeMembership(ctx.now) ? `Vi er under opstart, så medlemskab er gratis til ${FREE_MEMBERSHIP_DATE}. ` : ""}Du er aldrig forpligtet til noget, og du kan melde dig ud, når du vil.</span>
+    </div>` : ""}
     <div class="form-actions">
       <button type="submit">${state.joinId ? "Gem og bliv en del af flokken" : state.requireEmail ? "Gem og sæt mig på listen" : "Gem"}</button>
       <a href="${state.next}">Fortryd</a>
