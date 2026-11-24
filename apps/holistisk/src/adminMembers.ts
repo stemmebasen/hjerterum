@@ -73,6 +73,7 @@ export async function deleteMember(db: D1Database, id: string): Promise<string |
     db.prepare("DELETE FROM member_sessions WHERE member_id = ?1").bind(id),
     db.prepare("DELETE FROM login_links WHERE member_id = ?1 OR lower(email) = ?2").bind(id, m.email ?? ""),
     db.prepare("UPDATE mail_log SET member_id = NULL WHERE member_id = ?1").bind(id),
+    db.prepare("DELETE FROM sent_mails WHERE member_id = ?1 OR lower(to_email) = ?2").bind(id, m.email ?? ""),
     db.prepare("DELETE FROM membership_signups WHERE lower(email) = ?1").bind(m.email ?? ""),
     db.prepare("DELETE FROM members WHERE id = ?1").bind(id)
   ]);
@@ -85,6 +86,7 @@ export async function deleteSignup(db: D1Database, id: string): Promise<string |
   if (!s) return null;
   await db.batch([
     db.prepare("DELETE FROM login_links WHERE member_id IS NULL AND lower(email) = ?").bind(s.email),
+    db.prepare("DELETE FROM sent_mails WHERE member_id IS NULL AND lower(to_email) = ?").bind(s.email),
     db.prepare("DELETE FROM membership_signups WHERE id = ?").bind(id)
   ]);
   return s.name;

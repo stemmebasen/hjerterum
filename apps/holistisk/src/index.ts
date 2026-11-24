@@ -7,7 +7,7 @@ import { organizerBySlug } from "./organizers.js";
 import { DAILY_CRON, ingestStatus, runIngest, scheduledRun } from "./ingest/run.js";
 import { purgeOldChats } from "./flokken/chat.js";
 import { eventInterest, gatherAll, readChoices } from "./flokken/kickoff.js";
-import { sendDueMails } from "./flokken/notify.js";
+import { sendDueMails, sendStatusMails } from "./flokken/notify.js";
 import { mailConfigured, mailSiteUrl, publicContactEmail, purgeMailData } from "./mail.js";
 import { sendJoinInvites } from "./flokken/join.js";
 import { parseFilters } from "./web/filters.js";
@@ -459,9 +459,10 @@ export default {
         .then(invited => console.log(JSON.stringify({ event: "gather", invited })))
         .catch(error => console.error(JSON.stringify({ event: "gather_failed", error: error instanceof Error ? error.message : String(error) })))
       : Promise.resolve();
-    // Mails about flock places, after the gathering above (which may have offered new ones).
+    // Mails about flock places, after the gathering above (which may have offered new ones), then the status mails to
+    // those still waiting 7, 3 and 1 day before.
     const mail = env.DB && mailConfigured(env)
-      ? gather.then(() => sendDueMails(env.DB!, env, Date.now()))
+      ? gather.then(async () => ({ ...(await sendDueMails(env.DB!, env, Date.now())), ...(await sendStatusMails(env.DB!, env, activeRegions(env.ACTIVE_REGIONS), Date.now())) }))
         .then(sent => console.log(JSON.stringify({ event: "mail", ...sent })))
         // A few "Vil du være medlem?" mails to those who showed interest before that mail existed (src/flokken/join.ts).
         .then(() => sendJoinInvites(env.DB!, env, mailSiteUrl(env), Date.now()))

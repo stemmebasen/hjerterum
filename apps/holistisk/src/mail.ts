@@ -9,8 +9,9 @@ import { ORGANISER_EMAIL } from "./web/layout.js";
  * Without either, nothing is sent and the site works as before (the notices stay under Mine flokke). */
 
 /** `replyTo` takes the place of the contact address as the mail's reply-to (the contact form: the sender). */
-export type Mail = { to: string; subject: string; text: string; html: string; replyTo?: string };
-export type MailKind = "login" | "invitation" | "reminder" | "welcome" | "join";
+/** `kind` and `memberId` are only for "Sendt post" in /admin (sent_mails): what sort of mail it is, and whose. */
+export type Mail = { to: string; subject: string; text: string; html: string; replyTo?: string; kind?: string; memberId?: string | null };
+export type MailKind = "login" | "invitation" | "reminder" | "status" | "welcome" | "join";
 export type SendResult = { ok: true } | { ok: false; error: string };
 
 /** The part of Cloudflare's send_email binding used here. */
@@ -44,7 +45,13 @@ export const mailSiteUrl = (env: Env): string => {
 
 export const mailConfigured = (env: Env): boolean => !!env.EMAIL || !!env.RESEND_API_KEY;
 
-export async function sendMail(env: Env, mail: Mail, fetcher: typeof fetch = fetch): Promise<SendResult> {
+export async function sendMail(env: Env, mail: Mail, fetcher: typeof fetch = fetch, now = Date.now()): Promise<SendResult> {
+  const result = await deliver(env, mail, fetcher);
+  if (env.DB) await keepSent(env.DB, mail, result, now);
+  return result.ok ? { ok: true } : { ok: false, error: result.error };
+}
+
+async function deliver(env: Env, mail: Mail, fetcher: typeof fetch): Promise<SendResult & { id?: string }> {
   const fromEmail = env.MAIL_FROM && EMAIL.test(env.MAIL_FROM) ? env.MAIL_FROM : DEFAULT_FROM;
   const replyTo = mail.replyTo && EMAIL.test(mail.replyTo) ? mail.replyTo : publicContactEmail(env) ?? ORGANISER_EMAIL;
   try {
@@ -58,7 +65,10 @@ export async function sendMail(env: Env, mail: Mail, fetcher: typeof fetch = fet
         headers: { authorization: `Bearer ${env.RESEND_API_KEY}`, "content-type": "application/json" },
         body: JSON.stringify({ from: `${FROM_NAME} <${fromEmail}>`, to: [mail.to], subject: mail.subject, html: mail.html, text: mail.text, ...(replyTo ? { reply_to: replyTo } : {}) })
       });
-      if (r.ok) return { ok: true };
+      if (r.ok) {
+        const id = ((await r.json().catch(() => null)) as { id?: unknown } | null)?.id;
+        return typeof id === "string" ? { ok: true, id } : { ok: true };
+      }
       return { ok: false, error: `resend ${r.status}: ${(await r.text()).slice(0, 200)}` };
     }
     return { ok: false, error: "off" };
@@ -68,9 +78,27 @@ export async function sendMail(env: Env, mail: Mail, fetcher: typeof fetch = fet
   }
 }
 
+/** Login links (…?t=<token>) are hidden before a mail is kept, so "Sendt post" can never be used to log in as someone. */
+export const hideSecrets = (s: string): string => s.replace(/([?&]t=)[A-Za-z0-9_-]{16,}/g, "$1skjult");
+
+/** Keeps a copy of a sent mail in sent_mails for "Sendt post" in /admin. Never stops the mail itself. */
+export async function keepSent(db: D1Database, mail: Mail, result: SendResult & { id?: string }, now: number, opts: { source?: "app" | "resend"; providerId?: string } = {}): Promise<void> {
+  const status = result.ok ? "sent" : result.error === "off" ? "off" : "failed";
+  try {
+    await db.prepare(`INSERT INTO sent_mails (id, kind, member_id, to_email, subject, html, text, reply_to, status, error, provider_id, source, created_at)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?) ON CONFLICT DO NOTHING`)
+      .bind(crypto.randomUUID(), (mail.kind ?? "anden").slice(0, 40), mail.memberId ?? null, mail.to.slice(0, 320), mail.subject.slice(0, 300),
+        mail.html ? hideSecrets(mail.html).slice(0, 200_000) : null, mail.text ? hideSecrets(mail.text).slice(0, 100_000) : null,
+        mail.replyTo?.slice(0, 320) ?? null, status, result.ok ? null : result.error.slice(0, 300), opts.providerId ?? (result.ok ? result.id ?? null : null), opts.source ?? "app", now)
+      .run();
+  } catch (error) {
+    console.error(JSON.stringify({ event: "sent_mail_not_kept", error: String(error).slice(0, 200) }));
+  }
+}
+
 /** Sends and notes it in mail_log. */
 export async function sendLogged(db: D1Database, env: Env, kind: MailKind, memberId: string | null, mail: Mail, now: number): Promise<SendResult> {
-  const result = await sendMail(env, mail);
+  const result = await sendMail(env, { ...mail, kind, memberId: mail.memberId ?? memberId }, fetch, now);
   const status = result.ok ? "sent" : result.error === "off" ? "off" : "failed";
   await db.prepare("INSERT INTO mail_log (id, kind, member_id, status, error, created_at) VALUES (?, ?, ?, ?, ?, ?)")
     .bind(crypto.randomUUID(), kind, memberId, status, result.ok ? null : result.error, now).run();
@@ -78,40 +106,49 @@ export async function sendLogged(db: D1Database, env: Env, kind: MailKind, membe
   return result;
 }
 
-/** A paragraph in a letter: plain text, or text with one link in it ("Tilmeld dig her" in the middle of a sentence). */
-export type Paragraph = string | { before: string; link: { label: string; url: string }; after?: string };
-
-/** A plain, friendly mail: greeting, paragraphs, one button, and a closing line. Both an HTML and a text version.
- * `lang: "en"` closes in English (the text itself is given in English by the caller). */
-export function letter(opts: { to: string; subject: string; greeting: string; paragraphs: Paragraph[]; button: { label: string; url: string }; after?: Paragraph[]; lang?: "da" | "en" }): Mail {
+export type LetterLink = { label: string; url: string };
+/** A paragraph: plain text, text ending in a link (e.g. "Bliv medlem"), or text with a link in the middle of it
+ * ("Tilmeld dig her" in a sentence). */
+export type LetterPart = string | { text: string; link: LetterLink } | { before: string; link: LetterLink; after?: string };
+/** Kept as a name for the welcome mails. */
+export type Paragraph = LetterPart;
+/** A plain, friendly mail: greeting, paragraphs, an optional list of links, one button, and closing lines. Both an
+ * HTML and a text version. `lang: "en"` closes in English (the text itself is given in English by the caller). */
+export function letter(opts: { to: string; subject: string; greeting: string; paragraphs: LetterPart[]; links?: LetterLink[]; button: LetterLink; after?: LetterPart[]; lang?: "da" | "en" }): Mail {
   const after = opts.after ?? [];
+  const links = opts.links ?? [];
   const en = opts.lang === "en";
   const closing = en ? "Warm regards" : "Kærlig hilsen";
   const style = "margin:0 0 16px;font-size:16px;line-height:1.5;color:#1d1d1b";
-  const p = (t: Paragraph) => typeof t === "string"
-    ? `<p style="${style}">${escapeHtml(t)}</p>`
-    : `<p style="${style}">${escapeHtml(t.before)}<a href="${escapeHtml(t.link.url)}" style="color:#1d1d1b;font-weight:bold">${escapeHtml(t.link.label)}</a>${escapeHtml(t.after ?? "")}</p>`;
-  const plain = (t: Paragraph) => typeof t === "string" ? t : `${t.before}${t.link.label} (${t.link.url})${t.after ?? ""}`;
+  const a = (l: LetterLink) => `<a href="${escapeHtml(l.url)}" style="color:#1d1d1b;font-weight:bold">${escapeHtml(l.label)}</a>`;
+  const p = (t: LetterPart) => typeof t === "string" ? `<p style="${style}">${escapeHtml(t)}</p>`
+    : "text" in t ? `<p style="${style}">${escapeHtml(t.text)} ${a(t.link)}</p>`
+    : `<p style="${style}">${escapeHtml(t.before)}${a(t.link)}${escapeHtml(t.after ?? "")}</p>`;
+  const pText = (t: LetterPart) => typeof t === "string" ? t
+    : "text" in t ? `${t.text}\n${t.link.label}: ${t.link.url}`
+    : `${t.before}${t.link.label} (${t.link.url})${t.after ?? ""}`;
   const html = `<!doctype html><html lang="${en ? "en" : "da"}"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width"><title>${escapeHtml(opts.subject)}</title></head>
 <body style="margin:0;padding:0;background:#f6f1e7">
 <div style="max-width:520px;margin:0 auto;padding:28px 20px;font-family:Helvetica,Arial,sans-serif">
 <p style="margin:0 0 20px;font-size:20px;font-weight:bold;color:#1d1d1b">Socialklubben</p>
 ${p(opts.greeting)}
 ${opts.paragraphs.map(p).join("\n")}
+${links.length ? `<ul style="margin:0 0 16px;padding-left:20px;font-size:16px;line-height:1.5;color:#1d1d1b">${links.map(l => `<li style="margin:0 0 8px">${a(l)}</li>`).join("")}</ul>` : ""}
 <p style="margin:24px 0"><a href="${escapeHtml(opts.button.url)}" style="display:inline-block;background:#1d1d1b;color:#ffffff;text-decoration:none;font-weight:bold;padding:12px 20px;border-radius:8px">${escapeHtml(opts.button.label)}</a></p>
 ${after.map(p).join("\n")}
 <p style="margin:24px 0 0;font-size:16px;line-height:1.5;color:#1d1d1b">${closing}<br>Socialklubben</p>
 </div></body></html>`;
-  const text = [opts.greeting, ...opts.paragraphs.map(plain), `${opts.button.label}: ${opts.button.url}`, ...after.map(plain), `${closing}\nSocialklubben`].join("\n\n");
+  const text = [opts.greeting, ...opts.paragraphs.map(pText), ...links.map(l => `${l.label}: ${l.url}`), `${opts.button.label}: ${opts.button.url}`, ...after.map(pText), `${closing}\nSocialklubben`].join("\n\n");
   return { to: opts.to, subject: opts.subject, html, text };
 }
 
-/** Keeps the tables small: login links after a day, the log after 90 days. Clears the contact form's sender hashes
+/** Keeps the tables small: login links after a day, the log after 90 days, sent mails after a year. Clears the contact form's sender hashes
  * after a day. */
 export async function purgeMailData(db: D1Database, now: number): Promise<void> {
   await db.batch([
     db.prepare("DELETE FROM login_links WHERE expires_at < ?").bind(now - 86_400_000),
     db.prepare("DELETE FROM mail_log WHERE created_at < ?").bind(now - 90 * 86_400_000),
+    db.prepare("DELETE FROM sent_mails WHERE created_at < ?").bind(now - 365 * 86_400_000),
     db.prepare("UPDATE contact_messages SET sender = NULL WHERE sender IS NOT NULL AND created_at < ?").bind(now - 86_400_000)
   ]);
 }

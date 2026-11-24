@@ -1,6 +1,6 @@
 -- Mails about membership (Jake 2026-11-24): "Velkommen som medlem" to new members ('welcome'), and one invitation to
 -- become a member with a link, to those who have shown interest in an arrangement but are not members ('join').
--- mail_log keeps 'status' from 0018_status_mails.sql, so this file must run after that one. SQLite cannot change a
+-- mail_log keeps 'status' from 0018_status_mails.sql. SQLite cannot change a
 -- CHECK, so the table is made again.
 CREATE TABLE mail_log_new (
   id TEXT PRIMARY KEY,
