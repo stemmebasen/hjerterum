@@ -13,7 +13,7 @@ import { flash, flockCards, flockLine, flockPanel, howItWorks, interestButton, i
 import { offersBlock, offersFor } from "../flokken/partners.js";
 import { upcomingFlocks, type FlockRow } from "../flokken/store.js";
 import { FREE_MEMBERSHIP_DATE, FREE_OUTINGS, freeMembership } from "../flokken/profile.js";
-import { INFO_PATH, infoMeetingTeaser, signupOpen } from "../flokken/infoMeeting.js";
+import { infoMeetingTeaser } from "../flokken/infoMeeting.js";
 import { activeFilterChips, cardGrid, chipLinks, dayList, stub, ticketStack, eventPath, filterPanel, groupTiles, linkList, pagination, picksNote, placeLine, searchForm, section } from "./components.js";
 import { hasFilters, isSearch, toQuery, type Filters } from "./filters.js";
 import { html, raw, type SafeHtml } from "./html.js";
@@ -145,14 +145,6 @@ async function forYouSection(db: D1Database, ctx: PageContext, regions: string[]
   </section>`;
 }
 
-/** The front page's one quiet line under "Se kalenderen" (Jake 2026-11-24: fewer boxes, less text in the top):
- * the information meeting and the start-up in one sentence. The fuller words are in the boxes further down. */
-function heroNote(now: number): SafeHtml | "" {
-  const meeting = signupOpen(now), startup = freeMembership(now);
-  if (!meeting && !startup) return "";
-  return html`<p class="hero-note">${meeting ? html`<span class="hero-note-date" aria-hidden="true"><strong>12</strong>jan</span>` : ""}<span><strong>Vi er under opstart.</strong> ${meeting ? html`Kom til <a href="${INFO_PATH}">informationsmøde 12. januar</a>${startup ? html`, eller <a href="/bliv-medlem">bliv medlem</a> – gratis og uforpligtende.` : "."}` : html`<a href="/bliv-medlem">Bliv medlem</a> – gratis og uforpligtende.`}</span></p>`;
-}
-
 export async function homePage(db: D1Database, ctx: PageContext, regions: string[], personal?: Personal): Promise<View> {
   const areas = activeAreas(regions);
   const [heroTickets, byArea, week, flocks, freeWeek, groups, forYouBlock] = await Promise.all([
@@ -183,7 +175,6 @@ export async function homePage(db: D1Database, ctx: PageContext, regions: string
       <p class="standfirst">Find noget blandt ${eventsLabel(total)} – fra de store scener til de små foreninger – og tryk "Jeg vil gerne med!" Så samler vi en lille flok, du kan følges med.</p>
       ${searchForm({})}
       <a class="calendar-cta" href="/kalender">${CALENDAR_ICON}<span class="calendar-cta-text"><strong>Se kalenderen</strong><span>${eventsLabel(total)} – dag for dag</span></span><span class="calendar-cta-arrow" aria-hidden="true">→</span></a>
-      ${heroNote(ctx.now)}
     </div>
     <div class="hero-visual">${ticketStack(heroTickets)}</div>
   </div>

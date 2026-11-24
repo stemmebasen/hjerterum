@@ -165,7 +165,12 @@ describe("the calendar", () => {
 
   it("invites organisers in the top banner instead of calling the site a test version", async () => {
     const { body } = await text("/");
-    expect(body).toContain('Mangler jeres arrangement på siden? <a href="/kontakt?emne=arrangoer">Skriv til os her</a>');
+    // While we start up (until 1 March 2027) the band carries the start-up, the meeting and membership (Jake 2026-11-24).
+    expect(body).toContain('<div class="env-banner startup-banner" role="note">');
+    expect(body).toContain('<a class="startup-banner-item" href="/informationsmoede">');
+    const later = await (await handle(new Request("https://portal.example/"), env, Date.parse("2027-03-02T12:00:00Z"))).text();
+    expect(later).toContain('Mangler jeres arrangement på siden? <a href="/kontakt?emne=arrangoer">Skriv til os her</a>');
+    expect(later).not.toContain("startup-banner");
     // No private address anywhere on the site (Jake 2026-11-17): only kontakt@socialklubben.dk.
     expect(body).not.toContain("jacobhauge.com\"");
     expect(body).not.toMatch(/mailto:(?!kontakt@socialklubben\.dk)/);

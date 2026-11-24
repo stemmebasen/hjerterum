@@ -772,9 +772,10 @@ describe("Lad os komme godt i gang", () => {
     expect(later).toContain("Du kan deltage i de første 3 udflugter uden at være medlem.");
     // Start-up (Jake 2026-11-24): the front page, /bliv-medlem and /om say we are just starting and need members.
     const front = (await call("/")).body;
-    expect(front).toContain('<p class="hero-note">');
-    expect(front).toContain("<strong>Vi er under opstart.</strong>");
-    expect(front).toContain('<a href="/bliv-medlem">bliv medlem</a> – gratis og uforpligtende.');
+    expect(front).toContain('<div class="env-banner startup-banner" role="note">');
+    expect(front).toContain("<strong>Vi er under opstart</strong>");
+    expect(front).toContain('<a class="startup-banner-item" href="/bliv-medlem">');
+    expect(front).not.toContain("Mangler jeres arrangement på siden?");
     expect(front).toContain("Det er gratis til 1. marts 2027 og forpligter dig ikke til noget");
     expect(front).toContain("jo flere vi er, jo flere initiativer kan vi sætte i gang");
     expect(m.body).toContain('<h2 id="opstart">Vi er under opstart</h2>');

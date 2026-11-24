@@ -113,6 +113,24 @@ strong { font-weight: 800; }
 .meta-muted { color: var(--muted); }
 .env-banner { background: var(--green); color: var(--butter); text-align: center; font-size: .8rem; font-weight: 700; padding: 5px 8px; }
 .env-banner a { color: inherit; text-decoration: underline; }
+/* The start-up band (Jake 2026-11-24): the same green field, a little taller, with small marks. */
+.startup-banner { padding: 9px 16px; font-size: .9rem; font-weight: 600; }
+.startup-banner-inner { display: flex; flex-wrap: wrap; align-items: center; justify-content: center; gap: 8px 26px; }
+.startup-banner-lead { display: inline-flex; align-items: center; gap: 8px; }
+.startup-banner-lead strong { font: 700 1rem/1.1 var(--display); letter-spacing: .01em; }
+.startup-banner-icon { flex: none; color: #9fd8a8; }
+.startup-banner a.startup-banner-item { display: inline-flex; align-items: center; gap: 9px; text-decoration: none; color: #fff; }
+.startup-banner a.startup-banner-item:hover > span:last-child, .startup-banner a.startup-banner-item:focus-visible > span:last-child { text-decoration: underline; }
+.startup-banner-more { color: var(--butter); }
+.startup-banner-date { flex: none; display: grid; place-items: center; width: 30px; height: 30px; border-radius: 7px; background: var(--butter); color: var(--green); font: 700 .5rem/1 var(--display); text-transform: uppercase; transform: rotate(-4deg); }
+.startup-banner-date strong { font-size: .9rem; line-height: .95; }
+.startup-banner-heart { flex: none; display: grid; place-items: center; width: 30px; height: 30px; border-radius: 50%; background: var(--berry); color: #fff; font-size: .95rem; line-height: 1; transform: rotate(4deg); }
+@media (max-width: 640px) {
+  .startup-banner { padding: 8px 12px; font-size: .84rem; }
+  .startup-banner-inner { gap: 6px 16px; }
+  .startup-banner-lead { flex-basis: 100%; justify-content: center; }
+  .startup-banner-more { display: none; }
+}
 
 /* A highlighter stroke behind the words that matter */
 .marker { background: linear-gradient(transparent 58%, var(--butter) 58%, var(--butter) 90%, transparent 90%); padding: 0 .08em; -webkit-box-decoration-break: clone; box-decoration-break: clone; }
@@ -268,11 +286,6 @@ button:active, .button:active { transform: translateY(3px); box-shadow: 0 0 0 va
 .calendar-cta-text span { font-weight: 700; font-size: .98rem; color: var(--berry); }
 .calendar-cta-arrow { flex: none; display: grid; place-items: center; width: 48px; height: 48px; border-radius: 50%; background: var(--ink); color: var(--butter); font: 700 1.6rem/1 var(--display); }
 @media (max-width: 380px) { .calendar-cta { gap: 12px; padding: 12px 14px 12px 12px; } .calendar-cta-icon { width: 42px; height: 42px; } .calendar-cta-arrow { width: 40px; height: 40px; } }
-/* The top's one quiet line under "Se kalenderen" (Jake 2026-11-24: fewer boxes and less text). */
-.hero-note { display: flex; align-items: center; gap: 12px; margin: 22px 0 0; max-width: 34em; font-size: .98rem; line-height: 1.45; color: var(--ink-2); }
-.hero-note a { color: var(--berry); font-weight: 700; }
-.hero-note-date { flex: none; display: grid; place-items: center; width: 42px; height: 42px; border-radius: 10px; background: var(--berry); color: #fff; font: 700 .64rem/1 var(--display); text-transform: uppercase; }
-.hero-note-date strong { font-size: 1.15rem; line-height: 1; }
 @media (prefers-reduced-motion: reduce) { .calendar-cta, .calendar-cta:hover, .calendar-cta:focus-visible { transform: none; } }
 .quick-links { list-style: none; display: flex; flex-wrap: wrap; gap: 8px; margin: 14px 0 0; padding: 0; }
 .quick-links a { display: inline-block; padding: 6px 14px; border-radius: 999px; background: var(--card); border: 2px solid var(--rule); font-size: .92rem; font-weight: 700; }

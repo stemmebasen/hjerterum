@@ -4,6 +4,23 @@ import type { Area } from "../geo.js";
 import { html, jsonScript, raw, type SafeHtml } from "./html.js";
 import { SAMFOLK_MARK } from "../forening/brand.js";
 import { englishPath } from "../i18n/paths.js";
+import { INFO_PATH, signupOpen } from "../flokken/infoMeeting.js";
+import { freeMembership } from "../flokken/profile.js";
+
+const SPROUT = raw(`<svg class="startup-banner-icon" viewBox="0 0 24 24" width="22" height="22" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 21v-9"/><path d="M12 12c0-4 3-6 7-6 0 4-3 6-7 6z" fill="currentColor"/><path d="M12 14c0-3-2.5-5-6-5 0 3 2.5 5 6 5z" fill="currentColor"/><path d="M8 21h8"/></svg>`);
+
+/** The green band at the very top, while we are starting up (Jake 2026-11-24: "brug det grønne felt i toppen til
+ * den nye information, og brug gerne lidt grafik"). The meeting part goes when the meeting starts, the whole band on
+ * 1 March 2027; then the organisers' line comes back. */
+function startupBanner(now: number): SafeHtml | null {
+  const meeting = signupOpen(now), startup = freeMembership(now);
+  if (!meeting && !startup) return null;
+  return html`<div class="env-banner startup-banner" role="note"><div class="startup-banner-inner">
+  <span class="startup-banner-lead">${SPROUT}<strong>Vi er under opstart</strong></span>
+  ${meeting ? html`<a class="startup-banner-item" href="${INFO_PATH}"><span class="startup-banner-date" aria-hidden="true"><strong>12</strong>jan</span><span>Informationsmøde 12. januar <span class="startup-banner-more">– tilmeld dig</span></span></a>` : ""}
+  ${startup ? html`<a class="startup-banner-item" href="/bliv-medlem"><span class="startup-banner-heart" aria-hidden="true">♥</span><span>Bliv medlem <span class="startup-banner-more">– gratis og uforpligtende</span></span></a>` : ""}
+</div></div>`;
+}
 
 export type PageContext = {
   /** The portal's own origin (PUBLIC_BASE_URL or the request's), without a trailing slash. */
@@ -132,7 +149,7 @@ ${forening ? html`<link rel="icon" href="/assets/samfolk-icon.svg" type="image/s
 <link rel="manifest" href="/assets/site.webmanifest">
 <link rel="preload" href="/assets/fonts/fredoka-latin.woff2" as="font" type="font/woff2" crossorigin>
 <link rel="preload" href="/assets/fonts/nunito-latin.woff2" as="font" type="font/woff2" crossorigin>`}
-<link rel="stylesheet" href="/assets/site.css?v=56">
+<link rel="stylesheet" href="/assets/site.css?v=57">
 <script src="/assets/site.js?v=18" defer></script>
 ${(meta.styles ?? []).map(href => html`<link rel="stylesheet" href="${href}">`)}
 ${(meta.scripts ?? []).map(src => html`<script src="${src}" defer></script>`)}
@@ -140,7 +157,7 @@ ${jsonLd.map(data => html`<script type="application/ld+json">${jsonScript(data)}
 </head>
 <body${meta.bare ? raw(' class="is-bare"') : ""}>
 <a class="skip" href="#indhold">Spring til indhold</a>
-${ctx.edition === "portal" ? html`<div class="env-banner" role="note">Mangler jeres arrangement på siden? <a href="/kontakt?emne=arrangoer">Skriv til os her</a></div>`
+${ctx.edition === "portal" ? startupBanner(ctx.now) ?? html`<div class="env-banner" role="note">Mangler jeres arrangement på siden? <a href="/kontakt?emne=arrangoer">Skriv til os her</a></div>`
   : ctx.environment !== "production" ? html`<div class="env-banner" role="note">Testversion – ${name} er under udvikling</div>` : ""}
 ${ctx.edition === "forening" ? foreningHeader(ctx) : portalHeader(ctx)}
 <main id="indhold">
