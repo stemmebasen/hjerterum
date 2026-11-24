@@ -37,6 +37,7 @@ jobs:
       PEXELS_API_KEY: ${{ secrets.PEXELS_API_KEY }}
       UNSPLASH_ACCESS_KEY: ${{ secrets.UNSPLASH_ACCESS_KEY }}
       PIXABAY_API_KEY: ${{ secrets.PIXABAY_API_KEY }}
+      DEV_REQUESTS_TOKEN: ${{ secrets.DEV_REQUESTS_TOKEN }}
     steps:
       - uses: actions/checkout@v6
 
@@ -134,6 +135,7 @@ jobs:
           put_if_set PEXELS_API_KEY "${PEXELS_API_KEY:-}"
           put_if_set UNSPLASH_ACCESS_KEY "${UNSPLASH_ACCESS_KEY:-}"
           put_if_set PIXABAY_API_KEY "${PIXABAY_API_KEY:-}"
+          put_if_set DEV_REQUESTS_TOKEN "${DEV_REQUESTS_TOKEN:-}"
           printf '%s' "$STAGING_URL" | pnpm --dir apps/web exec wrangler secret put APP_BASE_URL --env staging >/dev/null
 
       - name: Smoke test deployed staging API, D1, MembershipWorks and frontend
