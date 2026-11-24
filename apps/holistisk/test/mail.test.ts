@@ -6,6 +6,7 @@ import { saveInterests } from "../src/flokken/kickoff.js";
 import { sendDueMails } from "../src/flokken/notify.js";
 import { sendMail, type EmailBinding } from "../src/mail.js";
 import { MAILS_PER_DAY } from "../src/flokken/contact.js";
+import { welcomeMail } from "../src/flokken/welcome.js";
 import type { Env } from "../src/env.js";
 import { testDb } from "./d1.js";
 import { fakeFetch, fixture, FEED_URL, MW_ROBOTS, noSleep } from "./helpers.js";
@@ -119,6 +120,7 @@ describe("login with a link on e-mail", () => {
   it("lets someone who signed up as a member (name and e-mail, no profile) log in, making their profile", async () => {
     sent.length = 0;
     expect((await call("/bliv-medlem/meld-ind", { form: { navn: "Birgit Holm", email: "Birgit@Example.dk" } })).status).toBe(303);
+    sent.length = 0;
     await call("/log-ind/mail", { form: { email: "birgit@example.dk" } });
     expect(sent[0]!.text).toContain("Hej Birgit");
     const used = await call("/log-ind/link", { form: { t: linkIn(sent[0]!)[1]! } });
@@ -133,6 +135,51 @@ describe("login with a link on e-mail", () => {
     expect(off.status).toBe(503);
     expect(off.body).toContain("Vi kan ikke sende e-mails lige nu");
     expect((await call("/log-ind/link?t=" + "x".repeat(43))).body).toContain("Linket virker ikke.");
+  });
+});
+
+describe("the 'Velkommen som medlem' mail", () => {
+  it("welcomes a new member once, with the start-up period, never obliged, how it works and the info meeting", async () => {
+    sent.length = 0;
+    expect((await call("/bliv-medlem/meld-ind", { form: { navn: "Karen Lund", email: "karen@example.dk" } })).status).toBe(303);
+    expect(sent).toHaveLength(1);
+    const m = sent[0]!;
+    expect(m.to).toBe("karen@example.dk");
+    expect(m.subject).toBe("Velkommen som medlem af Socialklubben");
+    expect(m.text).toContain("Hej Karen");
+    expect(m.text).toContain("nystartet forening");
+    expect(m.text).toContain("frem til 1. marts 2027");
+    expect(m.text).toContain("aldrig forpligtet");
+    expect(m.text).toContain("\"Jeg vil gerne med!\"");
+    expect(m.text).toContain("12. januar 2027 kl. 19.30–20.45 i Guldsmedgade 26B");
+    expect(m.text).toContain(`Tilmeld dig informationsmødet (${ORIGIN}/informationsmoede)`);
+    expect(m.text).toContain(`Se kalenderen: ${ORIGIN}/kalender`);
+    expect(m.text).toContain("kontakt@socialklubben.dk");
+    expect(m.html).toContain('<html lang="da">');
+    expect(m.html).toContain(`href="${ORIGIN}/informationsmoede"`);
+    for (const word of ["gave", "rabat", "støttemedlem", "event", "gratis"]) expect(m.text.toLowerCase()).not.toContain(word);
+    db.raw.prepare("SELECT kind, status FROM mail_log WHERE kind = 'welcome'").all().forEach(r => expect(r).toEqual({ kind: "welcome", status: "sent" }));
+    // Signing up again with the same address sends nothing.
+    await call("/bliv-medlem/meld-ind", { form: { navn: "Karen Lund", email: "KAREN@example.dk" } });
+    expect(sent).toHaveLength(1);
+  });
+
+  it("is in English when the sign-up was on the English page, and drops what has passed", async () => {
+    sent.length = 0;
+    expect((await call("/en/membership/meld-ind", { form: { navn: "Sam", email: "sam@example.dk" } })).status).toBe(303);
+    const m = sent[0]!;
+    expect(m.subject).toBe("Welcome as a member of Socialklubben");
+    expect(m.text).toContain("Hi Sam");
+    expect(m.text).toContain("until 1 March 2027");
+    expect(m.text).toContain("\"I'd like to come along!\"");
+    expect(m.text).toContain(`${ORIGIN}/en/calendar`);
+    expect(m.text).toContain(`${ORIGIN}/en/informationsmoede`);
+    expect(m.text).toContain("Warm regards");
+    expect(m.html).toContain('<html lang="en">');
+    const later = welcomeMail("x@example.dk", "Ole", ORIGIN, "da", Date.parse("2027-03-02T12:00:00Z"));
+    expect(later.text).not.toContain("1. marts 2027");
+    expect(later.text).not.toContain("informationsmøde");
+    expect(later.text).toContain("aldrig forpligtet");
   });
 });
 

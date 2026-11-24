@@ -16,10 +16,11 @@ export function validateSignup(f: SignupForm): SignupErrors {
   return e;
 }
 
-/** Saves the sign-up; signing up twice with the same e-mail is fine and keeps the first. */
-export async function saveSignup(db: D1Database, f: SignupForm, now: number): Promise<void> {
-  await db.prepare("INSERT OR IGNORE INTO membership_signups (id, name, email, created_at) VALUES (?, ?, ?, ?)")
+/** Saves the sign-up; signing up twice with the same e-mail is fine and keeps the first. True when it was new. */
+export async function saveSignup(db: D1Database, f: SignupForm, now: number): Promise<boolean> {
+  const r = await db.prepare("INSERT OR IGNORE INTO membership_signups (id, name, email, created_at) VALUES (?, ?, ?, ?)")
     .bind(crypto.randomUUID(), f.name, f.email, now).run();
+  return (r.meta?.changes ?? 0) === 1;
 }
 
 export async function listSignups(db: D1Database): Promise<unknown[]> {

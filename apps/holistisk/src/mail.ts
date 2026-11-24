@@ -10,7 +10,7 @@ import { ORGANISER_EMAIL } from "./web/layout.js";
 
 /** `replyTo` takes the place of the contact address as the mail's reply-to (the contact form: the sender). */
 export type Mail = { to: string; subject: string; text: string; html: string; replyTo?: string };
-export type MailKind = "login" | "invitation" | "reminder";
+export type MailKind = "login" | "invitation" | "reminder" | "welcome";
 export type SendResult = { ok: true } | { ok: false; error: string };
 
 /** The part of Cloudflare's send_email binding used here. */
@@ -78,11 +78,21 @@ export async function sendLogged(db: D1Database, env: Env, kind: MailKind, membe
   return result;
 }
 
-/** A plain, friendly mail: greeting, paragraphs, one button, and a closing line. Both an HTML and a text version. */
-export function letter(opts: { to: string; subject: string; greeting: string; paragraphs: string[]; button: { label: string; url: string }; after?: string[] }): Mail {
+/** A paragraph in a letter: plain text, or text with one link in it ("Tilmeld dig her" in the middle of a sentence). */
+export type Paragraph = string | { before: string; link: { label: string; url: string }; after?: string };
+
+/** A plain, friendly mail: greeting, paragraphs, one button, and a closing line. Both an HTML and a text version.
+ * `lang: "en"` closes in English (the text itself is given in English by the caller). */
+export function letter(opts: { to: string; subject: string; greeting: string; paragraphs: Paragraph[]; button: { label: string; url: string }; after?: Paragraph[]; lang?: "da" | "en" }): Mail {
   const after = opts.after ?? [];
-  const p = (t: string) => `<p style="margin:0 0 16px;font-size:16px;line-height:1.5;color:#1d1d1b">${escapeHtml(t)}</p>`;
-  const html = `<!doctype html><html lang="da"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width"><title>${escapeHtml(opts.subject)}</title></head>
+  const en = opts.lang === "en";
+  const closing = en ? "Warm regards" : "Kærlig hilsen";
+  const style = "margin:0 0 16px;font-size:16px;line-height:1.5;color:#1d1d1b";
+  const p = (t: Paragraph) => typeof t === "string"
+    ? `<p style="${style}">${escapeHtml(t)}</p>`
+    : `<p style="${style}">${escapeHtml(t.before)}<a href="${escapeHtml(t.link.url)}" style="color:#1d1d1b;font-weight:bold">${escapeHtml(t.link.label)}</a>${escapeHtml(t.after ?? "")}</p>`;
+  const plain = (t: Paragraph) => typeof t === "string" ? t : `${t.before}${t.link.label} (${t.link.url})${t.after ?? ""}`;
+  const html = `<!doctype html><html lang="${en ? "en" : "da"}"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width"><title>${escapeHtml(opts.subject)}</title></head>
 <body style="margin:0;padding:0;background:#f6f1e7">
 <div style="max-width:520px;margin:0 auto;padding:28px 20px;font-family:Helvetica,Arial,sans-serif">
 <p style="margin:0 0 20px;font-size:20px;font-weight:bold;color:#1d1d1b">Socialklubben</p>
@@ -90,9 +100,9 @@ ${p(opts.greeting)}
 ${opts.paragraphs.map(p).join("\n")}
 <p style="margin:24px 0"><a href="${escapeHtml(opts.button.url)}" style="display:inline-block;background:#1d1d1b;color:#ffffff;text-decoration:none;font-weight:bold;padding:12px 20px;border-radius:8px">${escapeHtml(opts.button.label)}</a></p>
 ${after.map(p).join("\n")}
-<p style="margin:24px 0 0;font-size:16px;line-height:1.5;color:#1d1d1b">Kærlig hilsen<br>Socialklubben</p>
+<p style="margin:24px 0 0;font-size:16px;line-height:1.5;color:#1d1d1b">${closing}<br>Socialklubben</p>
 </div></body></html>`;
-  const text = [opts.greeting, ...opts.paragraphs, `${opts.button.label}: ${opts.button.url}`, ...after, "Kærlig hilsen\nSocialklubben"].join("\n\n");
+  const text = [opts.greeting, ...opts.paragraphs.map(plain), `${opts.button.label}: ${opts.button.url}`, ...after.map(plain), `${closing}\nSocialklubben`].join("\n\n");
   return { to: opts.to, subject: opts.subject, html, text };
 }
 

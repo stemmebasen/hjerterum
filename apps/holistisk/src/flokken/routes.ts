@@ -10,6 +10,7 @@ import { outingsUsed, flockAgeGroups, flockMembers, flockPhoto, ownPhoto, PHOTO_
 import { chatAccess, chatMessages, chatOpen, postMessage, reportedMessages, reportMessage, type ChatMessage } from "./chat.js";
 import { linkState, requestLoginLink, useLoginLink, validToken } from "./loginLink.js";
 import { listSignups, readSignup, saveSignup, validateSignup } from "./membership.js";
+import { sendWelcome } from "./welcome.js";
 import { listInquiries, partnerPage } from "./partners.js";
 import { contactInbox } from "../mail.js";
 import { contactPage, emptyContact, filledByPerson, listContacts, readContact, senderOf, sendContact, tooMany, topicFrom, validateContact } from "./contact.js";
@@ -183,7 +184,8 @@ export async function flokkenRoute(request: Request, env: Env, db: D1Database, p
     const form = readSignup(data);
     const errors = validateSignup(form);
     if (Object.keys(errors).length) return { view: membershipPage(pc, !!(await member()), { form, errors, status: 400 }) };
-    await saveSignup(db, form, now);
+    // The first time: a "Velkommen som medlem" mail (src/flokken/welcome.ts).
+    if (await saveSignup(db, form, now)) await sendWelcome(db, env, form.email, form.name, pc.origin, pc.lang ?? "da", now);
     return go(withMessage("/bliv-medlem", "tak") + "#meld-ind");
   }
   if (path === "/api/indmeldelser" && !post) {
