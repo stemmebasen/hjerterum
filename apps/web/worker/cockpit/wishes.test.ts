@@ -8,6 +8,7 @@ import { namedPage } from "./wishes.js";
 // stadig hos mig?" - "Ja".
 const ORIGIN = "https://admin.hjerterum.example";
 const NOW = Date.parse("2026-11-24T10:00:00Z");
+const TOKEN = "a-long-enough-development-requests-key";
 
 async function setup() {
   const db = testDatabase();
@@ -20,7 +21,7 @@ async function setup() {
     return asked.length === 1 ? '{"svar": "Which page were you on?", "oenske": null}'
       : '{"svar": "Here is the wish - change it if you like, or send it to Jacob.", "oenske": {"titel": "Bigger sign-up button on the event page", "beskrivelse": "On an event page the sign-up button is small. Douglas: \\"make it bigger\\"."}}';
   } });
-  const env = sagaEnv(db, { COCKPIT_PASSWORD: "hjerte-2026" });
+  const env = sagaEnv(db, { COCKPIT_PASSWORD: "hjerte-2026", DEV_REQUESTS_TOKEN: TOKEN } as never);
   const call = (path: string, init: RequestInit & { cookie?: string } = {}) => handleCockpitRequest(new Request(ORIGIN + path, {
     ...init, redirect: "manual", headers: { ...(init.method === "POST" ? { origin: ORIGIN } : {}), ...(init.cookie ? { cookie: init.cookie } : {}), ...((init.headers ?? {}) as Record<string, string>) } }), env, deps(services.fetcher, NOW));
   const form = (fields: Record<string, string>) => { const f = new FormData(); for (const [k, v] of Object.entries(fields)) f.append(k, v); return f; };
@@ -83,7 +84,14 @@ describe("wishes and faults in admin", () => {
     // Douglas does not get the chair's list.
     expect(await (await call("/forslag", { cookie: douglas })).text()).not.toContain("Godkendte forslag samlet");
 
-    await call(`/forslag/${id}/lavet`, { method: "POST", cookie: chair });
+    // The one who makes them fetches the approved requests with the key - nobody without it - and marks one done when it is on the site.
+    expect((await call("/udvikling/api/forslag")).status).toBe(404);
+    expect((await call("/udvikling/api/forslag", { headers: { authorization: "Bearer wrong-key-wrong-key-wrong-key" } })).status).toBe(404);
+    const fetched = await (await call("/udvikling/api/forslag", { headers: { authorization: `Bearer ${TOKEN}` } })).json() as { forslag: Array<{ id: number; titel: string; note: string }> };
+    expect(fetched.forslag).toEqual([expect.objectContaining({ id: Number(id), titel: "Bigger sign-up button on the event page", note: "Good idea" })]);
+    expect((await call(`/udvikling/api/forslag/${id}/lavet`, { method: "POST", headers: { authorization: `Bearer ${TOKEN}` } })).status).toBe(200);
+    expect(services.telegram("sendMessage").map(c => JSON.stringify(c.body)).some(t => t.includes("is done and on the site"))).toBe(true);
+    expect((await (await call("/udvikling/api/forslag", { headers: { authorization: `Bearer ${TOKEN}` } })).json() as { forslag: unknown[] }).forslag).toEqual([]);
     expect((await db.prepare("SELECT status FROM wishes WHERE id = ?").bind(id).first<{ status: string }>())!.status).toBe("done");
 
     // A wish can be let go.

@@ -67,6 +67,9 @@ export interface SagaEnv {
   CLERK_SECRET_KEY?: string;
   /** The e-mails that may open the admin pages of the member area (worker/admin-auth.ts); the chair sees them on Administratorer. */
   ALLOWED_EMAILS?: string;
+  /** Admin → Forslag til udvikling (cockpit/wishes.ts): the bearer secret with which the approved requests are fetched and marked done when they
+   * are made - kept by the one who makes them. Without it the address answers 404. */
+  DEV_REQUESTS_TOKEN?: string;
 }
 
 /** The part of an R2 bucket the cockpit and Saga use. */

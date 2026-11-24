@@ -188,6 +188,14 @@ export async function sendWish(env: SagaEnv, deps: SagaDeps, db: D1Database, wis
   return true;
 }
 
+/** A short message to the one who made the request, on Telegram, when Saga knows them there. */
+async function tellAuthor(env: SagaEnv, deps: SagaDeps, db: D1Database, author: string, text: string): Promise<void> {
+  if (!env.SAGA_TELEGRAM_BOT_TOKEN) return;
+  const person = await db.prepare("SELECT telegram_id FROM cockpit_login_links WHERE member = ? AND telegram_id IS NOT NULL ORDER BY created_at_ms DESC LIMIT 1")
+    .bind(author).first<{ telegram_id: string }>().catch(() => null);
+  if (person?.telegram_id) await telegramClient(env, deps).sendMessage(person.telegram_id, text).catch(() => undefined);
+}
+
 /** The chair approves or turns down a sent wish; the one who wished hears it on Telegram, when Saga knows them there. */
 export async function decideWish(env: SagaEnv, deps: SagaDeps, db: D1Database, wish: Wish, approve: boolean, note: string, by: string, cockpitUrl: string): Promise<boolean> {
   if (wish.status !== "sent" && wish.status !== "open") return false;
@@ -196,19 +204,50 @@ export async function decideWish(env: SagaEnv, deps: SagaDeps, db: D1Database, w
   const changed = await db.prepare("UPDATE wishes SET status = ?, chair_note = ?, decided_by = ?, decided_at_ms = ?, updated_at_ms = ? WHERE id = ? AND status IN ('sent', 'open')")
     .bind(approve ? "approved" : "rejected", clean, by, now, now, wish.id).run();
   if (!changed.meta?.changes) return false;
-  if (wish.author !== by && env.SAGA_TELEGRAM_BOT_TOKEN) {
-    const person = await db.prepare("SELECT telegram_id FROM cockpit_login_links WHERE member = ? AND telegram_id IS NOT NULL ORDER BY created_at_ms DESC LIMIT 1")
-      .bind(wish.author).first<{ telegram_id: string }>().catch(() => null);
-    if (person?.telegram_id) await telegramClient(env, deps).sendMessage(person.telegram_id,
-      `Your development request »${wish.title ?? `#${wish.id}`}« was ${approve ? "approved" : "not approved"} by ${by}.${clean ? `\n\n${clean}` : ""}\n\n${cockpitUrl}/forslag/${wish.id}`).catch(() => undefined);
-  }
+  if (wish.author !== by)
+    await tellAuthor(env, deps, db, wish.author, `Your development request »${wish.title ?? `#${wish.id}`}« was ${approve ? "approved" : "not approved"}.${clean ? `\n\n${clean}` : ""}\n\n${cockpitUrl}/forslag/${wish.id}`);
   return true;
 }
 
-export async function markWishDone(db: D1Database, wish: Wish, nowMs: number): Promise<boolean> {
+/** Made and on the site - the one who made the request hears it. */
+export async function markWishDone(env: SagaEnv, deps: SagaDeps, db: D1Database, wish: Wish, cockpitUrl: string): Promise<boolean> {
   if (wish.status !== "approved") return false;
-  const changed = await db.prepare("UPDATE wishes SET status = 'done', done_at_ms = ?, updated_at_ms = ? WHERE id = ? AND status = 'approved'").bind(nowMs, nowMs, wish.id).run();
-  return Boolean(changed.meta?.changes);
+  const now = deps.now();
+  const changed = await db.prepare("UPDATE wishes SET status = 'done', done_at_ms = ?, updated_at_ms = ? WHERE id = ? AND status = 'approved'").bind(now, now, wish.id).run();
+  if (!changed.meta?.changes) return false;
+  await tellAuthor(env, deps, db, wish.author, `Your development request »${wish.title ?? `#${wish.id}`}« is done and on the site now.\n\n${cockpitUrl}/forslag/${wish.id}`);
+  return true;
+}
+
+/** Asked (the chair, 24 Nov 2026): the approved requests are fetched by the one who makes them, and marked done when they are on the site - "så skal du bare
+ * skrive: lav de godkendte forslag". GET …/udvikling/api/forslag gives the approved ones; POST …/udvikling/api/forslag/:id/lavet marks one done. A bearer
+ * secret (DEV_REQUESTS_TOKEN) is the key; without it the address is not there. The code is public, so the requests stay here and not in GitHub. */
+export async function requestsApi(request: Request, env: SagaEnv, deps: SagaDeps, db: D1Database, path: string, cockpitUrl: string): Promise<Response | null> {
+  const match = /^\/udvikling\/api\/forslag(?:\/(\d+)\/lavet)?$/.exec(path);
+  if (!match) return null;
+  const json = (data: unknown, status = 200) => new Response(JSON.stringify(data, null, 2), { status, headers: { "content-type": "application/json; charset=utf-8", "cache-control": "no-store", "x-robots-tag": "noindex, nofollow" } });
+  const token = env.DEV_REQUESTS_TOKEN ?? "";
+  const sent = (request.headers.get("authorization") ?? "").replace(/^Bearer\s+/i, "");
+  if (token.length < 24 || !sameSecret(sent, token)) return json({ error: "not_found" }, 404);
+  if (!match[1] && request.method === "GET") {
+    const approved = (await listWishes(db)).filter(w => w.status === "approved");
+    return json({ forslag: approved.map(w => ({ id: w.id, fra: w.author, titel: w.title, beskrivelse: w.summary, note: w.chair_note, godkendt: w.decided_at_ms ? new Date(w.decided_at_ms).toISOString() : null, admin: `${cockpitUrl}/forslag/${w.id}` })) });
+  }
+  if (match[1] && request.method === "POST") {
+    const wish = await wishById(db, Number(match[1]));
+    if (!wish) return json({ error: "not_found" }, 404);
+    if (wish.status === "done") return json({ ok: true, status: "done" });
+    return await markWishDone(env, deps, db, wish, cockpitUrl) ? json({ ok: true, status: "done" }) : json({ error: "not_approved", status: wish.status }, 409);
+  }
+  return json({ error: "method_not_allowed" }, 405);
+}
+
+/** Compares two secrets without telling, by the time it takes, how much of them was right. */
+function sameSecret(a: string, b: string): boolean {
+  const x = new TextEncoder().encode(a), y = new TextEncoder().encode(b);
+  let diff = x.length ^ y.length;
+  for (let i = 0; i < y.length; i++) diff |= (x[i] ?? 0) ^ y[i]!;
+  return diff === 0;
 }
 
 const WHEN = new Intl.DateTimeFormat("da-DK", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit", timeZone: "Europe/Copenhagen" });

@@ -89,7 +89,7 @@ import { memberLang, setMemberLang, translateHtml, type Lang } from "./i18n.js";
 import { signReminder, SIGN_STYLE } from "./signReminder.js";
 import { associationEvents, isAssocMeeting, rsvps, toggleRsvp } from "./assocEvents.js";
 import { cleanupCard, cleanupForChair, decideCleanup } from "./cleanup.js";
-import { decideWish, dropWish, listWishes, markWishDone, newWish, sendWish, talkAboutWish, wishById, wishCard, wishChat, wishesPage, wishMessages, wishPage, type WishError } from "./wishes.js";
+import { requestsApi, decideWish, dropWish, listWishes, markWishDone, newWish, sendWish, talkAboutWish, wishById, wishCard, wishChat, wishesPage, wishMessages, wishPage, type WishError } from "./wishes.js";
 import { autoTranslated, frontPageTexts, translatePage, translatedMinutes, translateMinutes, translateTexts, translations } from "./translate.js";
 import { archivePage, decisionsPage, layout, linkPage, loginPage, meetingPage, meetingsPage, menuForPowers, menuPage, morePage, overviewPage, shortDay, statusPage, whoPage, type PastMeeting } from "./page.js";
 
@@ -180,6 +180,10 @@ async function route(request: Request, env: SagaEnv, deps: SagaDeps, state: Stat
   if (path === "/logo.png" && request.method === "GET") return logoResponse();
   if (!env.DB) return login("", 503);
   const db: D1Database = env.DB;
+
+  // The approved development requests, for the one who makes them - with its own key, before any login (wishes.ts).
+  const requests = await requestsApi(request, env, deps, db, path, `${url.origin}${base}`);
+  if (requests) return requests;
 
   // Forms are only taken from the cockpit's own pages.
   if (request.method === "POST" && request.headers.get("origin") !== url.origin) return login("Siden blev sendt fra et andet sted. Prøv igen.", 403);
@@ -596,7 +600,7 @@ async function route(request: Request, env: SagaEnv, deps: SagaDeps, state: Stat
       return redirect(`${base}/forslag/${wish.id}?besked=${approve ? "godkendt" : "afvist"}`);
     }
     if (action === "lavet") {
-      await markWishDone(db, wish, now);
+      await markWishDone(env, deps, db, wish, cockpitUrl);
       return redirect(`${base}/forslag?besked=lavet`);
     }
     return html(notFound(base, who), 404);
