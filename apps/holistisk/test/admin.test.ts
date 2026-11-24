@@ -358,3 +358,82 @@ describe("the way to becoming a member", () => {
     expect(r.body).toContain("Oprettede en profil");
   });
 });
+
+describe("the information meeting (Jake 2026-11-24)", () => {
+  const SESSION = "I".repeat(43);
+  let admin = "";
+  beforeAll(async () => {
+    const { sha256 } = await import("../src/flokken/auth.js");
+    db.raw.prepare("INSERT INTO admin_tokens (token_hash, kind, created_at, expires_at) VALUES (?, 'session', ?, ?)").run(await sha256(SESSION), NOW, NOW + 86_400_000);
+    admin = `sk_admin=${SESSION}`;
+  });
+
+  it("has its own page with the time, the place and a sign-up form, and a box and a line on the front page", async () => {
+    const r = await call("/informationsmoede");
+    expect(r.status).toBe(200);
+    expect(r.body).toContain("Tirsdag den 12. januar 2027, kl. 19.30–20.45");
+    expect(r.body).toContain("Guldsmedgade 26B, 8000 Aarhus C");
+    expect(r.body).toContain("komme med i styregruppen");
+    expect(r.body).toContain('<form class="form-card" method="post" action="/informationsmoede#tilmelding"');
+    expect(r.body).toContain("Du er aldrig forpligtet til noget");
+    // The house rules: no "gratis", no gift or discount.
+    const words = r.body.slice(r.body.indexOf('<div class="wrap narrow prose">'), r.body.indexOf("</main>")).replace(/<[^>]+>/g, " ");
+    expect(words).not.toMatch(/gratis|gave|rabat/i);
+    const front = (await call("/")).body;
+    expect(front).toContain('<aside class="info-teaser" aria-labelledby="h-info">');
+    expect(front).toContain('<a class="info-note" href="/informationsmoede">');
+    expect(front).toContain("Informationsmøde 12. januar");
+    // Gone from the front page once the meeting has started; the page then says so after it ends.
+    const start = Date.parse("2027-01-12T19:30:00+01:00");
+    expect((await call("/", {}, start)).body).not.toContain("info-teaser");
+    expect((await call("/informationsmoede", {}, start + 2 * 3600_000)).body).toContain("Mødet er holdt.");
+    expect((await call("/en/information-meeting")).body).toContain("Tuesday 12 January 2027, 7.30–8.45 pm");
+    // The welcome mail (PR #677) links to /en/informationsmoede: it moves on to the English address.
+    const old = await call("/en/informationsmoede");
+    expect(old.status).toBeGreaterThanOrEqual(301);
+    expect(old.headers.get("location")).toContain("/en/information-meeting");
+  });
+
+  it("saves a sign-up, mails a confirmation once, and lists it in /admin", async () => {
+    const before = sent.length;
+    const bad = await call("/informationsmoede", { form: { navn: "A", email: "nope" } });
+    expect(bad.status).toBe(400);
+    expect(bad.body).toContain("Skriv dit navn.");
+    const r = await call("/informationsmoede", { form: { navn: "Birgit Holm", email: "birgit@example.dk", styregruppe: "ja" } });
+    expect(r.status).toBe(303);
+    expect(r.headers.get("location")).toBe("/informationsmoede?besked=tak#tilmelding");
+    expect((await call("/informationsmoede?besked=tak")).body).toContain("Tak, du er tilmeldt!");
+    expect(sent.length).toBe(before + 1);
+    const mail = sent[sent.length - 1]!;
+    expect(mail.to).toBe("birgit@example.dk");
+    expect(mail.subject).toBe("Du er tilmeldt informationsmødet 12. januar");
+    expect(mail.text).toContain("tirsdag den 12. januar 2027, kl. 19.30–20.45 på Guldsmedgade 26B, 8000 Aarhus C");
+    expect(mail.text).toContain("styregruppen");
+    expect(mail.text).toContain("uforpligtende");
+    // Kept in "Sendt post" too.
+    expect(db.raw.prepare("SELECT kind, to_email FROM sent_mails WHERE kind = 'informationsmoede'").all()).toEqual([{ kind: "informationsmoede", to_email: "birgit@example.dk" }]);
+    // The same e-mail again: no second row and no second mail.
+    await call("/informationsmoede", { form: { navn: "Birgit H.", email: "BIRGIT@example.dk" } });
+    expect(sent.length).toBe(before + 1);
+    expect(db.raw.prepare("SELECT COUNT(*) AS n FROM info_meeting_signups").all()[0]).toEqual({ n: 1 });
+    // A robot filling in the hidden field is thanked, and nothing is saved.
+    await call("/informationsmoede", { form: { navn: "Robot", email: "robot@example.dk", website_url: "x" } });
+    expect(db.raw.prepare("SELECT COUNT(*) AS n FROM info_meeting_signups").all()[0]).toEqual({ n: 1 });
+    // Closed once the meeting has started.
+    await call("/informationsmoede", { form: { navn: "Sen Ankomst", email: "sen@example.dk" } }, Date.parse("2027-01-12T20:00:00+01:00"));
+    expect(db.raw.prepare("SELECT COUNT(*) AS n FROM info_meeting_signups").all()[0]).toEqual({ n: 1 });
+
+    expect((await call("/admin/informationsmoede")).status).toBe(303);
+    const overview = (await call("/admin", { cookie: admin })).body;
+    expect(overview).toContain("Informationsmøde 12. januar");
+    expect(overview).toContain("Birgit H.");
+    const list = (await call("/admin/informationsmoede", { cookie: admin })).body;
+    expect(list).toContain("Tilmeldte (1)");
+    expect(list).toContain("styregruppe?");
+    expect(list).toContain("birgit@example.dk");
+    const id = (db.raw.prepare("SELECT id FROM info_meeting_signups").all()[0] as { id: string }).id;
+    expect((await call(`/admin/informationsmoede/${id}/slet`, { form: {}, cookie: admin })).headers.get("location")).toBe("/admin/informationsmoede?fejl=bekraeft");
+    expect((await call(`/admin/informationsmoede/${id}/slet`, { form: { bekraeft: "ja" }, cookie: admin })).headers.get("location")).toBe("/admin/informationsmoede?slettet=Birgit%20H.");
+    expect(db.raw.prepare("SELECT COUNT(*) AS n FROM info_meeting_signups").all()[0]).toEqual({ n: 0 });
+  });
+});

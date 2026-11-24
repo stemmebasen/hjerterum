@@ -13,6 +13,7 @@ import { flash, flockCards, flockLine, flockPanel, howItWorks, interestButton, i
 import { offersBlock, offersFor } from "../flokken/partners.js";
 import { upcomingFlocks, type FlockRow } from "../flokken/store.js";
 import { FREE_MEMBERSHIP_DATE, FREE_OUTINGS, freeMembership } from "../flokken/profile.js";
+import { infoMeetingNote, infoMeetingTeaser } from "../flokken/infoMeeting.js";
 import { activeFilterChips, cardGrid, chipLinks, dayList, stub, ticketStack, eventPath, filterPanel, groupTiles, linkList, pagination, picksNote, placeLine, searchForm, section } from "./components.js";
 import { hasFilters, isSearch, toQuery, type Filters } from "./filters.js";
 import { html, raw, type SafeHtml } from "./html.js";
@@ -174,6 +175,7 @@ export async function homePage(db: D1Database, ctx: PageContext, regions: string
       <p class="standfirst">Vi vil have flere ud at opleve Aarhus sammen. Find noget blandt ${eventsLabel(total)} i Aarhus – fra de store scener til de små spillesteder og foreninger, som fortjener at blive opdaget – og tryk "Jeg vil gerne med!" Så samler vi en lille flok, du kan følges med.</p>
       ${searchForm({})}
       <a class="calendar-cta" href="/kalender">${CALENDAR_ICON}<span class="calendar-cta-text"><strong>Se kalenderen</strong><span>${eventsLabel(total)} – dag for dag</span></span><span class="calendar-cta-arrow" aria-hidden="true">→</span></a>
+      ${infoMeetingNote(ctx.now)}
       ${freeMembership(ctx.now) ? html`<p class="startup-note"><strong>Vi er under opstart.</strong> Støt os ved at vise din interesse og blive medlem – det er gratis til ${FREE_MEMBERSHIP_DATE} og forpligter dig ikke til noget. <a href="/bliv-medlem">Bliv medlem</a></p>` : ""}
     </div>
     <div class="hero-visual">${ticketStack(heroTickets)}</div>
@@ -191,6 +193,7 @@ export async function homePage(db: D1Database, ctx: PageContext, regions: string
     <p class="mission-aims">${AIMS} <a href="/om#formaal">Læs om vores formål og værdier</a></p>
     <p class="mission-en" lang="en">${ENGLISH_LINE}</p>
   </aside>
+  ${infoMeetingTeaser(ctx.now)}
   <aside class="partner-teaser member-teaser" aria-labelledby="h-member">
     ${freeMembership(ctx.now)
       ? html`<div><p class="hero-kicker">Vi er under opstart</p><h2 id="h-member">Støt os – bliv medlem</h2>
