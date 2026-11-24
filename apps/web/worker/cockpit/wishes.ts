@@ -342,9 +342,10 @@ export async function dropWish(db: D1Database, wish: Wish, nowMs: number): Promi
 const WISH_STYLE = `
 .w .card{margin-top:14px}.w-list{list-style:none;margin:0;padding:0;display:grid}.w-list li{padding:9px 0;border-top:1px solid var(--line)}.w-list li:first-child{border-top:0}
 .w-list small{display:block;color:var(--muted);font-size:12.5px}.w-status{display:inline-block;margin-left:6px;padding:1px 8px;border-radius:999px;font-size:12px;background:var(--line)}
-.w-sent{background:#f3e3c7}.w-approved{background:#dcebd6}.w-rejected,.w-dropped{background:#eee}.w-done{background:#d7e4ef}
+/* Tints, so the words keep the page's own colour in light and dark mode alike (the chair, 24 Nov 2026: the own message could not be read in dark mode). */
+.w-sent{background:rgba(214,158,46,.22)}.w-approved{background:rgba(72,160,90,.22)}.w-rejected,.w-dropped{background:rgba(128,128,128,.2)}.w-done{background:rgba(70,130,190,.22)}
 .w-chat:empty{display:none}.w-typing div{color:var(--muted);font-style:italic}.w-say-row{display:flex;gap:12px;align-items:end;flex-wrap:wrap}.w-say-row label{flex:1 1 240px}.w-drop{margin-top:6px}.w-drop button{font-size:13px}
 .w-chat{list-style:none;margin:0 0 14px;padding:0;display:grid;gap:10px}.w-msg{max-width:84%;padding:10px 12px;border-radius:14px;background:var(--card,#fff);border:1px solid var(--line)}
-.w-msg.w-from-person{justify-self:end;background:#f6efe6}.w-msg small{display:block;color:var(--muted);font-size:12px;margin-bottom:4px}.w-msg img{display:block;max-width:100%;max-height:320px;margin-top:8px;border-radius:8px}
+.w-msg.w-from-person{justify-self:end;background:rgba(201,152,110,.16)}.w-msg small{display:block;color:var(--muted);font-size:12px;margin-bottom:4px}.w-msg img{display:block;max-width:100%;max-height:320px;margin-top:8px;border-radius:8px}
 .w-say textarea,.w-decide textarea,.w-copy{width:100%;box-sizing:border-box}.w-summary{white-space:normal;margin:6px 0 10px;font-size:14.5px}
 @media (max-width:760px){.w-msg{max-width:100%}}`;
