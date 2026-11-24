@@ -571,6 +571,23 @@ button:active, .button:active { transform: translateY(3px); box-shadow: 0 0 0 va
 .partner-teaser .hero-kicker, .partner-teaser .section-kicker { color: var(--butter); background: none; padding: 0; }
 .partner-teaser p { margin-bottom: 0; max-width: 40em; }
 .partner-teaser .button { border-color: var(--butter); box-shadow: 0 3px 0 var(--butter); }
+/* Informationsmødet (src/flokken/infoMeeting.ts): a line in the front page's top and a box after the mission. */
+.info-note { display: flex; align-items: center; gap: 12px; margin: 18px 0 0; padding: 10px 16px 10px 10px; max-width: 30em; background: var(--card); color: var(--ink); border: 2px solid var(--berry); border-radius: var(--radius-s); text-decoration: none; line-height: 1.35; }
+.info-note:hover, .info-note:focus-visible { background: var(--berry-soft); }
+.info-note-date { flex: none; display: grid; place-items: center; width: 48px; height: 48px; border-radius: 10px; background: var(--berry); color: #fff; font: 700 .72rem/1 var(--display); text-transform: uppercase; }
+.info-note-date strong { font-size: 1.35rem; line-height: 1; }
+.info-note > span:last-child { display: grid; }
+.info-note > span:last-child > span { font-size: .92rem; color: var(--muted); }
+.info-teaser { margin-top: 40px; display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 12px 24px; background: var(--berry-soft); border: 3px solid var(--berry); border-radius: var(--radius); padding: 26px 30px; }
+.info-teaser > div { max-width: 40em; }
+.info-teaser .hero-kicker { color: var(--berry-dark); background: none; padding: 0; margin-bottom: .4em; }
+.info-teaser h2 { margin-top: 0; }
+.info-teaser p { margin-bottom: 0; }
+.info-teaser .info-when { margin: 0 0 .6em; }
+.info-facts { display: grid; grid-template-columns: max-content 1fr; gap: 6px 18px; margin: 0 0 1.5em; padding: 16px 20px; background: var(--paper-2); border-radius: var(--radius-s); }
+.info-facts dt { font-weight: 700; }
+.info-facts dd { margin: 0; }
+@media (max-width: 520px) { .info-teaser { padding: 20px; } .info-facts { grid-template-columns: 1fr; } .info-facts dd { margin-bottom: 6px; } }
 .member-teaser { margin-top: 40px; background: var(--butter); color: inherit; }
 .member-teaser h2 { color: inherit; }
 .member-teaser .hero-kicker { color: inherit; }

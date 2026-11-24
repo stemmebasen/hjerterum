@@ -89,3 +89,4 @@ a.sk-more { color: var(--berry); font-weight: 700; font-size: .9rem; }
 .sk-table td { font-weight: 800; font-variant-numeric: tabular-nums; }
 .sk-table thead th { font-size: .8rem; color: var(--muted); font-weight: 700; }
 .sk-table tbody tr:last-child > * { border-bottom: 0; }
+.sk-copy { width: 100%; box-sizing: border-box; font: .9rem/1.4 ui-monospace, monospace; padding: 8px 10px; border-radius: 8px; border: 1px solid var(--rule, #d9d2c3); background: #fff; }
