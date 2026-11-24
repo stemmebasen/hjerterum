@@ -460,7 +460,9 @@ export function membershipPage(ctx: PageContext, loggedIn: boolean, state: { for
     <p class="standfirst">Flokken er en forening, og den findes, fordi folk er med. Som medlem holder du fællesskabet i gang – for dig selv og for dem, der har brug for en ekstra hånd for at komme ud. <a href="#meld-ind">Meld dig ind her</a>.</p>
   </header>
   ${free
-    ? html`<p class="notice"><strong>Gratis i opstarten:</strong> Vi er lige gået i gang, så medlemskab er gratis til ${FREE_MEMBERSHIP_DATE}.</p>
+    ? html`<h2 id="opstart">Vi er under opstart</h2>
+  <p>Flokken er en helt ny forening, og vi bygger den op sammen med jer. Et godt fællesskab kræver et solidt fundament, og det fundament er medlemmerne. Jo flere vi er, jo flere initiativer kan vi sætte i gang og føre ud i livet. Du støtter os ved at vise din interesse og blive medlem.</p>
+  <p class="notice"><strong>Gratis i opstarten:</strong> Medlemskab er gratis til ${FREE_MEMBERSHIP_DATE}. Det forpligter dig ikke til noget: du bestemmer selv, om og hvornår du vil med, og du kan melde dig ud, når du vil.</p>
   <h2>Kom med fra start</h2>
   <p>Opret en profil med dit fornavn, sæt kryds ved det, du har lyst til, og kom med, når vi har samlet en flok. Du kan tage med, så tit du vil.</p>`
     : html`<h2>Prøv det først</h2>
