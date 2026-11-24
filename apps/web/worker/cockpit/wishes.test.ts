@@ -31,22 +31,24 @@ async function setup() {
 describe("wishes and faults in admin", () => {
   it("lets Douglas talk a wish through with Saga and send it, and only the chair decides", async () => {
     const { db, call, form, services, asked, lisbeth, chair, douglas } = await setup();
-    expect((await call("/oensker", { cookie: lisbeth })).status).toBe(403);
-    expect(await (await call("/", { cookie: douglas })).text()).toContain("/oensker");
+    expect((await call("/forslag", { cookie: lisbeth })).status).toBe(403);
+    expect(await (await call("/", { cookie: douglas })).text()).toContain("/forslag");
+    // "Formand skal ikke nævnes" (the chair, 24 Nov 2026) - and the first address leads to the new one.
+    expect((await call("/oensker", { cookie: douglas })).headers.get("location")).toMatch(/\/forslag$/);
 
-    const made = await call("/oensker/ny", { method: "POST", cookie: douglas });
+    const made = await call("/forslag/ny", { method: "POST", cookie: douglas });
     const at = made.headers.get("location")!;
-    expect(at).toMatch(/\/oensker\/\d+$/);
+    expect(at).toMatch(/\/forslag\/\d+$/);
     const id = at.split("/").pop()!;
 
-    await call(`/oensker/${id}/besked`, { method: "POST", cookie: douglas, body: form({ text: "The sign-up button is too small" }) });
-    expect(await (await call(`/oensker/${id}`, { cookie: douglas })).text()).toContain("Which page were you on?");
+    await call(`/forslag/${id}/besked`, { method: "POST", cookie: douglas, body: form({ text: "The sign-up button is too small" }) });
+    expect(await (await call(`/forslag/${id}`, { cookie: douglas })).text()).toContain("Which page were you on?");
     // Not ready yet: nothing to send.
-    await call(`/oensker/${id}/send`, { method: "POST", cookie: douglas });
+    await call(`/forslag/${id}/send`, { method: "POST", cookie: douglas });
     expect((await db.prepare("SELECT status FROM wishes WHERE id = ?").bind(id).first<{ status: string }>())!.status).toBe("open");
 
     // The live chat: the message goes without a reload, and the conversation and the wish come back as pieces of the page.
-    const live = await call(`/oensker/${id}/besked`, { method: "POST", cookie: douglas, body: form({ text: "The event page" }), headers: { accept: "application/json" } });
+    const live = await call(`/forslag/${id}/besked`, { method: "POST", cookie: douglas, body: form({ text: "The event page" }), headers: { accept: "application/json" } });
     expect(live.status).toBe(200);
     const pieces = await live.json() as { chat: string; card: string; notice: string };
     expect(pieces.chat).toContain("The event page");
@@ -56,43 +58,44 @@ describe("wishes and faults in admin", () => {
     expect(asked[1]).toContain("kritisk");
     expect(asked[1]).toContain("BESTYRELSENS BESLUTNINGER");
     expect(asked[1]).toContain("LEJE AF SALEN");
-    const page = await (await call(`/oensker/${id}`, { cookie: douglas })).text();
+    const page = await (await call(`/forslag/${id}`, { cookie: douglas })).text();
+    expect(page.toLowerCase()).not.toContain("formand");
     expect(page).toContain("Bigger sign-up button on the event page");
-    expect(page).toContain("Send ønsket til formanden");
+    expect(page).toContain("Send forslaget til godkendelse");
     // Douglas cannot decide.
-    expect((await call(`/oensker/${id}/afgoer`, { method: "POST", cookie: douglas, body: form({ svar: "godkend" }) })).status).toBe(403);
+    expect((await call(`/forslag/${id}/afgoer`, { method: "POST", cookie: douglas, body: form({ svar: "godkend" }) })).status).toBe(403);
 
-    await call(`/oensker/${id}/send`, { method: "POST", cookie: douglas });
+    await call(`/forslag/${id}/send`, { method: "POST", cookie: douglas });
     expect((await db.prepare("SELECT status FROM wishes WHERE id = ?").bind(id).first<{ status: string }>())!.status).toBe("sent");
     const told = services.telegram("sendMessage").map(c => JSON.stringify(c.body));
-    expect(told.some(t => t.includes("har sendt et ønske") && t.includes("Bigger sign-up button"))).toBe(true);
+    expect(told.some(t => t.includes("har sendt et forslag til udvikling") && t.includes("Bigger sign-up button"))).toBe(true);
     // The conversation is closed once it is sent.
-    await call(`/oensker/${id}/besked`, { method: "POST", cookie: douglas, body: form({ text: "One more thing" }) });
+    await call(`/forslag/${id}/besked`, { method: "POST", cookie: douglas, body: form({ text: "One more thing" }) });
     expect(asked).toHaveLength(2);
 
-    expect(await (await call("/oensker", { cookie: chair })).text()).toContain("Venter på dig");
-    await call(`/oensker/${id}/afgoer`, { method: "POST", cookie: chair, body: form({ svar: "godkend", note: "Good idea" }) });
+    expect(await (await call("/forslag", { cookie: chair })).text()).toContain("Venter på dig");
+    await call(`/forslag/${id}/afgoer`, { method: "POST", cookie: chair, body: form({ svar: "godkend", note: "Good idea" }) });
     expect((await db.prepare("SELECT status, chair_note FROM wishes WHERE id = ?").bind(id).first())).toEqual({ status: "approved", chair_note: "Good idea" });
     expect(services.telegram("sendMessage").map(c => JSON.stringify(c.body)).some(t => t.includes("was approved") && t.includes("202"))).toBe(true);
-    const list = await (await call("/oensker", { cookie: chair })).text();
-    expect(list).toContain("Godkendte ønsker samlet");
-    expect(list).toContain("Formandens note: Good idea");
+    const list = await (await call("/forslag", { cookie: chair })).text();
+    expect(list).toContain("Godkendte forslag samlet");
+    expect(list).toContain("Note: Good idea");
     // Douglas does not get the chair's list.
-    expect(await (await call("/oensker", { cookie: douglas })).text()).not.toContain("Godkendte ønsker samlet");
+    expect(await (await call("/forslag", { cookie: douglas })).text()).not.toContain("Godkendte forslag samlet");
 
-    await call(`/oensker/${id}/lavet`, { method: "POST", cookie: chair });
+    await call(`/forslag/${id}/lavet`, { method: "POST", cookie: chair });
     expect((await db.prepare("SELECT status FROM wishes WHERE id = ?").bind(id).first<{ status: string }>())!.status).toBe("done");
 
     // A wish can be let go.
-    const other = (await call("/oensker/ny", { method: "POST", cookie: douglas })).headers.get("location")!.split("/").pop()!;
-    await call(`/oensker/${other}/opgiv`, { method: "POST", cookie: douglas });
+    const other = (await call("/forslag/ny", { method: "POST", cookie: douglas })).headers.get("location")!.split("/").pop()!;
+    await call(`/forslag/${other}/opgiv`, { method: "POST", cookie: douglas });
     expect((await db.prepare("SELECT status FROM wishes WHERE id = ?").bind(other).first<{ status: string }>())!.status).toBe("dropped");
   });
 
   it("answers the live chat with the conversation and the wish as pieces of the page", async () => {
     const { call, form, douglas } = await setup();
-    const id = (await call("/oensker/ny", { method: "POST", cookie: douglas })).headers.get("location")!.split("/").pop()!;
-    const response = await call(`/oensker/${id}/besked`, { method: "POST", cookie: douglas, body: form({ text: "The sign-up button is too small" }), headers: { accept: "application/json" } });
+    const id = (await call("/forslag/ny", { method: "POST", cookie: douglas })).headers.get("location")!.split("/").pop()!;
+    const response = await call(`/forslag/${id}/besked`, { method: "POST", cookie: douglas, body: form({ text: "The sign-up button is too small" }), headers: { accept: "application/json" } });
     expect(response.status).toBe(200);
     const body = await response.json() as { chat: string; card: string; notice: string };
     expect(body.chat).toContain("The sign-up button is too small");
