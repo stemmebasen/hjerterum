@@ -8,7 +8,8 @@ import { DAILY_CRON, ingestStatus, runIngest, scheduledRun } from "./ingest/run.
 import { purgeOldChats } from "./flokken/chat.js";
 import { eventInterest, gatherAll, readChoices } from "./flokken/kickoff.js";
 import { sendDueMails, sendStatusMails } from "./flokken/notify.js";
-import { mailConfigured, publicContactEmail, purgeMailData } from "./mail.js";
+import { mailConfigured, mailSiteUrl, publicContactEmail, purgeMailData } from "./mail.js";
+import { sendJoinInvites } from "./flokken/join.js";
 import { parseFilters } from "./web/filters.js";
 import { SHARE_IMAGE, SHARE_IMAGES, SITE, type PageContext } from "./web/layout.js";
 import { aboutPage, activityPage, areaPage, calendarPage, categoriesPage, eventPage, homePage, notFoundPage, organizerPage, organizersPage, periodPage, savingsPage, type View } from "./web/pages.js";
@@ -463,6 +464,9 @@ export default {
     const mail = env.DB && mailConfigured(env)
       ? gather.then(async () => ({ ...(await sendDueMails(env.DB!, env, Date.now())), ...(await sendStatusMails(env.DB!, env, activeRegions(env.ACTIVE_REGIONS), Date.now())) }))
         .then(sent => console.log(JSON.stringify({ event: "mail", ...sent })))
+        // A few "Vil du være medlem?" mails to those who showed interest before that mail existed (src/flokken/join.ts).
+        .then(() => sendJoinInvites(env.DB!, env, mailSiteUrl(env), Date.now()))
+        .then(joins => console.log(JSON.stringify({ event: "join_invites", sent: joins })))
         .catch(error => console.error(JSON.stringify({ event: "mail_failed", error: error instanceof Error ? error.message : String(error) })))
       : Promise.resolve();
     // "Dagens fem" (src/curation.ts): picked again after every collector run, so new arrangements are considered.

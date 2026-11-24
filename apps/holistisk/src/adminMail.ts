@@ -21,6 +21,8 @@ export const KIND_LABEL: Record<string, string> = {
   invitation: "Invitation til flok",
   reminder: "Påmindelse",
   status: "Status før arrangement",
+  welcome: "Velkommen som medlem",
+  join: "Vil du være medlem?",
   kontakt: "Kontaktformular",
   informationsmoede: "Informationsmøde",
   anden: "Anden"
@@ -149,6 +151,8 @@ export const resendTime = (s: string | undefined): number | null => {
 
 /** Guesses the kind of an older mail from its subject (the site's own subjects). */
 export function kindFromSubject(subject: string): string {
+  if (/^Velkommen som medlem|^Welcome as a member/i.test(subject)) return "welcome";
+  if (/^Vil du være medlem|^Would you like to be a member/i.test(subject)) return "join";
   if (/login-link|Log ind på Socialklubbens overblik|^Velkommen til Socialklubben/i.test(subject)) return "login";
   if (/^(Kontakt|Arrangør):/.test(subject)) return "kontakt";
   if (/informationsmødet/i.test(subject)) return "informationsmoede";
