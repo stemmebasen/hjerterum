@@ -1,3 +1,4 @@
+import { Live } from "./live-text";
 import { TEAM_MAIL } from "../site/mail";
 import { EventCard, calendarMonth, calendarText } from "./event-card";
 import { EVENTS_PER_PAGE, initialPage, Pager, rememberPage, RowDate, RowPhoto, RowText } from "./event-row";
@@ -620,7 +621,7 @@ function MemberEvents({
                 </select></label>
                 {/* Douglas (19 Nov 2026): "Only shows 2 days even though 3 days are selected" - Google's translation keeps a text made of several pieces as it
                     was; the line is one piece, so it follows the choice in English too. */}
-                {days > 1 && plan.date && <small>{`Samme tider hver dag: ${Array.from({ length: days }, (_, i) => { const d = new Date(`${plan.date}T12:00:00`); d.setDate(d.getDate() + i); return longDay(todayKey(d)); }).join(", ")}. Lejen regnes for hver dag, og salen skal være ledig alle dagene. Deltagerne tilmelder sig hele forløbet.`}</small>}
+                {days > 1 && plan.date && <small><Live text={`Samme tider hver dag: ${Array.from({ length: days }, (_, i) => { const d = new Date(`${plan.date}T12:00:00`); d.setDate(d.getDate() + i); return longDay(todayKey(d)); }).join(", ")}. Lejen regnes for hver dag, og salen skal være ledig alle dagene. Deltagerne tilmelder sig hele forløbet.`} /></small>}
               </div>
               <EventVarietyNote clerk={clerk} title={liveTitle} description={readDescription} bookingId={editing?.id ?? null}
                 startsAt={plan.date && plan.start ? planInstants(plan).startsAt : null} endsAt={plan.date && plan.start && plan.end ? planInstants(plan).endsAt : null} />
