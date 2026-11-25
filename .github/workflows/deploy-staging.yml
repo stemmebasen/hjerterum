@@ -40,6 +40,9 @@ jobs:
       DEV_REQUESTS_TOKEN: ${{ secrets.DEV_REQUESTS_TOKEN }}
     steps:
       - uses: actions/checkout@v6
+        with:
+          # Jewel (admin → Forslag til udvikling) knows what has been made lately: the history of the last weeks.
+          fetch-depth: 300
 
       - name: Check whether Cloudflare staging is configured
         id: credentials
@@ -91,6 +94,10 @@ jobs:
         run: |
           set -euo pipefail
           pnpm --dir apps/web exec wrangler d1 migrations apply DB --remote --env staging
+
+      - name: Write the latest changes for Jewel
+        shell: bash
+        run: node .github/scripts/recent-changes.mjs > apps/web/worker/cockpit/recent-changes.generated.ts
 
       - run: pnpm build
         if: steps.credentials.outputs.cloudflare == 'true'

@@ -560,8 +560,8 @@ async function route(request: Request, env: SagaEnv, deps: SagaDeps, state: Stat
     if (!match || !wish) return html(notFound(base, who), 404);
     const mine = wish.author === who;
     const action = match[2];
-    const errors: Record<WishError, string> = { empty: "Skriv noget til Saga, eller vælg et skærmbillede.", image_type: "Skærmbilledet skal være PNG, JPG, WebP eller GIF.",
-      image_size: "Skærmbilledet må højst fylde 4 MB.", closed: "Samtalen er lukket - start et nyt forslag.", ai: "Saga kunne ikke svare lige nu. Det, du skrev, er gemt - prøv igen om lidt." };
+    const errors: Record<WishError, string> = { empty: "Skriv noget til Jewel, eller vælg et skærmbillede.", image_type: "Skærmbilledet skal være PNG, JPG, WebP eller GIF.",
+      image_size: "Skærmbilledet må højst fylde 4 MB.", closed: "Samtalen er lukket - start et nyt forslag.", ai: "Jewel kunne ikke svare lige nu. Det, du skrev, er gemt - prøv igen om lidt." };
     if (!action && request.method === "GET") {
       const notices: Record<string, string> = { sendt: "Forslaget er sendt til godkendelse. Du kan se her, når det er afgjort.", godkendt: "Forslaget er godkendt.", afvist: "Forslaget er afvist." };
       return html(wishPage(base, who, { wish, messages: await wishMessages(db, wish.id), chair, mine, notice: notices[url.searchParams.get("besked") ?? ""] ?? "",
