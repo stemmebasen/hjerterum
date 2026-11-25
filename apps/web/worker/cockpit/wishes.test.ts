@@ -19,7 +19,7 @@ async function setup() {
   const services = fakeServices({ ai: (system, user) => {
     asked.push(`${system}\n${user}`);
     return asked.length === 1 ? '{"svar": "Which page were you on?", "oenske": null}'
-      : '{"svar": "Here is the wish - change it if you like, or send it to Jacob.", "oenske": {"titel": "Bigger sign-up button on the event page", "beskrivelse": "On an event page the sign-up button is small. Douglas: \\"make it bigger\\"."}}';
+      : '{"svar": "Here is the wish - change it if you like, or send it to Jacob.", "oenske": {"titel": "Bigger sign-up button on the event page", "type": "forbedring", "stoerrelse": "lille", "faerdig_naar": ["The button is easy to see on a phone"], "beskrivelse": "On an event page the sign-up button is small. Douglas: \\"make it bigger\\"."}}';
   } });
   const env = sagaEnv(db, { COCKPIT_PASSWORD: "hjerte-2026", DEV_REQUESTS_TOKEN: TOKEN } as never);
   const call = (path: string, init: RequestInit & { cookie?: string } = {}) => handleCockpitRequest(new Request(ORIGIN + path, {
@@ -30,7 +30,7 @@ async function setup() {
 }
 
 describe("wishes and faults in admin", () => {
-  it("lets Douglas talk a wish through with Saga and send it, and only the chair decides", async () => {
+  it("lets Douglas talk a wish through with Jewel and send it, and only the chair decides", async () => {
     const { db, call, form, services, asked, lisbeth, chair, douglas } = await setup();
     expect((await call("/forslag", { cookie: lisbeth })).status).toBe(403);
     expect(await (await call("/", { cookie: douglas })).text()).toContain("/forslag");
@@ -57,10 +57,19 @@ describe("wishes and faults in admin", () => {
     // Saga is a sparring partner who knows the system, the board's decisions and the rules.
     expect(asked[1]).toContain("Eventplanlæggeren");
     expect(asked[1]).toContain("kritisk");
+    // The chair (25 Nov 2026): the development agent is Jewel, a product developer, with a handbook of the system and its latest changes.
+    expect(asked[1]).toContain("Du er Jewel");
+    expect(asked[1]).toContain("HÅNDBOG OVER SYSTEMET");
+    expect(asked[1]).toContain("Forslag til udvikling (begrænset adgang; også Douglas)");
+    expect(asked[1]).toContain("DE SENESTE ÆNDRINGER");
     expect(asked[1]).toContain("BESTYRELSENS BESLUTNINGER");
     expect(asked[1]).toContain("LEJE AF SALEN");
     const page = await (await call(`/forslag/${id}`, { cookie: douglas })).text();
     expect(page.toLowerCase()).not.toContain("formand");
+    expect(page).toContain("Skriv til Jewel");
+    expect(page).toContain("Forbedring");
+    expect(page).toContain("Lille opgave");
+    expect(page).toContain("The button is easy to see on a phone");
     expect(page).toContain("Bigger sign-up button on the event page");
     expect(page).toContain("Send forslaget til godkendelse");
     // Douglas cannot decide.
