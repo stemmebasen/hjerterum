@@ -381,6 +381,33 @@ export const SOURCES: SourceConfig[] = [
     }
   },
   {
+    id: "aakb-lokal",
+    name: "Aarhus' lokalbiblioteker",
+    adapter: "aakb",
+    homepageUrl: "https://www.aakb.dk/arrangementer",
+    permissionBasis: "Bibliotekernes offentlige arrangements-API (aakb.dk/api/v1/events), samme kald som Dokk1; robots.txt tillader /api/ med 10 sekunder mellem kald. Lokalbibliotekerne tilføjet efter ønske fra projektejer (2026-11-09).",
+    attribution: "Aarhus Kommunes Biblioteker",
+    imagePolicy: "allowed",
+    descriptionPolicy: "excerpt",
+    priority: 45,
+    requireRelevance: false,
+    completeListing: true,
+    canonicalToSource: false,
+    respectRobots: true,
+    enabled: () => true,
+    defaults: {
+      timezone: TIMEZONE,
+      organizerName: "Aarhus Kommunes Biblioteker",
+      organizerUrl: "https://www.aakb.dk/",
+      venues: []
+    },
+    options: {
+      url: "https://www.aakb.dk/api/v1/events/happening?_format=json", skipBranches: ["Hovedbiblioteket"], daysAhead: 30, maxDays: 14,
+      skipCategories: ["Hjælp og vejledning", "Dagtilbud"], defaultCategories: ["foredrag-debat"],
+      hintCategories: { "litteratur": "foredrag-debat", "viden og demokrati": "foredrag-debat", "udstilling": "kunst-udstillinger", "kreativitet": "kunst-udstillinger", "børn": "boern-familie", "lyd og musik": "koncerter-musik", "bæredygtighed og natur": "natur", "spil og teknologi": "quiz-fest" }
+    }
+  },
+  {
     id: "resonans",
     name: "Resonans Bistro & Bar",
     adapter: "resonans",
