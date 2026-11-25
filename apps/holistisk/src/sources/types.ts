@@ -48,7 +48,7 @@ export type VenueRule = {
 export type SourceConfig = {
   id: string;
   name: string;
-  adapter: "membershipworks" | "ical" | "billetto" | "jsonld" | "lysetshus" | "eventsmanager" | "diamondway" | "typo3events" | "vaekstcenteret" | "favn" | "voxhall" | "godsbanen" | "train" | "musikhuset" | "aakb" | "resonans" | "folkestedet" | "radar" | "loeves" | "nemtilmeld" | "fof" | "filuren" | "katapult" | "borabora" | "weekly";
+  adapter: "membershipworks" | "ical" | "billetto" | "jsonld" | "lysetshus" | "eventsmanager" | "diamondway" | "typo3events" | "vaekstcenteret" | "favn" | "voxhall" | "godsbanen" | "train" | "musikhuset" | "aakb" | "resonans" | "folkestedet" | "radar" | "loeves" | "nemtilmeld" | "fof" | "filuren" | "katapult" | "borabora" | "friheden" | "aarhusteater" | "moesgaard" | "paradis" | "weekly";
   homepageUrl: string | null;
   /** Why the portal may use this source: the agreement, licence or owner consent. Shown on the about page. */
   permissionBasis: string;

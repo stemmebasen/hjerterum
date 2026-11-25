@@ -15,10 +15,10 @@ export type MeetingPoint = {
 export const MEETING_POINTS: MeetingPoint[] = [
   { place: "foran Domkirken", lat: 56.1566, lon: 10.2104, venues: ["domkirke"] },
   { place: "på Lille Torv", lat: 56.1581, lon: 10.2086 },
-  { place: "ved Klostertorvet", lat: 56.1592, lon: 10.2062, venues: ["vor frue kirke"] },
+  { place: "ved Klostertorvet", lat: 56.1592, lon: 10.2062, venues: ["vor frue kirke", "paradis"] },
   { place: "foran Føtex i Guldsmedgade", lat: 56.1587, lon: 10.2095 },
   { place: "foran Aarhus Teater på Bispetorv", lat: 56.1571, lon: 10.2122, venues: ["aarhus teater"] },
-  { place: "foran Magasin ved Immervad", lat: 56.1556, lon: 10.2090 },
+  { place: "foran Magasin ved Immervad", lat: 56.1556, lon: 10.2090, venues: ["tir na n"] },
   { place: "foran Salling på Søndergade", lat: 56.1554, lon: 10.2068 },
   { place: "på Hack Kampmanns Plads foran Dokk1", lat: 56.1530, lon: 10.2130, venues: ["dokk1"] },
   { place: "foran Rådhuset på Rådhuspladsen", lat: 56.1525, lon: 10.2035, venues: ["rådhus"] },
@@ -29,6 +29,8 @@ export const MEETING_POINTS: MeetingPoint[] = [
   { place: "foran ARoS", lat: 56.1540, lon: 10.2000, venues: ["aros"] },
   { place: "foran Godsbanen", lat: 56.1541, lon: 10.1955, venues: ["godsbanen", "radar", "folkestedet", "voxhall", "katapult"] },
   { place: "foran indgangen til Den Gamle By", lat: 56.1584, lon: 10.1925, venues: ["den gamle by"] },
+  { place: "foran indgangen til Tivoli Friheden", lat: 56.1370, lon: 10.2005, venues: ["friheden", "hermans"] },
+  { place: "foran indgangen til Moesgaard Museum", lat: 56.0880, lon: 10.2280, venues: ["moesgaard"] },
   { place: "ved Nørreport", lat: 56.1617, lon: 10.2084 },
   { place: "foran Stakladen i Universitetsparken", lat: 56.1667, lon: 10.2043, venues: ["stakladen", "studenterhus", "naturhistorisk", "universitet"] }
 ];
