@@ -16,7 +16,7 @@ const DAY = 86_400_000;
 export const teacherKey = (name: string) => name.normalize("NFC").toLocaleLowerCase("da-DK").replace(/\s+/g, " ").trim();
 
 export type TeacherRow = { key: string; name: string; events: number; first: number | null; last: number | null; upcoming: number; bookings: number; fixed: boolean; hasContact: boolean; hidden?: boolean };
-export type TeacherRecord = { key: string; name: string; email: string | null; phone: string | null; website: string | null; note: string | null; summary: string | null; summary_at_ms: number | null; summary_by: string | null; updated_by: string | null; updated_at_ms: number };
+export type TeacherRecord = { key: string; name: string; email: string | null; phone: string | null; website: string | null; note: string | null; pr_name?: string | null; summary: string | null; summary_at_ms: number | null; summary_by: string | null; updated_by: string | null; updated_at_ms: number };
 
 /** Requested: "Kan man vælge mellem flest events og alfabetisk?" */
 export type TeacherSort = "events" | "navn";
@@ -111,12 +111,22 @@ export async function contactsByName(db: D1Database, only?: string): Promise<Map
 
 export const knownContacts = async (db: D1Database, name: string): Promise<KnownContact[]> => (await contactsByName(db, name)).get(teacherKey(name)) ?? [];
 
-export const teacherRecord = (db: D1Database, key: string) => db.prepare("SELECT * FROM cockpit_teachers WHERE key = ?").bind(key).first<TeacherRecord>().catch(() => null);
+export async function teacherRecord(db: D1Database, key: string): Promise<TeacherRecord | null> {
+  const [r, own] = await Promise.all([db.prepare("SELECT * FROM cockpit_teachers WHERE key = ?").bind(key).first<TeacherRecord>().catch(() => null),
+    db.prepare("SELECT pr_name FROM teacher_pr_names WHERE key = ?").bind(key).first<{ pr_name: string }>().catch(() => null)]);
+  if (!r) return own ? { key, name: "", email: null, phone: null, website: null, note: null, summary: null, summary_at_ms: null, summary_by: null, updated_by: null, updated_at_ms: 0, pr_name: own.pr_name } : null;
+  return { ...r, pr_name: own?.pr_name ?? null };
+}
 
 const clean = (value: unknown, max: number) => { const v = typeof value === "string" ? value.trim().slice(0, max) : ""; return v || null; };
 export async function saveContact(db: D1Database, name: string, form: FormData, who: string, nowMs: number): Promise<void> {
   const email = clean(form.get("email"), 320);
   const website = clean(form.get("website"), 300);
+  // Mari-Anne (25 Nov 2026): the teacher's own name in posts, films and posters (teacher-names.ts) - empty takes it away.
+  const prName = clean(form.get("pr_name"), 60);
+  if (prName) await db.prepare(`INSERT INTO teacher_pr_names (key, name, pr_name, updated_by, updated_at_ms) VALUES (?, ?, ?, ?, ?)
+    ON CONFLICT(key) DO UPDATE SET pr_name = excluded.pr_name, updated_by = excluded.updated_by, updated_at_ms = excluded.updated_at_ms`).bind(teacherKey(name), name.trim(), prName, who, nowMs).run();
+  else if (form.has("pr_name")) await db.prepare("DELETE FROM teacher_pr_names WHERE key = ?").bind(teacherKey(name)).run();
   await db.prepare(`INSERT INTO cockpit_teachers (key, name, email, phone, website, note, updated_by, updated_at_ms) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
     ON CONFLICT(key) DO UPDATE SET email = excluded.email, phone = excluded.phone, website = excluded.website, note = excluded.note, updated_by = excluded.updated_by, updated_at_ms = excluded.updated_at_ms`)
     .bind(teacherKey(name), name.trim(), email && /^[^\s@<>]+@[^\s@<>]+\.[^\s@<>]+$/.test(email) ? email.toLowerCase() : null, clean(form.get("phone"), 40),
@@ -223,7 +233,8 @@ ${data.notice ? `<p class="notice">${esc(data.notice)}</p>` : ""}
 ${data.known.length ? `<p class="small muted" style="margin:0 0 4px">Systemet kender allerede:</p><ul class="plain known">${data.known.map(k => `<li>${esc(k.value)} <span class="small muted">· ${esc(k.kind)} fra ${esc(k.from)}</span></li>`).join("")}</ul>` : `<p class="small muted">Systemet har ingen kontaktoplysninger endnu - udfyld dem her.</p>`}
 <form class="contact" method="post" action="${base}/arrangementer/undervisere/${key}"><input type="hidden" name="name" value="${esc(data.name)}">
 <label>Mail<input type="email" name="email" value="${esc(r?.email ?? firstKnown("mail"))}"></label><label>Telefon<input name="phone" value="${esc(r?.phone ?? firstKnown("telefon"))}"></label>
-<label>Hjemmeside / Facebook<input name="website" value="${esc(r?.website ?? "")}"></label><label>Note til bestyrelsen<textarea name="note" rows="3">${esc(r?.note ?? "")}</textarea></label>
+<label>Hjemmeside / Facebook<input name="website" value="${esc(r?.website ?? "")}"></label>
+<label>Navn i opslag, film og plakater<input name="pr_name" maxlength="60" value="${esc(r?.pr_name ?? "")}" placeholder="Tomt = fornavnet (fx Yin Yogi)"></label><label>Note til bestyrelsen<textarea name="note" rows="3">${esc(r?.note ?? "")}</textarea></label>
 <p><button name="action" value="save">Gem kontakt</button></p></form>${r?.updated_by ? `<p class="small muted">Sidst rettet af ${esc(r.updated_by)}.</p>` : ""}</div>
 <div class="card"><h2>Samarbejdet</h2>${summary}
 ${data.aiReady ? `<form method="post" action="${base}/arrangementer/undervisere/${key}" id="sum"><input type="hidden" name="name" value="${esc(data.name)}"><button name="action" value="summary" class="${r?.summary ? "ghost" : ""}">${r?.summary ? "Bed Saga om et nyt resumé" : "Bed Saga om et resumé af samarbejdet"}</button></form>

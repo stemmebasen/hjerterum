@@ -1,3 +1,4 @@
+import { prNames, shownAs } from "./teacher-names.js";
 import type { D1Database } from "./db.js";
 import { isPartnerEvent } from "../partner-events.js";
 import { isCancelledEvent, membershipWorksListUrl, parseMembershipWorksList, type MembershipWorksList } from "./external-events.js";
@@ -26,7 +27,9 @@ const DAYS = ["SØN.", "MAN.", "TIRS.", "ONS.", "TORS.", "FRE.", "LØR."];
 export type NewsletterEvent = { key: string; title: string; startsMs: number; endsMs: number | null; host: string | null; category: string | null;
   imageUrl: string | null; link: string; description: string; mornings: boolean;
   /** The same offer's times that day, when it is in the calendar once per time ("Healing tilbud i Hjerterum - kl. 19.00", "- kl. 19.45" ...). */
-  times?: number[] };
+  times?: number[];
+  /** The teacher's name in the calendar, when `host` is the teacher's own name for posts (teacher-names.ts: Mari-Anne as "Yin Yogi"). */
+  teacher?: string };
 export type Highlight = { heading: string; byline: string; text: string; image: string | null; link: string };
 export type Issue = { month: string; subject: string; preheader: string; intro: string; highlights: Highlight[]; titles: Record<string, string>;
   status: "draft" | "approved" | "sent" | "failed"; approved_by: string | null; approved_at_ms: number | null; campaign_id: string | null;
@@ -121,7 +124,10 @@ export async function monthEvents(db: D1Database, month: string, fetcher?: typeo
         link: `${SITE}/events`, description, mornings: isMornings(b.title, description) };
     })
   ];
-  return events.sort((a, b) => a.startsMs - b.startsMs);
+  // Mari-Anne (25 Nov 2026): "Yin Yoga med Yin Yogi" - a teacher's own name for posts, films and the newsletter (teacher-names.ts).
+  const names = await prNames(db);
+  return events.map(e => { const shown = shownAs(names, e.host, e.title); return shown.host === e.host ? e : { ...e, ...shown, teacher: e.host! }; })
+    .sort((a, b) => a.startsMs - b.startsMs);
 }
 
 /** A title as the list shows it, when Saga has not given a shorter one: the part before "|", without brackets and "Hjerterum" in front. */

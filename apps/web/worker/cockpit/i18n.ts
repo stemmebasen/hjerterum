@@ -32,6 +32,7 @@ export async function englishReaders(db: D1Database): Promise<string[]> {
 // ---- The cockpit's own words ----
 
 export const EN: Record<string, string> = {
+  "Navn i opslag, film og plakater": "Name in posts, films and posters", "Tomt = fornavnet (fx Yin Yogi)": "Empty = the first name (e.g. Yin Yogi)",
   // Development requests (cockpit/wishes.ts) - Douglas talks his proposals through with Saga (the chair, 24 Nov 2026: "Brug i stedet udtryk som: Forslag til
   // udvikling / Development requests").
   "Forslag til udvikling": "Development requests", "← Forslag til udvikling": "← Development requests", "Nyt forslag": "New request", "Nyt forslag - under samtale": "New request - being talked through",
