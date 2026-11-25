@@ -68,6 +68,10 @@ describe("wishes and faults in admin", () => {
     const page = await (await call(`/forslag/${id}`, { cookie: douglas })).text();
     expect(page.toLowerCase()).not.toContain("formand");
     expect(page).toContain("Skriv til Jewel");
+    // "et billede af en kvinde på 40 med hjerterums logo" (the chair, 25 Nov 2026): Jewel drawn, with the chair's own logo file inside.
+    const picture = await call("/jewel.svg");
+    expect(picture.headers.get("content-type")).toContain("image/svg+xml");
+    expect(await picture.text()).toContain("data:image/png;base64,iVBORw0KGgo");
     expect(page).toContain("Forbedring");
     expect(page).toContain("Lille opgave");
     expect(page).toContain("The button is easy to see on a phone");

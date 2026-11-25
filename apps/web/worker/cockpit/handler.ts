@@ -89,6 +89,7 @@ import { memberLang, setMemberLang, translateHtml, type Lang } from "./i18n.js";
 import { signReminder, SIGN_STYLE } from "./signReminder.js";
 import { associationEvents, isAssocMeeting, rsvps, toggleRsvp } from "./assocEvents.js";
 import { cleanupCard, cleanupForChair, decideCleanup } from "./cleanup.js";
+import { jewelResponse } from "./jewel.js";
 import { requestsApi, decideWish, dropWish, listWishes, markWishDone, newWish, sendWish, talkAboutWish, wishById, wishCard, wishChat, wishesPage, wishMessages, wishPage, type WishError } from "./wishes.js";
 import { autoTranslated, frontPageTexts, translatePage, translatedMinutes, translateMinutes, translateTexts, translations } from "./translate.js";
 import { archivePage, decisionsPage, layout, linkPage, loginPage, meetingPage, meetingsPage, menuForPowers, menuPage, morePage, overviewPage, shortDay, statusPage, whoPage, type PastMeeting } from "./page.js";
@@ -178,6 +179,7 @@ async function route(request: Request, env: SagaEnv, deps: SagaDeps, state: Stat
   const botLink = env.SAGA_TELEGRAM_BOT_USERNAME && env.SAGA_TELEGRAM_BOT_TOKEN ? `https://t.me/${env.SAGA_TELEGRAM_BOT_USERNAME}?start=login` : null;
   const login = (message: string, status: number) => html(loginPage(base, message, shared, botLink), status);
   if (path === "/logo.png" && request.method === "GET") return logoResponse();
+  if (path === "/jewel.svg" && request.method === "GET") return jewelResponse();
   if (!env.DB) return login("", 503);
   const db: D1Database = env.DB;
 

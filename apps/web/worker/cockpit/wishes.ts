@@ -317,7 +317,7 @@ export function wishesPage(base: string, who: string | null, d: { wishes: Wish[]
 <p class="small muted">Kopiér teksten, og giv den videre, når forslagene skal laves. Markér hvert forslag som lavet, når det er på siden.</p>
 <textarea class="w-copy" rows="10" readonly translate="no">${esc(approvedText(approved))}</textarea>
 <p><button type="button" class="ghost" onclick="const t=this.closest('section').querySelector('textarea');t.select();navigator.clipboard&&navigator.clipboard.writeText(t.value);this.textContent='Kopieret'">Kopiér</button></p></section>` : "";
-  const body = `<main class="w"><div class="hero"><h1>Forslag til udvikling</h1>
+  const body = `<main class="w"><div class="hero"><div class="w-intro"><img class="w-avatar" src="${base}/jewel.svg" alt="" width="96" height="96"><div><h1>Forslag til udvikling</h1><p class="w-who">Jewel, Hjerterums produktudvikler</p></div></div>
 <p>Fortæl Jewel om et forslag til hjemmesiden, medlemssiden eller admin - eller om en fejl, du har fundet. Hun tænker med, spørger ind, til det er klart, og skriver det som ét forslag, som du sender til godkendelse. Intet ændres på siden herfra.</p>
 <form method="post" action="${base}/forslag/ny"><button>Nyt forslag</button></form></div>
 ${d.notice ? `<p class="notice">${esc(d.notice)}</p>` : ""}
@@ -346,7 +346,7 @@ ${d.chair && w.status === "approved" ? `<form method="post" action="${base}/fors
 
 /** The conversation's messages. */
 export function wishChat(base: string, messages: WishMessage[]): string {
-  return messages.map(m => `<li class="w-msg ${m.role === "saga" ? "w-from-saga" : "w-from-person"}"><small>${esc(m.role === "saga" ? AGENT : m.author ?? "")} · ${esc(WHEN.format(m.at_ms))}</small>
+  return messages.map(m => `<li class="w-msg ${m.role === "saga" ? "w-from-saga" : "w-from-person"}"><small>${m.role === "saga" ? `<img class="w-face" src="${base}/jewel.svg" alt="" width="22" height="22">` : ""}${esc(m.role === "saga" ? AGENT : m.author ?? "")} · ${esc(WHEN.format(m.at_ms))}</small>
 <div translate="no">${esc(m.text).replace(/\n/g, "<br>")}</div>${m.image_key ? `<a href="${base}/forslag/billede/${m.id}" target="_blank" rel="noopener"><img src="${base}/forslag/billede/${m.id}" alt="Skærmbillede" loading="lazy"></a>` : ""}</li>`).join("");
 }
 
@@ -395,5 +395,6 @@ const WISH_STYLE = `
 .w-chat:empty{display:none}.w-typing div{color:var(--muted);font-style:italic}.w-say-row{display:flex;gap:12px;align-items:end;flex-wrap:wrap}.w-say-row label{flex:1 1 240px}.w-drop{margin-top:6px}.w-drop button{font-size:13px}
 .w-chat{list-style:none;margin:0 0 14px;padding:0;display:grid;gap:10px}.w-msg{max-width:84%;padding:10px 12px;border-radius:14px;background:var(--card,#fff);border:1px solid var(--line)}
 .w-msg.w-from-person{justify-self:end;background:rgba(201,152,110,.16)}.w-msg small{display:block;color:var(--muted);font-size:12px;margin-bottom:4px}.w-msg img{display:block;max-width:100%;max-height:320px;margin-top:8px;border-radius:8px}
-.w-say textarea,.w-decide textarea,.w-copy{width:100%;box-sizing:border-box}.w-chip{display:inline-block;margin-right:6px;padding:1px 9px;border-radius:999px;font-size:12px;border:1px solid var(--line)}.w-done-when{margin:4px 0 12px;padding-left:20px;font-size:14px}.w-summary{white-space:normal;margin:6px 0 10px;font-size:14.5px}
+.w-say textarea,.w-decide textarea,.w-copy{width:100%;box-sizing:border-box}.w-intro{display:flex;gap:18px;align-items:center}.w-avatar{border-radius:50%;flex:0 0 auto;box-shadow:0 2px 10px rgba(0,0,0,.12)}.w-who{margin:2px 0 0;color:var(--muted)}.w-face{display:inline-block;width:22px;height:22px;border-radius:50%;vertical-align:-6px;margin-right:6px}@media (max-width:560px){.w-avatar{width:64px;height:64px}}
+.w-chip{display:inline-block;margin-right:6px;padding:1px 9px;border-radius:999px;font-size:12px;border:1px solid var(--line)}.w-done-when{margin:4px 0 12px;padding-left:20px;font-size:14px}.w-summary{white-space:normal;margin:6px 0 10px;font-size:14.5px}
 @media (max-width:760px){.w-msg{max-width:100%}}`;
