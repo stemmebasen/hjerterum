@@ -479,3 +479,81 @@ describe("the contact form", () => {
     expect((db.raw.prepare("SELECT mail FROM contact_messages WHERE name = 'Sen Besked'").all()[0] as { mail: string }).mail).toBe("held");
   });
 });
+
+describe("unsubscribing and leaving the list from a mail", () => {
+  it("puts an unsubscribe link and List-Unsubscribe header in mails, but not in login links", async () => {
+    let body: Record<string, unknown> = {};
+    const fetcher = (async (_u: string, init: RequestInit) => { body = JSON.parse(String(init.body)); return new Response(JSON.stringify({ id: "r1" }), { status: 200 }); }) as unknown as typeof fetch;
+    const { EMAIL: _, ...rest } = env;
+    const resend: Env = { ...rest, RESEND_API_KEY: "re_test" };
+    await sendMail(resend, { ...welcomeMail("ulla@example.dk", "Ulla", ORIGIN, "da", NOW), kind: "welcome" }, fetcher, NOW);
+    const headers = body.headers as Record<string, string>;
+    const url = /^<(https:\/\/socialklubben\.dk\/afmeld\?t=[A-Za-z0-9_-]+)>$/.exec(headers["List-Unsubscribe"]!)![1]!;
+    expect(headers["List-Unsubscribe-Post"]).toBe("List-Unsubscribe=One-Click");
+    expect(String(body.text)).toContain(`Vil du ikke have flere mails fra Socialklubben? Afmeld dem her: ${url}`);
+    expect(String(body.html)).toContain("Afmeld dem her</a>");
+    await sendMail(resend, { ...welcomeMail("ulla@example.dk", "Ulla", ORIGIN, "en", NOW), kind: "welcome" }, fetcher, NOW);
+    expect((body.headers as Record<string, string>)["List-Unsubscribe"]).toBe(`<${url.replace("/afmeld", "/en/unsubscribe")}>`);
+    expect(String(body.text)).toContain("Unsubscribe here:");
+    await sendMail(resend, { to: "ulla@example.dk", subject: "Log ind", text: "x", html: "<p>x</p>", kind: "login" }, fetcher, NOW);
+    expect(body.headers).toBeUndefined();
+  });
+
+  it("opening the link only shows a button; pressing it stops the mails, and they can be turned on again", async () => {
+    sent.length = 0;
+    await sendMail(env, { ...welcomeMail("vera@example.dk", "Vera", ORIGIN, "da", NOW), kind: "welcome" }, fetch, NOW);
+    const token = /\/afmeld\?t=([A-Za-z0-9_-]+)/.exec(sent[0]!.text)![1]!;
+    const opened = await call(`/afmeld?t=${token}`);
+    expect(opened.body).toContain("Afmeld mails fra Socialklubben");
+    expect(opened.body).toContain("vera@example.dk");
+    sent.length = 0;
+    await sendMail(env, { ...welcomeMail("vera@example.dk", "Vera", ORIGIN, "da", NOW), kind: "welcome" }, fetch, NOW);
+    expect(sent).toHaveLength(1);
+
+    const done = await call("/afmeld", { form: { t: token } });
+    expect(done.body).toContain("Du er afmeldt");
+    sent.length = 0;
+    expect(await sendMail(env, { ...welcomeMail("Vera@Example.dk", "Vera", ORIGIN, "da", NOW), kind: "welcome" }, fetch, NOW)).toEqual({ ok: true, skipped: true });
+    expect(sent).toHaveLength(0);
+    // What they ask for there and then still comes.
+    await sendMail(env, { to: "vera@example.dk", subject: "Log ind", text: "x", html: "<p>x</p>", kind: "login" }, fetch, NOW);
+    expect(sent).toHaveLength(1);
+
+    expect((await call("/afmeld", { form: { t: token, gen: "1" } })).body).toContain("Du får mails igen");
+    sent.length = 0;
+    await sendMail(env, { ...welcomeMail("vera@example.dk", "Vera", ORIGIN, "da", NOW), kind: "welcome" }, fetch, NOW);
+    expect(sent).toHaveLength(1);
+    expect((await call("/afmeld?t=" + "x".repeat(43))).body).toContain("Linket virker ikke");
+    expect((await call("/en/unsubscribe?t=" + token)).body).toContain("Unsubscribe from Socialklubben");
+  });
+
+  it("takes the one-click unsubscribe from a mail program, posted from elsewhere", async () => {
+    sent.length = 0;
+    await sendMail(env, { ...welcomeMail("wilma@example.dk", "Wilma", ORIGIN, "da", NOW), kind: "welcome" }, fetch, NOW);
+    const token = /\/afmeld\?t=([A-Za-z0-9_-]+)/.exec(sent[0]!.text)![1]!;
+    const r = await handle(new Request(`${ORIGIN}/afmeld?t=${token}`, { method: "POST", headers: { "content-type": "application/x-www-form-urlencoded" }, body: "List-Unsubscribe=One-Click" }), env, NOW);
+    expect(r.status).toBe(200);
+    expect(await r.text()).toContain("Du er afmeldt");
+  });
+
+  it("the status mail's link takes the interest off the list after one press", async () => {
+    const DAY = 86_400_000;
+    const e = (db.raw.prepare("SELECT id, slug, title, starts_at FROM events WHERE status = 'scheduled' AND starts_at > ? AND venue_name IS NOT NULL ORDER BY starts_at").all(NOW + 4 * DAY) as Array<typeof event>)[4]!;
+    const regions = ["ostjylland"];
+    await member("Yrsa", "yrsa@example.dk");
+    await saveInterests(db, idOf("Yrsa"), [e.slug], [], regions, e.starts_at - 10 * DAY);
+    sent.length = 0;
+    await sendStatusMails(db, env, regions, e.starts_at - 7 * DAY + 3600_000);
+    const mail = sent.find(m => m.to === "yrsa@example.dk")!;
+    expect(mail.text).toContain("Har du ikke lyst alligevel, kan du fjerne dig fra listen");
+    const link = /https:\/\/socialklubben\.dk(\/afmeld\/interesse\?t=[A-Za-z0-9_-]+&a=[a-z0-9-]+)/.exec(mail.text)![1]!;
+    const listed = () => db.raw.prepare("SELECT COUNT(*) AS n FROM event_interests WHERE member_id = ? AND event_id = ?").all(idOf("Yrsa"), e.id)[0] as { n: number };
+    expect((await call(link)).body).toContain("Ja, fjern mig fra listen");
+    expect(listed().n).toBe(1);
+    const t = /t=([^&]+)/.exec(link)![1]!;
+    const done = await call("/afmeld/interesse", { form: { t, a: e.slug } });
+    expect(done.body).toContain("Du er fjernet fra listen");
+    expect(listed().n).toBe(0);
+    expect((await call(link)).body).toContain("Du står ikke på listen");
+  });
+});

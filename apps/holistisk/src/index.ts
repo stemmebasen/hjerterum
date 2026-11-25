@@ -21,6 +21,7 @@ import { notFound as foreningNotFound } from "./forening/pages.js";
 import { eventBySlug, sitemapEvents } from "./web/queries.js";
 import { eventIcs, robotsTxt, sitemapXml } from "./web/seo.js";
 import { currentMember, sameOrigin, sameSecret } from "./flokken/auth.js";
+import { UNSUBSCRIBE_PATH } from "./mailPrefs.js";
 import { flokkenRoute } from "./flokken/routes.js";
 import { flocksForEvent, memberFlockForEvent } from "./flokken/store.js";
 import { clearTasteCookie, readTaste, RESET_PATH, tasteCookie, tasteFromFilters } from "./web/foryou.js";
@@ -253,9 +254,10 @@ async function route(request: Request, env: Env, now: number, mount: Mount | nul
     if (result.redirect) return new Response(null, { status: 303, headers: { location: result.redirect, "cache-control": "no-store", ...cookie } });
     return respond(env, result.body, { status: result.status, cache: "private, no-store", headers: { ...result.headers, "x-robots-tag": "noindex, nofollow", ...cookie } });
   }
-  const flokkenPaths = /^\/(log-ind|log-ud|bliv-medlem|profil|flokke|find-en-flok|tryghed|samarbejde|api\/samarbejde|kontakt|api\/kontakt|api\/chat-meldinger|api\/indmeldelser|kom-godt-i-gang|api\/kom-godt-i-gang|interesser|informationsmoede)(\/|$)|^\/events\/[a-z0-9-]+\/(opret-flok|interesse|interesse\/fjern)$/;
+  const flokkenPaths = /^\/(log-ind|log-ud|bliv-medlem|profil|flokke|find-en-flok|tryghed|samarbejde|api\/samarbejde|kontakt|api\/kontakt|api\/chat-meldinger|api\/indmeldelser|kom-godt-i-gang|api\/kom-godt-i-gang|interesser|informationsmoede|afmeld)(\/|$)|^\/events\/[a-z0-9-]+\/(opret-flok|interesse|interesse\/fjern)$/;
   if (flokkenPaths.test(path)) {
-    if (request.method === "POST" && !sameOrigin(request, new URL(pc.origin).origin)) return respond(env, "Formularen skal sendes fra Flokkens egne sider.", { status: 403, type: "text/plain; charset=utf-8", cache: "no-store" });
+    // The mail programs' one-click unsubscribe (RFC 8058) posts from elsewhere; the address's own token is the check there.
+    if (request.method === "POST" && path !== UNSUBSCRIBE_PATH && !sameOrigin(request, new URL(pc.origin).origin)) return respond(env, "Formularen skal sendes fra Flokkens egne sider.", { status: 403, type: "text/plain; charset=utf-8", cache: "no-store" });
     if (request.method !== "GET" && request.method !== "HEAD" && request.method !== "POST") return respond(env, "Method not allowed", { status: 405, type: "text/plain; charset=utf-8", cache: "no-store" });
     if (!env.DB) return respond(env, "Databasen er ikke forbundet.", { status: 503, type: "text/plain; charset=utf-8", cache: "no-store" });
     const result = await flokkenRoute(request, env, env.DB, pc, regions, path, url, now, () => notFoundPage(pc));

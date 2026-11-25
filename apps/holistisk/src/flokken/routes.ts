@@ -13,6 +13,8 @@ import { linkState, requestLoginLink, useLoginLink, validToken } from "./loginLi
 import { listSignups, readSignup, saveSignup, validateSignup } from "./membership.js";
 import { sendWelcome } from "./welcome.js";
 import { inviteToJoin, joinRoute, JOIN_PATH } from "./join.js";
+import { unsubscribeRoute, withdrawRoute } from "./unsubscribe.js";
+import { UNSUBSCRIBE_PATH, WITHDRAW_PATH } from "../mailPrefs.js";
 import { listInquiries, partnerPage } from "./partners.js";
 import { contactInbox } from "../mail.js";
 import { INFO_PATH, infoMeetingPage, meetingOver, readInfo, saveInfo, signupOpen, validateInfo } from "./infoMeeting.js";
@@ -181,6 +183,9 @@ export async function flokkenRoute(request: Request, env: Env, db: D1Database, p
   }
   // The link in the "Vil du være medlem?" mail (src/flokken/join.ts).
   if (path === JOIN_PATH) return { view: await joinRoute(request, env, db, pc, url, now) };
+  // The links at the bottom of every mail and in the status mails (src/flokken/unsubscribe.ts).
+  if (path === UNSUBSCRIBE_PATH) return { view: await unsubscribeRoute(request, db, pc, url, now) };
+  if (path === WITHDRAW_PATH) return { view: await withdrawRoute(request, db, pc, url) };
   // Informationsmødet (Jake 2026-11-24): the page and its sign-up form.
   if (path === INFO_PATH && !post) return { view: infoMeetingPage(pc, { sent: message === "tak" }) };
   if (path === INFO_PATH && post) {

@@ -7,6 +7,7 @@ import { GATHER_AT, KICKOFF_PATH } from "./kickoff.js";
 import { FREE_MEMBERSHIP_DATE, freeMembership } from "./profile.js";
 import { dayLabel, hhmm } from "../time.js";
 import { createLoginLink, linkPath } from "./loginLink.js";
+import { mailPref, withdrawUrl } from "../mailPrefs.js";
 
 /** Mails about flock places from the interest list (kickoff.ts): when a member is offered a place in a flock, and a
  * reminder when the 48 hours are nearly up and they have not answered. The button in the mail logs them in (a login
@@ -127,8 +128,12 @@ export function memberPart(isMember: boolean, siteUrl: string, now: number): Let
   }];
 }
 
-export function statusMail(d: Omit<StatusDue, "member_id" | "event_id" | "created_at" | "status_stage">, siteUrl: string, related: EventRow[], now: number): Mail {
+/** "Har du ikke lyst alligevel?" with the link that takes the interest off the list in one press (Jake 2026-11-25). */
+const withdrawPart = (url: string): LetterPart => ({ before: "Har du ikke lyst alligevel, kan du ", link: { label: "fjerne dig fra listen", url }, after: " her. Så får du ikke flere mails om dette arrangement." });
+
+export function statusMail(d: Omit<StatusDue, "member_id" | "event_id" | "created_at" | "status_stage">, siteUrl: string, related: EventRow[], now: number, withdraw?: string): Mail {
   const at = when(d.starts_at, now);
+  const leave = withdraw ? [withdrawPart(withdraw)] : [];
   const greeting = `Hej ${d.first_name}`;
   const after = memberPart(!!d.is_member, siteUrl, now);
   if (d.due === 7) {
@@ -137,7 +142,8 @@ export function statusMail(d: Omit<StatusDue, "member_id" | "event_id" | "create
       paragraphs: [
         `Tak fordi du har vist interesse for ${d.title} ${at}. Lige nu er vi ikke helt nok endnu til at samle en flok. Vi skal være mindst ${GATHER_AT}, og der er stadig en uge til. Vi giver dig besked igen 3 dage før.`,
         NO_OBLIGATION,
-        "Kender du nogen, der også kunne have lyst? Del gerne arrangementet."
+        "Kender du nogen, der også kunne have lyst? Del gerne arrangementet.",
+        ...leave
       ],
       button: { label: "Se arrangementet", url: siteUrl + eventPath(d) }, after
     });
@@ -148,7 +154,8 @@ export function statusMail(d: Omit<StatusDue, "member_id" | "event_id" | "create
       paragraphs: [
         `Der er 3 dage til ${d.title} ${at}, og vi mangler stadig et par stykker, før vi kan samle en flok. Vi prøver frem til dagen før, og så får du en endelig besked.`,
         NO_OBLIGATION,
-        "Vil du være sikker på at komme afsted sammen med andre, kan du også kigge på andre arrangementer, hvor andre allerede har vist interesse."
+        "Vil du være sikker på at komme afsted sammen med andre, kan du også kigge på andre arrangementer, hvor andre allerede har vist interesse.",
+        ...leave
       ],
       button: { label: "Se andre arrangementer", url: siteUrl + KICKOFF_PATH }, after
     });
@@ -185,7 +192,8 @@ export async function sendStatusMails(db: D1Database, env: Env, regions: string[
       const e = await eventBySlug(db, d.slug);
       if (e) related = await relatedEvents(db, e, regions, now, 3);
     }
-    const result = await sendLogged(db, env, "status", d.member_id, statusMail(d, siteUrl, related, now), now);
+    const withdraw = d.due === 1 ? undefined : withdrawUrl(siteUrl, (await mailPref(db, d.email, now)).token, d.slug);
+    const result = await sendLogged(db, env, "status", d.member_id, statusMail(d, siteUrl, related, now, withdraw), now);
     if (!result.ok) {
       // Try again on the next run.
       await db.prepare("UPDATE event_interests SET status_stage = ? WHERE member_id = ? AND event_id = ?").bind(d.status_stage, d.member_id, d.event_id).run();

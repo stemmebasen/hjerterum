@@ -24,7 +24,8 @@ export const EN_SEGMENTS: Record<string, string> = {
   "kom-godt-i-gang": "get-started",
   "profil": "profile",
   "flokke": "my-groups",
-  "informationsmoede": "information-meeting"
+  "informationsmoede": "information-meeting",
+  "afmeld": "unsubscribe"
 };
 const DA_SEGMENTS: Record<string, string> = Object.fromEntries(Object.entries(EN_SEGMENTS).map(([da, en]) => [en, da]));
 
