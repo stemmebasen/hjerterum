@@ -69,7 +69,9 @@ export async function guestReceipt(env: { RESEND_API_KEY?: string; RESEND_FROM_E
     + (note ? `<p><b>Besked fra ${escapeHtml(event.teacher_name)}:</b><br>${escapeHtml(note).replace(/\n/g, "<br>")}</p>` : "")
     + `<p><a href="${escapeHtml(pageUrl)}">Læs om eventet</a></p><p>${cancel.html}</p><p>Varme hilsner<br>Hjerterum</p>`;
   const sent = await fetcher("https://api.resend.com/emails", { method: "POST", headers: { authorization: `Bearer ${env.RESEND_API_KEY}`, "content-type": "application/json",
-    "idempotency-key": `guest-signup/${event.id}/${guest.email}` }, body: JSON.stringify({ from: env.RESEND_FROM_EMAIL, to: [guest.email], reply_to: cancel.replyTo, subject: `Du er tilmeldt: ${event.title}`, text, html }) }).catch(() => null);
+    // Douglas (24 Nov 2026): "I didn't get a confirmation email now when I registered for my Test event." The key was the event and the address, and the
+    // mail service keeps a key for a day - signed up, cancelled and signed up again the same day, the second receipt never went. Now per sign-up (minute).
+    "idempotency-key": `guest-signup/${event.id}/${guest.email}/${Math.floor(Date.now() / 60_000)}` }, body: JSON.stringify({ from: env.RESEND_FROM_EMAIL, to: [guest.email], reply_to: cancel.replyTo, subject: `Du er tilmeldt: ${event.title}`, text, html }) }).catch(() => null);
   if (!sent?.ok) console.warn("guest_receipt_failed", sent?.status ?? "network");
 }
 

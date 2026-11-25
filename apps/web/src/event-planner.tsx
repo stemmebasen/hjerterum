@@ -159,6 +159,11 @@ export function EventPlanner({ clerk, plan, onChange, markedDates, ignoreId, onP
   // Douglas (19 Nov 2026): "it won't let me go past 6.30" - the room is rented at most 10 hours with setup and cleanup; say so when that is the limit.
   const longest = pricedSpan(room.from, room.to + 30);
   const atMax = Boolean(chosenOk) && plan.end === endChoices.at(-1) && longest.to - longest.from > MAX_MINUTES && room.to + 30 <= LAST_HOUR * 60;
+  // Douglas (24 Nov 2026): "I still SOMETIMES cannot book past 18.30 on the weekends ... the dropdown under 'Ends' stops at 20.30." It is the start time:
+  // the room is rented at most 10 hours with setup and cleanup, so the latest end moves with the start. The latest end is said beside the times, always.
+  const latest = endChoices.at(-1);
+  const latestText = Boolean(chosenOk) && latest && latest !== "24:00" && endMinutes(latest) + plan.cleanup < LAST_HOUR * 60
+    ? ` Med start kl. ${danishClock(minutesOf(plan.start))} kan eventet senest slutte kl. ${danishClock(endMinutes(latest))}, for salen lejes højst 10 timer i træk med klargøring og oprydning. Start tidligere for at slutte senere.` : "";
 
   return (
     <fieldset className="planner">
@@ -257,7 +262,7 @@ export function EventPlanner({ clerk, plan, onChange, markedDates, ignoreId, onP
         ? <>{"Salen er din "}<b><Live text={`${danishClock(room.from)}–${danishClock(room.to)}`} /></b>{/* Douglas (22 Nov 2026): "Always says rental is for 8.5 hours (at the bottom)" - a text beside other elements is a text node of its own, which React
             changes behind Google's translation; in a span of its own it is replaced whole and translated again. */}
           <Live text={` med klargøring og oprydning. Lejen regnes for ${hoursText(pricedSpan(room.from, room.to).to - pricedSpan(room.from, room.to).from)}.`} />
-          {atMax && <span className="planner-limit">{` Senere kan eventet ikke slutte med denne starttid: salen lejes højst 10 timer i træk, klargøring og oprydning medregnet. Start tidligere, eller gør klargøringen kortere.`}</span>}</>
+          {latestText && <Live className={"planner-limit" + (atMax ? " at-max" : "")} text={latestText} />}</>
         : "Salen lejes 2–10 timer i halve timer. Klargøring og oprydning lejes med, så næste event ikke står i døren."}</p>
       {plan.date && problem && <p className="planner-problem" role="alert">{PROBLEM_TEXT[problem]}</p>}
 

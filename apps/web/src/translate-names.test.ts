@@ -6,6 +6,7 @@ import { englishNames } from "./translate-in-place";
 describe("the house's names in English", () => {
   it("puts Hjerterum and CIRKLER back where Google translated them", () => {
     expect(englishNames("Welcome to Heart Room")).toBe("Welcome to Hjerterum");
+    expect(englishNames("Fixed price, no member discount for participating")).toBe("Fixed price, no member discount to participate");
     expect(englishNames("Join CIRCLES. Small, regular groups.")).toBe("Join CIRKLER. Small, regular groups.");
     expect(englishNames("the Heart Space calendar")).toBe("Hjerterum calendar");
     expect(englishNames("Small circles of friends")).toBe("Small circles of friends");

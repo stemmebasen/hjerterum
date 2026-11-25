@@ -148,7 +148,10 @@ const NAMES: Array<[RegExp, string]> = [[/\b(?:the )?Heart ?(?:Room|room|Space|s
   [/\bGoldsmith(?:'s)? ?(?:Street|Lane|street|lane)\b/g, "Guldsmedgade"],
   // Douglas (17 Nov 2026): "It says 'Courses and courses' in English instead of 'Forløb'" - the calendar's category "Kurser & Forløb".
   // Then (18 Nov 2026): "I think it would be best if the word 'programmes' get left out, so it is just 'Courses'".
-  [/\bCOURSES (?:&|AND) (?:COURSES|PROGRAMMES)\b/g, "COURSES"], [/\bCourses (?:&|and) (?:[Cc]ourses|[Pp]rogrammes)\b/g, "Courses"]];
+  [/\bCOURSES (?:&|AND) (?:COURSES|PROGRAMMES)\b/g, "COURSES"], [/\bCourses (?:&|and) (?:[Cc]ourses|[Pp]rogrammes)\b/g, "Courses"],
+  // Douglas (19 and 24 Nov 2026): the Standard box should say "Fixed price, no member discount to participate", as the other boxes say "to participate" -
+  // Google makes it "for participating".
+  [/\bno member discount for (?:participating|participation|participants)\b/g, "no member discount to participate"]];
 export function englishNames(text: string): string {
   return NAMES.reduce((out, [pattern, name]) => out.replace(pattern, name), text);
 }

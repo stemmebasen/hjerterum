@@ -1003,7 +1003,9 @@ function MemberBilling({ clerk, member }: { clerk: ClerkBrowser; member: Member 
         <div className="workspace-card">
           <Status value={member.status} />
           <h2>{membershipName(member.tier)}</h2>
-          <p>{membershipPlan(member.tier)?.description}</p>
+          {/* Douglas (24 Nov 2026): "on their profile page it needs to say that here you can upgrade/downgrade your membership or update your card details instead of
+              'Become a member…'". */}
+          <p>Her kan du se dit medlemskab, skifte det op eller ned og opsige det.</p>
           <p>{member.paysInMembershipworks ? "Dit medlemskab er flyttet til Hjerterums nye system. Din betaling fortsætter indtil videre uændret, som du er vant til." : "Dit medlemskab er givet af Hjerterum, og der trækkes ingen betaling via kort."}</p>
           {cancelBlock}
         </div>
@@ -1020,12 +1022,11 @@ function MemberBilling({ clerk, member }: { clerk: ClerkBrowser; member: Member 
         <div className="workspace-card">
           <Status value={member.status} />
           <h2>{membershipName(member.tier)}</h2>
-          <p>{membershipPlan(member.tier)?.description}</p>
+          <p>Her kan du skifte dit medlemskab op eller ned eller opsige det.</p>
           <p>Dit medlemskab og din betaling fortsætter uændret, som du er vant til.</p>
           {cancelBlock}
         </div>
         <ChangePlan clerk={clerk} />
-        <MembershipPlans />
       </section>
     );
   }
@@ -1037,7 +1038,7 @@ function MemberBilling({ clerk, member }: { clerk: ClerkBrowser; member: Member 
       <div className="workspace-card">
         <Status value={member?.status ?? "unknown"} />
         <h2>{membershipName(member?.tier ?? "")}</h2>
-        <p>{membershipPlan(member?.tier ?? "")?.description}</p>
+        <p>Her kan du skifte dit medlemskab op eller ned, opdatere dit betalingskort under Administrér betaling og se dine betalinger.</p>
         {/* Requested: "Pris for det pågældende medlemsskab, hvornår der trækkes sidste gang, og en lille Afmeld-knap." */}
         <dl className="membership-facts">
           <div><dt>Pris</dt><dd>{subscription?.amountMinor != null
@@ -1076,7 +1077,6 @@ function MemberBilling({ clerk, member }: { clerk: ClerkBrowser; member: Member 
         ) : <p>Der er ingen fakturaer at vise endnu.</p>}
       </div>
       <ChangePlan clerk={clerk} />
-      <MembershipPlans />
     </section>
   );
 }
