@@ -60,6 +60,8 @@ describe("wishes and faults in admin", () => {
     // The chair (25 Nov 2026): the development agent is Jewel, a product developer, with a handbook of the system and its latest changes.
     expect(asked[1]).toContain("Du er Jewel");
     expect(asked[1]).toContain("charmerende, kvik londoner");
+    expect(asked[1]).toContain("ingen emojis");
+    expect(asked[1]).not.toContain("glimt i øjet");
     expect(asked[1]).toContain("HÅNDBOG OVER SYSTEMET");
     expect(asked[1]).toContain("Forslag til udvikling (begrænset adgang; også Douglas)");
     expect(asked[1]).toContain("DE SENESTE ÆNDRINGER");
