@@ -36,7 +36,7 @@ export type ShareSource = { network: Channel; id: string; author: string | null;
   sharedAt?: number | null;
   /** Sent to the page in Messenger (meta.ts sentInMessenger), not tagged. */
   via?: "messenger" };
-export type EventSource = { key: string; title: string; startsMs: number; host: string | null; times?: number[] };
+export type EventSource = { key: string; title: string; startsMs: number; host: string | null; times?: number[]; teacher?: string };
 export type SocialPost = { id: number; kind: SocialKind; source_key: string; week: string | null; channels: Channel[]; text: string; link: string | null; images: string[];
   source: Partial<ShareSource & EventSource> & { instagramText?: string; events?: EventSource[]; collaborators?: string[]; format?: "reel"; video?: string;
     /** The chair's design from Plakater og opslag is the post's picture: on Facebook as a photo post, not a link card. */
@@ -353,7 +353,7 @@ Sproget (formanden: "Dette er dårligt dansk"): skriv mundret, naturligt dansk, 
 - Hele sætninger med et udsagnsord. Ingen sætningsbrokker som "Fire timers aurabalancering i ro og nærvær."
 - Dansk kommatering: intet komma foran "med", "og" eller "i", som man ville sætte det på engelsk.
 - Ingen stive vendinger som "X leder den", "X faciliterer" eller "Oplev ...". Skriv fx "Marianne guider dig", "Kom med Marianne" eller "Marianne inviterer til".
-- Kun underviserens fornavn.
+- Kun underviserens fornavn. Står underviseren i anførselstegn (fx "Yin Yogi"), er det underviserens eget navn i Hjerterums opslag: brug hele navnet, uden anførselstegn - aldrig et fornavn eller et andet navn.
 Formandens eget eksempel på formen og tonen (efterlign formen og friskheden, ikke ordene):
 "🎬 Film, fællesskab og gode snakke!
 
@@ -375,7 +375,7 @@ async function weekWords(env: SagaEnv, deps: SagaDeps, events: NewsletterEvent[]
   const plain: WeekWords = { intro: PLAIN_WEEK_INTRO, events: Object.fromEntries(events.map((e, i) => [`E${i + 1}`, reminder ? `Om en uge: ${plainEventText(e)}` : plainEventText(e)])) };
   if (!env.AI_API_KEY || !env.AI_MODEL || !events.length) return plain;
   const raw = await completeAs("social-week", "mid", 2500)(env, deps, [{ role: "system", content: reminder ? WEEK_SYSTEM + REMINDER_RULE : WEEK_SYSTEM }, { role: "user", content: JSON.stringify(events.map((e, i) => ({
-    ref: `E${i + 1}`, titel: e.times ? listTitle(e.title) : e.title, underviser: e.host, hvornaar: longWhen(e.startsMs, e.times), hvornaar_linjer: whenLines(e.startsMs, e.times), beskrivelse: e.description.slice(0, 1200) }))) }]).catch(() => "");
+    ref: `E${i + 1}`, titel: e.times ? listTitle(e.title) : e.title, underviser: e.teacher ? `"${e.host}"` : e.host, hvornaar: longWhen(e.startsMs, e.times), hvornaar_linjer: whenLines(e.startsMs, e.times), beskrivelse: e.description.slice(0, 1200) }))) }]).catch(() => "");
   const json = /\{[\s\S]*\}/.exec(raw)?.[0];
   const data = json ? parse<{ uge?: unknown; events?: Record<string, unknown> }>(json, {}) : {};
   const clean = (v: unknown, max: number) => typeof v === "string" ? v.replace(/[ \t]+/g, " ").trim().slice(0, max) : "";
@@ -408,8 +408,8 @@ export async function proposeEventPost(env: SocialEnv, deps: SagaDeps, db: D1Dat
   const both = Boolean(account?.ig_user_id && event.imageUrl);
   const [igTime] = both ? instagramPostTimes([event], [time], notBefore, await instagramSlots(db, now), placed.latest, fbTaken) : [time];
   const text = (await weekWords(env, deps, [event])).events.E1 ?? plainEventText(event);
-  const source = { key: event.key, title: event.title, startsMs: event.startsMs, host: event.host, ...(event.times ? { times: event.times } : {}), shout: 1, shouts: placed.single[0] ? 1 : windows.length,
-    ...(both ? { instagramText: instagramEventText(text), collaborators: await instagramNames(db, [event.host]), ...(igTime !== time ? { instagramAtMs: igTime } : {}) } : {}) };
+  const source = { key: event.key, title: event.title, startsMs: event.startsMs, host: event.host, ...(event.times ? { times: event.times } : {}), ...(event.teacher ? { teacher: event.teacher } : {}), shout: 1, shouts: placed.single[0] ? 1 : windows.length,
+    ...(both ? { instagramText: instagramEventText(text), collaborators: await instagramNames(db, [event.teacher ?? event.host]), ...(igTime !== time ? { instagramAtMs: igTime } : {}) } : {}) };
   const sourceKey = `event:${week}:${event.key}`;
   const had = await db.prepare("SELECT id FROM social_posts WHERE source_key = ?").bind(sourceKey).first<{ id: number }>().catch(() => null);
   if (had) await db.prepare(`UPDATE social_posts SET status = 'draft', text = ?, channels = ?, images = ?, link = ?, source = ?, publish_at_ms = ?, approved_by = NULL, approved_at_ms = NULL,
@@ -483,7 +483,7 @@ export async function planWeek(env: SocialEnv, deps: SagaDeps, db: D1Database, m
   const account = await socialAccount(db);
   const notBefore = now + 30 * MINUTE;
   let made = 0;
-  const eventSource = (e: NewsletterEvent): EventSource => ({ key: e.key, title: e.title, startsMs: e.startsMs, host: e.host, ...(e.times ? { times: e.times } : {}) });
+  const eventSource = (e: NewsletterEvent): EventSource => ({ key: e.key, title: e.title, startsMs: e.startsMs, host: e.host, ...(e.times ? { times: e.times } : {}), ...(e.teacher ? { teacher: e.teacher } : {}) });
   if (!planned) {
     // "Ugens events": every event of the week in the list; on Instagram a carousel of up to ten of the week's pictures, the most worth telling first.
     const listed = pickWeekEvents(events, new Set(), 30);
@@ -491,7 +491,7 @@ export async function planWeek(env: SocialEnv, deps: SagaDeps, db: D1Database, m
     const instagram = Boolean(account?.ig_user_id) && pictures.length > 0;
     if (await insertPost(db, { kind: "week", sourceKey: `week:${week}`, week, channels: instagram ? ["facebook", "instagram"] : ["facebook"],
       text: weekText(week, words.intro, listed, "facebook"), link: `${SITE}/events`, images: pictures,
-      source: { instagramText: weekText(week, words.intro, listed, "instagram"), events: listed.map(eventSource), collaborators: await instagramNames(db, chosen.map(e => e.host)) },
+      source: { instagramText: weekText(week, words.intro, listed, "instagram"), events: listed.map(eventSource), collaborators: await instagramNames(db, chosen.map(e => e.teacher ?? e.host)) },
       publishAtMs: weekPostTime(monday, notBefore) }, now)) made++;
   }
   // "to shouts på hvert medie": the first post in its window now; the reminder a week before is made by planShouts.
@@ -504,7 +504,7 @@ export async function planWeek(env: SocialEnv, deps: SagaDeps, db: D1Database, m
     const text = words.events[`E${i + 1}`] ?? plainEventText(e);
     const both = Boolean(account?.ig_user_id && e.imageUrl);
     if (await insertPost(db, { kind: "event", sourceKey: `event:${week}:${e.key}`, week, channels: both ? ["facebook", "instagram"] : ["facebook"], text,
-      link: e.link, images: e.imageUrl ? [e.imageUrl] : [], source: { ...eventSource(e), shout: 1, shouts: (single[i] ? 1 : windows[i]!.length) as 1 | 2, ...(both ? { instagramText: instagramEventText(text), collaborators: await instagramNames(db, [e.host]), ...(igTimes[i] !== times[i] ? { instagramAtMs: igTimes[i] } : {}) } : {}) },
+      link: e.link, images: e.imageUrl ? [e.imageUrl] : [], source: { ...eventSource(e), shout: 1, shouts: (single[i] ? 1 : windows[i]!.length) as 1 | 2, ...(both ? { instagramText: instagramEventText(text), collaborators: await instagramNames(db, [e.teacher ?? e.host]), ...(igTimes[i] !== times[i] ? { instagramAtMs: igTimes[i] } : {}) } : {}) },
       publishAtMs: times[i]! }, now)) made++;
   }
   return { made, events: chosen.length, fresh: fresh.length };
@@ -633,7 +633,7 @@ async function addInstagram(db: D1Database, nowMs: number): Promise<void> {
   if (!(await socialAccount(db))?.ig_user_id) return;
   const drafts = await socialPosts(db, "kind = 'event' AND status = 'draft' AND updated_at_ms = created_at_ms AND images <> '[]' AND channels = '[\"facebook\"]' AND publish_at_ms > ?", [nowMs], "publish_at_ms, id", 500);
   for (const p of drafts) {
-    const source = { ...p.source, instagramText: p.source.instagramText || instagramEventText(p.text), collaborators: p.source.collaborators ?? await instagramNames(db, [p.source.host ?? null]) };
+    const source = { ...p.source, instagramText: p.source.instagramText || instagramEventText(p.text), collaborators: p.source.collaborators ?? await instagramNames(db, [p.source.teacher ?? p.source.host ?? null]) };
     await db.prepare("UPDATE social_posts SET channels = ?, source = ? WHERE id = ? AND status = 'draft' AND updated_at_ms = created_at_ms").bind(JSON.stringify(["facebook", "instagram"]), JSON.stringify(source), p.id).run();
   }
 }

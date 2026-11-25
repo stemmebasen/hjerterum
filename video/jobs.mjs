@@ -161,7 +161,7 @@ async function weekJob(weekPath, eventsPath, out, now) {
     seen.add(title.toLowerCase());
     const p = parts(r.source.startsMs);
     events.push({ picture: pic, day: cap(p.weekday), date: `${Number(p.day)}/${new Date(r.source.startsMs).toLocaleString("en-US", { timeZone: TZ, month: "numeric" })}`,
-      time: clock(r.source.startsMs), title, host: r.source.host ? String(r.source.host).split(" ")[0] : null });
+      time: clock(r.source.startsMs), title, host: r.source.host ? (r.source.teacher ? String(r.source.host) : String(r.source.host).split(" ")[0]) : null });
   }
   if (!events.length) return skip("ugen har ingen events med billede");
   const source = json(w.source, {});

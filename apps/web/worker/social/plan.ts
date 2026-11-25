@@ -267,7 +267,7 @@ export const whenLines = (ms: number, times?: number[]) => { const d = dayDate(m
 /** Without Saga: the event in the chair's form - "✨ Workshop: Indre barn med Steven", the day and time on lines of their own, and a warm ending. */
 export function plainEventText(e: NewsletterEvent): string {
   const several = Boolean(e.times && e.times.length > 1);
-  return `✨ ${listTitle(e.title)}${e.host ? ` med ${firstWord(e.host)}` : ""}\n\n${whenLines(e.startsMs, e.times)}\n\n${several ? "Vælg din tid og book i forvejen via linket" : "Læs mere og tilmeld dig via linket"} - vi ses i Hjerterum! ❤️`;
+  return `✨ ${listTitle(e.title)}${e.host && !/\bmed\s/i.test(listTitle(e.title)) ? ` med ${e.teacher ? e.host : firstWord(e.host)}` : ""}\n\n${whenLines(e.startsMs, e.times)}\n\n${several ? "Vælg din tid og book i forvejen via linket" : "Læs mere og tilmeld dig via linket"} - vi ses i Hjerterum! ❤️`;
 }
 const firstWord = (name: string) => name.trim().split(/\s+/)[0] ?? name;
 export const PLAIN_WEEK_INTRO = "Her er ugens events i Hjerterum. Vi glæder os til at se dig.";

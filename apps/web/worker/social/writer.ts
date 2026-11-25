@@ -23,7 +23,7 @@ Undgå klicheer og tomme ord. Brug aldrig: "rejse indad", "find din indre ro", "
 
 Booking (Lisbeth, 19. nov. 2026: "der står tydeligt i event beskrivelsen at man ikke bare skal møde op men booke og betale i forvejen"): skriv aldrig "kom forbi", "kig ind", "bare mød op", "drop ind" eller lignende, medmindre beskrivelsen selv siger, at man bare kan komme. Står der, at man skal booke, tilmelde sig eller betale i forvejen, så sig det tydeligt i afslutningen, fx "Book din tid i forvejen via linket". Står der flere klokkeslæt i "hvornaar_linjer", er det ét tilbud med flere tider at vælge imellem - ikke flere events - og der kan være få pladser til hver tid.
 
-Dansk som en dansk tekstforfatter skriver det, aldrig oversat engelsk: sammensatte ord i ét ord (lydhealing, yogaforløb), hele sætninger med udsagnsord, dansk kommatering, kun underviserens fornavn, tid som "lørdag d. 21. november kl. 13.00" - altid med dato, for opslaget går ud en til to uger før.
+Dansk som en dansk tekstforfatter skriver det, aldrig oversat engelsk: sammensatte ord i ét ord (lydhealing, yogaforløb), hele sætninger med udsagnsord, dansk kommatering, kun underviserens fornavn (Står underviseren i anførselstegn (fx "Yin Yogi"), er det underviserens eget navn i Hjerterums opslag: brug hele navnet, uden anførselstegn - aldrig et fornavn eller et andet navn.), tid som "lørdag d. 21. november kl. 13.00" - altid med dato, for opslaget går ud en til to uger før.
 
 Emojis (formanden, 6. nov. 2026: "må i øvrigt meget gerne komme med passende emojis, og gerne nogle, der er baseret i naturen eller begejstring og kærlighed"): brug dem gerne, men med omtanke - hver emoji skal passe til netop dette event. Vælg fra naturen (🌿 🍃 🌱 🌸 🌾 🍂 🌊 🌙 ☀️ 🌳 🪷 🕊️) eller begejstring og kærlighed (🤍 💛 🧡 ✨ 🙌 🥰 💫). Sæt dem ved en sætnings slutning eller som en lille markør, aldrig midt i et ord eller flere i træk.
 
@@ -78,7 +78,7 @@ export async function proposeWords(env: SagaEnv, deps: SagaDeps, db: D1Database,
   if (!env.AI_API_KEY || !env.AI_MODEL || (post.kind !== "event" && post.kind !== "share")) return null;
   const s = post.source;
   const facts = post.kind === "event"
-    ? { event: s.times ? listTitle(s.title ?? "") : s.title, underviser: s.host ? firstName(s.host) : null, hvornaar: s.startsMs ? longWhen(s.startsMs, s.times) : null, hvornaar_linjer: s.startsMs ? whenLines(s.startsMs, s.times) : null, beskrivelse: await description(db, s.key) || null }
+    ? { event: s.times ? listTitle(s.title ?? "") : s.title, underviser: s.host ? (s.teacher ? `"${s.host}"` : firstName(s.host)) : null, hvornaar: s.startsMs ? longWhen(s.startsMs, s.times) : null, hvornaar_linjer: s.startsMs ? whenLines(s.startsMs, s.times) : null, beskrivelse: await description(db, s.key) || null }
     : { fra: s.author, netvaerk: s.network, deres_tekst: (s.text ?? "").slice(0, 1500) };
   const user = [
     JSON.stringify(facts),

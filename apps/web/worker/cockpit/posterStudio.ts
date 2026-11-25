@@ -1,3 +1,4 @@
+import { prNames, shownAs } from "../teacher-names.js";
 import type { D1Database } from "../db.js";
 import { teacherKey } from "./eventArchive.js";
 import type { EventMediaBucket } from "../event-files.js";
@@ -147,7 +148,9 @@ export async function studioData(db: D1Database, id: string, nowMs: number, fetc
     videoTemplate: full.source.videoTemplate ?? null, videoTemplates: VIDEO_TEMPLATES.filter(t => templatesFor(full).includes(t.no)).map(t => ({ no: t.no, name: t.name, used: usedLabel(uses.get(t.no)) })),
     videoRemake: videoInTime(full, nowMs), videoChoices: (full.source.videoChoices ?? []).map(c => ({ template: c.template, name: choiceName(c, templateName), video: c.video })), videoAsked: full.source.videoAsk?.templates ?? [],
     stillAsked: Boolean(full.source.stillAsk) } : null;
-  return { event, eventPictures, files, teacher, post, mailTexts };
+  // Mari-Anne (25 Nov 2026): "Yin Yoga med Yin Yogi" - on the posters the teacher's own name for posts (teacher-names.ts); the card above keeps the real one.
+  const shown = shownAs(await prNames(db), event.host, event.title);
+  return { event: { ...event, ...shown }, eventPictures, files, teacher, post, mailTexts };
 }
 
 const IMAGE_HEADERS = { "cache-control": "private, max-age=600", "x-content-type-options": "nosniff", "content-security-policy": "default-src 'none'; sandbox" };
