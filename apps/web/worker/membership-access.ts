@@ -19,6 +19,15 @@ export type ActiveMembership =
       membershipLevel: string | null;
     };
 
+/** Douglas (24 Nov 2026), for the board, to "members in the new system also keep access for 14 days while Stripe retries, so the same rule applies
+ * to everyone": "I think we must, also because they may need to go into their profile and update their membership." A member whose card payment
+ * failed (past_due) keeps access for 14 days from then, as one in MembershipWorks does (LAPSE_GRACE_DAYS); after that, until the payment goes through. */
+export const PAST_DUE_GRACE_DAYS = 14;
+export function hasAccess(status: string, sinceMs: number | null, nowMs = Date.now()): boolean {
+  if (status === "active") return true;
+  return status === "past_due" && sinceMs !== null && nowMs - sinceMs <= PAST_DUE_GRACE_DAYS * 86_400_000;
+}
+
 export async function resolveActiveMembership(
   db: D1Database,
   clerkUserId: string,
@@ -27,7 +36,7 @@ export async function resolveActiveMembership(
 ): Promise<ActiveMembership | null> {
   const local = await getMemberByClerkUserId(db, clerkUserId);
   if (local) {
-    if (local.status !== "active" || local.accessBlocked) return null;
+    if (!hasAccess(local.status, local.statusSinceMs ?? null) || local.accessBlocked) return null;
     if (requireBenefits && !includesMemberBenefits(local.tier)) return null;
     return {
       source: "hjerterum",
@@ -88,10 +97,10 @@ export async function membershipFromUpload(db: D1Database, email: string, requir
  * here (no call to the login service): the member behind the login, else a member here with that e-mail, else the old system's records. */
 export async function isMemberAttendee(db: D1Database, clerkUserId: string, email: string, nowMs = Date.now()): Promise<boolean> {
   const local = clerkUserId.startsWith("guest:") ? null : await getMemberByClerkUserId(db, clerkUserId);
-  const byEmail = local ? null : await db.prepare("SELECT tier, status, access_blocked FROM members WHERE LOWER(email) = ? ORDER BY updated_at_ms DESC LIMIT 1")
-    .bind(email.trim().toLowerCase()).first<{ tier: string; status: string; access_blocked: number | null }>();
-  if (local) return local.status === "active" && !local.accessBlocked && includesMemberBenefits(local.tier);
-  if (byEmail) return byEmail.status === "active" && !byEmail.access_blocked && includesMemberBenefits(byEmail.tier);
+  const byEmail = local ? null : await db.prepare("SELECT tier, status, access_blocked, status_since_ms FROM members WHERE LOWER(email) = ? ORDER BY updated_at_ms DESC LIMIT 1")
+    .bind(email.trim().toLowerCase()).first<{ tier: string; status: string; access_blocked: number | null; status_since_ms: number | null }>();
+  if (local) return hasAccess(local.status, local.statusSinceMs ?? null, nowMs) && !local.accessBlocked && includesMemberBenefits(local.tier);
+  if (byEmail) return hasAccess(byEmail.status, byEmail.status_since_ms, nowMs) && !byEmail.access_blocked && includesMemberBenefits(byEmail.tier);
   const external = await findMembershipWorksMemberByEmail(db, email);
   if (external) return external.status === "active" && external.accessBlocked !== 1 && includesMemberBenefits(external.membershipLevel);
   return Boolean(await membershipFromUpload(db, email, true, nowMs));

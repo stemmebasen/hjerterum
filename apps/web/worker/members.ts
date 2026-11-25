@@ -28,6 +28,8 @@ export type MemberView = {
   billing: "stripe" | "manual";
   /** Moved from MembershipWorks on the day of the switch; their payment still runs there. */
   paysInMembershipworks: boolean;
+  /** When the status last changed (Stripe's time) - how long a payment has been due. */
+  statusSinceMs?: number | null;
 };
 
 function requireString(value: unknown, field: string): string {
@@ -65,7 +67,7 @@ export async function getMemberByClerkUserId(
   const row = await db
     .prepare(
       `SELECT id, clerk_user_id, stripe_customer_id, stripe_subscription_id,
-              tier, interval, status, full_name, email, phone, street_address, birthday, is_teacher, access_blocked, billing, pays_in_membershipworks
+              tier, interval, status, full_name, email, phone, street_address, birthday, is_teacher, access_blocked, billing, pays_in_membershipworks, status_since_ms
        FROM members WHERE clerk_user_id = ? LIMIT 1`
     )
     .bind(clerkUserId)
@@ -86,6 +88,7 @@ export async function getMemberByClerkUserId(
       access_blocked: number;
       billing: string;
       pays_in_membershipworks: number;
+      status_since_ms: number | null;
     }>();
 
   if (!row) return null;
@@ -105,7 +108,8 @@ export async function getMemberByClerkUserId(
     isTeacher: row.is_teacher === 1,
     accessBlocked: row.access_blocked === 1,
     billing: row.billing === "manual" ? "manual" : "stripe",
-    paysInMembershipworks: row.pays_in_membershipworks === 1
+    paysInMembershipworks: row.pays_in_membershipworks === 1,
+    statusSinceMs: row.status_since_ms ?? null
   };
 }
 

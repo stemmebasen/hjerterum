@@ -58,7 +58,7 @@ export async function notifyOrganiser(env: { DB?: D1Database; RESEND_API_KEY?: s
       + `<b>${escapeHtml(event.title)}</b> ${escapeHtml(when)}. ${member ? "Medlem" : "Ikke-medlem"}.</p><p>Nu: ${escapeHtml(count)}.</p>`
       + `<p><a href="${escapeHtml(mine)}">Se alle tilmeldte under Mine events</a></p><p style="color:#777">Vil du ikke have en mail ved hver tilmelding, kan du slå det fra, når du redigerer eventet.</p><p>Varme hilsner<br>Hjerterum</p>`;
     const sent = await fetcher("https://api.resend.com/emails", { method: "POST", headers: { authorization: `Bearer ${env.RESEND_API_KEY}`, "content-type": "application/json",
-      "idempotency-key": `signup-organiser/${bookingId}/${person.email.toLowerCase()}` },
+      "idempotency-key": `signup-organiser/${bookingId}/${person.email.toLowerCase()}/${Math.floor(Date.now() / 60_000)}` },
       body: JSON.stringify({ from: env.RESEND_FROM_EMAIL, to: [event.teacher_email], reply_to: person.email, subject: `Ny tilmelding: ${event.title}`, text, html }) }).catch(() => null);
     if (!sent?.ok) console.warn("organiser_signup_mail_failed", sent?.status ?? "network");
   } catch (error) {
