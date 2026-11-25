@@ -2,6 +2,7 @@ import type { D1Database } from "./db.js";
 import type { Env } from "./env.js";
 import { escapeHtml } from "./web/html.js";
 import { ORGANISER_EMAIL } from "./web/layout.js";
+import { hasUnsubscribeLink, isUnsubscribed, mailPref, sentWhenUnsubscribed, unsubscribeUrl } from "./mailPrefs.js";
 
 /** Sending e-mail. Two ways, whichever is set up on the Worker:
  * - Resend (resend.com): the secret RESEND_API_KEY. Works on the Workers Free plan.
@@ -10,13 +11,15 @@ import { ORGANISER_EMAIL } from "./web/layout.js";
 
 /** `replyTo` takes the place of the contact address as the mail's reply-to (the contact form: the sender). */
 /** `kind` and `memberId` are only for "Sendt post" in /admin (sent_mails): what sort of mail it is, and whose. */
-export type Mail = { to: string; subject: string; text: string; html: string; replyTo?: string; kind?: string; memberId?: string | null };
+/** `headers` are extra mail headers (List-Unsubscribe); sendMail adds them. */
+export type Mail = { to: string; subject: string; text: string; html: string; replyTo?: string; kind?: string; memberId?: string | null; headers?: Record<string, string> };
 export type MailKind = "login" | "invitation" | "reminder" | "status" | "welcome" | "join";
-export type SendResult = { ok: true } | { ok: false; error: string };
+/** `skipped`: not sent, because the address has unsubscribed (counts as done, so nothing tries again). */
+export type SendResult = { ok: true; skipped?: true } | { ok: false; error: string };
 
 /** The part of Cloudflare's send_email binding used here. */
 export interface EmailBinding {
-  send(message: { to: string; from: string | { email: string; name: string }; subject: string; html: string; text: string; replyTo?: string }): Promise<unknown>;
+  send(message: { to: string; from: string | { email: string; name: string }; subject: string; html: string; text: string; replyTo?: string; headers?: Record<string, string> }): Promise<unknown>;
 }
 
 const DEFAULT_FROM = "besked@socialklubben.dk";
@@ -45,10 +48,40 @@ export const mailSiteUrl = (env: Env): string => {
 
 export const mailConfigured = (env: Env): boolean => !!env.EMAIL || !!env.RESEND_API_KEY;
 
+/** Sends a mail. Every mail to a person gets an unsubscribe link at the bottom and a List-Unsubscribe header (one click
+ * in Gmail, Apple Mail and others); an address that has unsubscribed gets nothing but what it asks for there and then
+ * (src/mailPrefs.ts). */
 export async function sendMail(env: Env, mail: Mail, fetcher: typeof fetch = fetch, now = Date.now()): Promise<SendResult> {
-  const result = await deliver(env, mail, fetcher);
-  if (env.DB) await keepSent(env.DB, mail, result, now);
+  let out = mail;
+  if (env.DB && hasUnsubscribeLink(mail.kind)) {
+    try {
+      if (!sentWhenUnsubscribed(mail.kind) && await isUnsubscribed(env.DB, mail.to)) {
+        await keepSent(env.DB, mail, { ok: false, error: "afmeldt" }, now);
+        return { ok: true, skipped: true };
+      }
+      out = withUnsubscribe(mail, mailSiteUrl(env), (await mailPref(env.DB, mail.to, now)).token);
+    } catch (error) {
+      console.error(JSON.stringify({ event: "mail_prefs_failed", error: String(error).slice(0, 200) }));
+    }
+  }
+  const result = await deliver(env, out, fetcher);
+  if (env.DB) await keepSent(env.DB, out, result, now);
   return result.ok ? { ok: true } : { ok: false, error: result.error };
+}
+
+/** The unsubscribe line at the bottom of the mail (in the mail's own language) and the List-Unsubscribe headers. */
+export function withUnsubscribe(mail: Mail, siteUrl: string, token: string): Mail {
+  const en = /<html lang="en"/.test(mail.html);
+  const url = unsubscribeUrl(siteUrl, token, en ? "en" : "da");
+  const [lead, label] = en ? ["Don't want any more e-mails from Socialklubben? ", "Unsubscribe here"] : ["Vil du ikke have flere mails fra Socialklubben? ", "Afmeld dem her"];
+  const line = `<p style="margin:32px 0 0;font-size:13px;line-height:1.5;color:#6b6b66">${escapeHtml(lead)}<a href="${escapeHtml(url)}" style="color:#6b6b66">${escapeHtml(label)}</a>.</p>`;
+  const html = mail.html.includes("</div></body>") ? mail.html.replace("</div></body>", `${line}\n</div></body>`)
+    : mail.html.includes("</body>") ? mail.html.replace("</body>", `${line}</body>`) : mail.html + line;
+  return {
+    ...mail, html,
+    text: `${mail.text}\n\n--\n${lead}${label}: ${url}`,
+    headers: { ...mail.headers, "List-Unsubscribe": `<${url}>`, "List-Unsubscribe-Post": "List-Unsubscribe=One-Click" }
+  };
 }
 
 async function deliver(env: Env, mail: Mail, fetcher: typeof fetch): Promise<SendResult & { id?: string }> {
@@ -56,14 +89,14 @@ async function deliver(env: Env, mail: Mail, fetcher: typeof fetch): Promise<Sen
   const replyTo = mail.replyTo && EMAIL.test(mail.replyTo) ? mail.replyTo : publicContactEmail(env) ?? ORGANISER_EMAIL;
   try {
     if (env.EMAIL) {
-      await env.EMAIL.send({ to: mail.to, from: { email: fromEmail, name: FROM_NAME }, subject: mail.subject, html: mail.html, text: mail.text, ...(replyTo ? { replyTo } : {}) });
+      await env.EMAIL.send({ to: mail.to, from: { email: fromEmail, name: FROM_NAME }, subject: mail.subject, html: mail.html, text: mail.text, ...(replyTo ? { replyTo } : {}), ...(mail.headers ? { headers: mail.headers } : {}) });
       return { ok: true };
     }
     if (env.RESEND_API_KEY) {
       const r = await fetcher("https://api.resend.com/emails", {
         method: "POST",
         headers: { authorization: `Bearer ${env.RESEND_API_KEY}`, "content-type": "application/json" },
-        body: JSON.stringify({ from: `${FROM_NAME} <${fromEmail}>`, to: [mail.to], subject: mail.subject, html: mail.html, text: mail.text, ...(replyTo ? { reply_to: replyTo } : {}) })
+        body: JSON.stringify({ from: `${FROM_NAME} <${fromEmail}>`, to: [mail.to], subject: mail.subject, html: mail.html, text: mail.text, ...(replyTo ? { reply_to: replyTo } : {}), ...(mail.headers ? { headers: mail.headers } : {}) })
       });
       if (r.ok) {
         const id = ((await r.json().catch(() => null)) as { id?: unknown } | null)?.id;
@@ -83,7 +116,7 @@ export const hideSecrets = (s: string): string => s.replace(/([?&]t=)[A-Za-z0-9_
 
 /** Keeps a copy of a sent mail in sent_mails for "Sendt post" in /admin. Never stops the mail itself. */
 export async function keepSent(db: D1Database, mail: Mail, result: SendResult & { id?: string }, now: number, opts: { source?: "app" | "resend"; providerId?: string } = {}): Promise<void> {
-  const status = result.ok ? "sent" : result.error === "off" ? "off" : "failed";
+  const status = result.ok ? "sent" : result.error === "off" || result.error === "afmeldt" ? "off" : "failed";
   try {
     await db.prepare(`INSERT INTO sent_mails (id, kind, member_id, to_email, subject, html, text, reply_to, status, error, provider_id, source, created_at)
       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?) ON CONFLICT DO NOTHING`)
@@ -99,9 +132,9 @@ export async function keepSent(db: D1Database, mail: Mail, result: SendResult & 
 /** Sends and notes it in mail_log. */
 export async function sendLogged(db: D1Database, env: Env, kind: MailKind, memberId: string | null, mail: Mail, now: number): Promise<SendResult> {
   const result = await sendMail(env, { ...mail, kind, memberId: mail.memberId ?? memberId }, fetch, now);
-  const status = result.ok ? "sent" : result.error === "off" ? "off" : "failed";
+  const status = result.ok ? (result.skipped ? "off" : "sent") : result.error === "off" ? "off" : "failed";
   await db.prepare("INSERT INTO mail_log (id, kind, member_id, status, error, created_at) VALUES (?, ?, ?, ?, ?, ?)")
-    .bind(crypto.randomUUID(), kind, memberId, status, result.ok ? null : result.error, now).run();
+    .bind(crypto.randomUUID(), kind, memberId, status, result.ok ? (result.skipped ? "afmeldt" : null) : result.error, now).run();
   if (!result.ok && status === "failed") console.error(JSON.stringify({ event: "mail_failed", kind, error: result.error }));
   return result;
 }
