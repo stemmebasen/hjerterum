@@ -1,6 +1,7 @@
 import { tooMany } from "./beregner/handler.js";
 import { authenticateBearer, type AuthenticatedUser } from "./auth.js";
 import { guestReceipt, publicEvent, signUpGuest } from "./guest-signup.js";
+import { pastEvents } from "./past-events.js";
 import { notifyOrganiser, readSignupSettings, saveSignupSettings, signupSettingsByBooking } from "./event-signup-mail.js";
 import { CURRENT_SITE } from "./site-knowledge.js";
 import { sendWelcome } from "./member-welcome.js";
@@ -898,6 +899,12 @@ export default {
     }
     if (request.method === "GET" && url.pathname === "/api/room-bookings/public") {
       return publicRoomBookings(env);
+    }
+    // Douglas (forslag #3): "Show past events in the website and Min side calendars" (past-events.ts).
+    if (request.method === "GET" && url.pathname === "/api/events/past") {
+      if (!env.DB) return json({ error: "database_unbound" }, { status: 503 });
+      return pastEvents(env.DB, Date.now()).then(list => json(list, { headers: { "cache-control": "public, max-age=300, s-maxage=600" } }))
+        .catch(() => json({ error: "database_query_failed" }, { status: 503 }));
     }
     // Douglas' notes: "Do they have to be a member to book an event?" - "Som gæst uden login" (guest-signup.ts).
     const publicEventId = parseRouteId(url.pathname, /^\/api\/room-bookings\/public\/(\d+)$/);

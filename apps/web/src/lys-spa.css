@@ -1194,3 +1194,12 @@ body, .workspace-shell, .admin-workspace, .auth-shell, .profile-workspace { back
 .donation-amounts button.is-on { background: var(--lys-ink); color: var(--lys-bg, #fff); border-color: var(--lys-ink); }
 .donation-amounts label { display: grid; gap: 4px; font-size: 13px; } .donation-amounts input { width: 110px; }
 .donation-form small { color: var(--lys-muted); }
+
+/* Douglas (forslag #3): the events that have been held, under the calendars (past-events.tsx) - greyed, without sign-up. */
+.past-events { margin: 40px 0 8px; }
+.past-events > h2 { margin: 24px 0 12px; }
+.past-search { width: 100%; max-width: 420px; padding: 10px 14px; border: 1px solid var(--lys-line); border-radius: 999px; font: inherit; background: var(--lys-surface, #fff); color: inherit; margin-bottom: 8px; }
+.event-row.is-past { opacity: .62; filter: grayscale(.7); }
+.event-row.is-past:hover, .event-row.is-past:focus-within { opacity: .9; }
+.event-row-date small { display: block; margin-top: 3px; font-size: 10px; letter-spacing: .08em; color: var(--lys-muted, inherit); }
+.past-more { text-align: center; margin-top: 16px; }

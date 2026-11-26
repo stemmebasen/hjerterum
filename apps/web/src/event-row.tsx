@@ -22,9 +22,11 @@ export function rowWhen(startsAt: string, endsAt: string | null | undefined): st
   return `${ROW_WHEN.format(start).replace(/^\p{L}/u, c => c.toLocaleUpperCase("da-DK"))}${end}`.replace(/(\d{2}):(\d{2})/g, "$1.$2");
 }
 
-export function RowDate({ startsAt }: { startsAt: string }) {
+const ROW_YEAR = new Intl.DateTimeFormat("da-DK", { year: "numeric", timeZone: "Europe/Copenhagen" });
+/** withYear: for an event that has been held, which may be years back (past-events.tsx). */
+export function RowDate({ startsAt, withYear = false }: { startsAt: string; withYear?: boolean }) {
   const start = new Date(startsAt);
-  return <span className="event-row-date"><b>{ROW_DAY.format(start)}</b>{ROW_MONTH.format(start).replace(".", "")}</span>;
+  return <span className="event-row-date"><b>{ROW_DAY.format(start)}</b>{ROW_MONTH.format(start).replace(".", "")}{withYear && <small>{ROW_YEAR.format(start)}</small>}</span>;
 }
 
 export function RowPhoto({ src }: { src: string | null | undefined }) {
