@@ -20,6 +20,7 @@
         "ENVIRONMENT": "staging",
         "SAGA_TELEGRAM_BOT_USERNAME": "jacobhaugemathiassen_bot_bot",
         "SAGA_BOARD_CHAT_ID": "-1003488840083",
+        "SAGA_DEPUTY_CHAT_ID": "-5198953189",
         "SAGA_OWNER_TELEGRAM_ID": "8490500029",
         "AI_BASE_URL": "https://router.eu.requesty.ai/v1",
         "AI_MODEL": "vertex/claude-sonnet-5-5@eu",
