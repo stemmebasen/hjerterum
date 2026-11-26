@@ -32,7 +32,7 @@ import { LegalLine } from "./site-pages";
 import { isPartnerEvent, PARTNER_HEADING } from "../partner-events";
 import { SitePageInner } from "./site-pages";
 import { BENEFITS, SITE_PAGES } from "../site/pages";
-import { LysArt, LysTop } from "./lys";
+import { LysArt, LysTop, siteHome } from "./lys";
 import { CategoryNav, LanguageSwitch } from "./site-pages";
 import { isKind, kindOf } from "./event-kinds";
 
@@ -1365,7 +1365,7 @@ export function AdminWorkspace({
   return (
     <main className="workspace-shell admin-workspace">
       <WorkspaceHeader clerk={clerk} mode="admin" path={path} />
-      {error ? <section className="workspace-section workspace-narrow"><h1>Adgang kræves</h1><div className="workspace-card"><p>{error}</p><a className="text-link" href="/">Tilbage til Hjerterum →</a></div></section> :
+      {error ? <section className="workspace-section workspace-narrow"><h1>Adgang kræves</h1><div className="workspace-card"><p>{error}</p><a className="text-link" href={siteHome()}>Tilbage til Hjerterum →</a></div></section> :
         !overview ? <section className="workspace-loading">Henter administrationen …</section> :
         normalized === "/admin/members" ? (
           <MembershipAdmin clerk={clerk} members={members} />

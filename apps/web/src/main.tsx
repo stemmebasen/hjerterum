@@ -23,7 +23,7 @@ import { resetLogin } from "./code-login";
 import { calculateRoomPriceQuote, roomBookingProblems, type RoomBookingType } from "../../../packages/core/src/legacy-room-pricing.js";
 import "./styles.css";
 import "./lys-spa.css";
-import { injectLys, LysTop } from "./lys";
+import { injectLys, LysTop, siteHome } from "./lys";
 import { countVisit } from "./visits";
 import { captureSagaConversation, SagaWidget, sagaLoginHref } from "./saga-widget";
 
@@ -502,7 +502,7 @@ function NotFound() {
     <section className="lys-intro site-intro">
       <div><p className="lys-kicker">Hjerterum</p><h1 className="lys-title">Siden findes<em>ikke længere</em></h1></div>
       <div className="site-intro-side"><p>Måske er den flyttet, da vi samlede hjemmesiden. Prøv forsiden, kalenderen eller menuen øverst.</p>
-        <p className="lys-hero-actions"><a className="lys-btn" href="/">Til forsiden</a><a className="lys-btn ghost" href="/events">Se kalenderen</a></p></div>
+        <p className="lys-hero-actions"><a className="lys-btn" href={siteHome()}>Til forsiden</a><a className="lys-btn ghost" href="/events">Se kalenderen</a></p></div>
     </section>
   </main>;
 }

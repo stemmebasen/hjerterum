@@ -18,8 +18,10 @@ export function injectLys(): void {
  * Reported: "På denne side føler jeg mig lidt lost, fordi jeg på ingen måde kan komme tilbage til hjemmesiden". */
 export function siteHome(): string {
   if (typeof window === "undefined") return "/";
+  // Douglas (26 Nov 2026): "when I click 'Home', it asks me to login" - on the member area's address "/" is the member pages, so the website's front page
+  // is named in full there (www, without the extra step from the bare address). Every "Forside" link uses this.
   const m = /^medlem\.(.+)$/i.exec(window.location.hostname);
-  return m ? `https://${m[1]}/` : "/";
+  return m ? `https://www.${m[1]}/` : "/";
 }
 
 export function LysLogo() {
