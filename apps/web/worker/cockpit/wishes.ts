@@ -271,7 +271,9 @@ export async function requestsApi(request: Request, env: SagaEnv, deps: SagaDeps
   const json = (data: unknown, status = 200) => new Response(JSON.stringify(data, null, 2), { status, headers: { "content-type": "application/json; charset=utf-8", "cache-control": "no-store", "x-robots-tag": "noindex, nofollow" } });
   const token = env.DEV_REQUESTS_TOKEN ?? "";
   const sent = (request.headers.get("authorization") ?? "").replace(/^Bearer\s+/i, "");
-  if (token.length < 24 || !sameSecret(sent, token)) return json({ error: "not_found" }, 404);
+  // Says which side is missing (the repo is public, so that the address exists is no secret): admin without its key, or a wrong key sent.
+  if (token.length < 24) return json({ error: "admin_has_no_key" }, 503);
+  if (!sameSecret(sent, token)) return json({ error: "not_found", sent_key: sent ? "wrong" : "none" }, 404);
   if (!match[1] && request.method === "GET") {
     const approved = (await listWishes(db)).filter(w => w.status === "approved");
     return json({ forslag: approved.map(w => ({ id: w.id, fra: w.author, titel: w.title, beskrivelse: w.summary, type: w.kind ?? null, stoerrelse: w.size ?? null, faerdig_naar: w.done_when ? w.done_when.split("\n") : [], note: w.chair_note, godkendt: w.decided_at_ms ? new Date(w.decided_at_ms).toISOString() : null, admin: `${cockpitUrl}/forslag/${w.id}` })) });

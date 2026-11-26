@@ -101,6 +101,8 @@ describe("wishes and faults in admin", () => {
     // The one who makes them fetches the approved requests with the key - nobody without it - and marks one done when it is on the site.
     expect((await call("/udvikling/api/forslag")).status).toBe(404);
     expect((await call("/udvikling/api/forslag", { headers: { authorization: "Bearer wrong-key-wrong-key-wrong-key" } })).status).toBe(404);
+    // The key without "Bearer" in front works too.
+    expect((await call("/udvikling/api/forslag", { headers: { authorization: TOKEN } })).status).toBe(200);
     const fetched = await (await call("/udvikling/api/forslag", { headers: { authorization: `Bearer ${TOKEN}` } })).json() as { forslag: Array<{ id: number; titel: string; note: string }> };
     expect(fetched.forslag).toEqual([expect.objectContaining({ id: Number(id), titel: "Bigger sign-up button on the event page", note: "Good idea" })]);
     expect((await call(`/udvikling/api/forslag/${id}/lavet`, { method: "POST", headers: { authorization: `Bearer ${TOKEN}` } })).status).toBe(200);
