@@ -80,7 +80,7 @@ export const AGENT = "Jewel";
 
 const SYSTEM = `Du er Jewel, Hjerterums produktudvikler. Du arbejder i admin under "Forslag til udvikling", hvor et medlem af bestyrelsen taler med dig om et forslag til Hjerterums system - hjemmesiden www.hjerterum.info, medlemssiden (Min side) eller admin - eller om en fejl, de har fundet. Du er ikke Saga (bestyrelsens assistent); spørger personen om andet end systemet (bestyrelsens arbejde, events, medlemmer, økonomi), så sig venligt, at det kan Saga hjælpe med under "Spørg Saga".
 
-Et forslag bliver først lavet, når det er godkendt; du ændrer ikke selv noget og lover aldrig, at noget bliver lavet. Nævn aldrig "formanden" - sig "til godkendelse".
+Et sendt forslag går direkte videre til udvikling; du ændrer ikke selv noget og lover aldrig, hvornår noget bliver lavet. Nævn aldrig "formanden".
 
 Din personlighed (the chair, 25 Nov 2026: "Give her a charming witty and Londoner personality"): du er en charmerende, kvik londoner - varm, hurtig i replikken og med et glimt i øjet. Tør, britisk humor og en let selvironi; du bliver aldrig sur, og humoren er aldrig på personens bekostning. På engelsk taler du som en venlig londoner ("lovely", "brilliant", "right then", "fancy a ...", "bob's your uncle", "cheers") - naturligt og med måde, ikke som en tegnefilm, og aldrig så det gør dig svær at forstå. På dansk taler du godt, venligt dansk med et lille engelsk krydderi en gang imellem ("lovely!", "brilliant"). Højst én lille spøg eller vending pr. svar, og kun når den passer - er nogen frustrerede over en fejl, så er du først og fremmest hjælpsom. Charmen gælder samtalen: selve forslaget ("oenske") skrives klart, sagligt og uden spøg.
 
@@ -103,7 +103,7 @@ Når forslaget er klart og gennemtænkt (eller personen beder dig skrive det), s
 - "faerdig_naar": 2-5 korte punkter, der kan tjekkes bagefter ("Knappen er synlig på telefonen", ...).
 
 Svar KUN med JSON: {"svar": "dit svar til personen", "oenske": null}
-- eller, når forslaget er skrevet: {"svar": "kort: her er forslaget - ret gerne, eller send det til godkendelse", "oenske": {"titel": "...", "type": "...", "stoerrelse": "...", "beskrivelse": "højst 1500 tegn", "faerdig_naar": ["...", "..."]}}`;
+- eller, når forslaget er skrevet: {"svar": "kort: her er forslaget - ret gerne, eller send det", "oenske": {"titel": "...", "type": "...", "stoerrelse": "...", "beskrivelse": "højst 1500 tegn", "faerdig_naar": ["...", "..."]}}`;
 
 /** The system as it is built, from the code itself: the admin menu with who may use what, and the website's pages. */
 export function systemHandbook(): string {
@@ -221,13 +221,16 @@ export async function talkAboutWish(env: SagaEnv, deps: SagaDeps, db: D1Database
 }
 
 /** The person sends the wish to the chair - and the chair hears it on Telegram. */
+/** Then (the chair, 26 Nov 2026): "We don't need that buffer. He has high authority, so whatever he says is something to work with." A sent request is
+ * approved at once, by the one who sent it; the chair hears of it and can still turn it down. */
 export async function sendWish(env: SagaEnv, deps: SagaDeps, db: D1Database, wish: Wish, cockpitUrl: string): Promise<boolean> {
   if (wish.status !== "open" || !wish.title || !wish.summary) return false;
   const now = deps.now();
-  const changed = await db.prepare("UPDATE wishes SET status = 'sent', sent_at_ms = ?, updated_at_ms = ? WHERE id = ? AND status = 'open'").bind(now, now, wish.id).run();
+  const changed = await db.prepare("UPDATE wishes SET status = 'approved', sent_at_ms = ?, decided_by = ?, decided_at_ms = ?, updated_at_ms = ? WHERE id = ? AND status = 'open'")
+    .bind(now, wish.author, now, now, wish.id).run();
   if (!changed.meta?.changes) return false;
   if (env.SAGA_TELEGRAM_BOT_TOKEN && env.SAGA_OWNER_TELEGRAM_ID)
-    await telegramClient(env, deps).sendMessage(env.SAGA_OWNER_TELEGRAM_ID, `${wish.author} har sendt et forslag til udvikling: »${wish.title}«\n\nSe det, og godkend eller afvis det her: ${cockpitUrl}/forslag/${wish.id}`).catch(() => undefined);
+    await telegramClient(env, deps).sendMessage(env.SAGA_OWNER_TELEGRAM_ID, `${wish.author} har sendt et forslag til udvikling: »${wish.title}«. Det går direkte videre til udvikling.\n\nSe det her (du kan stadig afvise det): ${cockpitUrl}/forslag/${wish.id}`).catch(() => undefined);
   return true;
 }
 
@@ -239,12 +242,12 @@ async function tellAuthor(env: SagaEnv, deps: SagaDeps, db: D1Database, author: 
   if (person?.telegram_id) await telegramClient(env, deps).sendMessage(person.telegram_id, text).catch(() => undefined);
 }
 
-/** The chair approves or turns down a sent wish; the one who wished hears it on Telegram, when Saga knows them there. */
+/** The chair approves or turns down a wish - also one already approved when it was sent; the one who wished hears it on Telegram, when Saga knows them there. */
 export async function decideWish(env: SagaEnv, deps: SagaDeps, db: D1Database, wish: Wish, approve: boolean, note: string, by: string, cockpitUrl: string): Promise<boolean> {
-  if (wish.status !== "sent" && wish.status !== "open") return false;
+  if (!["sent", "open", "approved"].includes(wish.status)) return false;
   const now = deps.now();
   const clean = note.trim().slice(0, 1500) || null;
-  const changed = await db.prepare("UPDATE wishes SET status = ?, chair_note = ?, decided_by = ?, decided_at_ms = ?, updated_at_ms = ? WHERE id = ? AND status IN ('sent', 'open')")
+  const changed = await db.prepare("UPDATE wishes SET status = ?, chair_note = ?, decided_by = ?, decided_at_ms = ?, updated_at_ms = ? WHERE id = ? AND status IN ('sent', 'open', 'approved')")
     .bind(approve ? "approved" : "rejected", clean, by, now, now, wish.id).run();
   if (!changed.meta?.changes) return false;
   if (wish.author !== by)
@@ -320,7 +323,7 @@ export function wishesPage(base: string, who: string | null, d: { wishes: Wish[]
 <textarea class="w-copy" rows="10" readonly translate="no">${esc(approvedText(approved))}</textarea>
 <p><button type="button" class="ghost" onclick="const t=this.closest('section').querySelector('textarea');t.select();navigator.clipboard&&navigator.clipboard.writeText(t.value);this.textContent='Kopieret'">Kopiér</button></p></section>` : "";
   const body = `<main class="w"><div class="hero"><div class="w-intro"><img class="w-avatar" src="${base}/jewel.svg" alt="" width="96" height="96"><div><h1>Forslag til udvikling</h1><p class="w-who">Jewel, Hjerterums produktudvikler</p></div></div>
-<p>Fortæl Jewel om et forslag til hjemmesiden, medlemssiden eller admin - eller om en fejl, du har fundet. Hun tænker med, spørger ind, til det er klart, og skriver det som ét forslag, som du sender til godkendelse. Intet ændres på siden herfra.</p>
+<p>Fortæl Jewel om et forslag til hjemmesiden, medlemssiden eller admin - eller om en fejl, du har fundet. Hun tænker med, spørger ind, til det er klart, og skriver det som ét forslag, som du sender videre til udvikling. Intet ændres på siden herfra.</p>
 <form method="post" action="${base}/forslag/ny"><button>Nyt forslag</button></form></div>
 ${d.notice ? `<p class="notice">${esc(d.notice)}</p>` : ""}
 ${group(d.chair ? "Venter på dig" : "Venter på godkendelse", waiting, "Ingen forslag venter.")}
@@ -340,8 +343,8 @@ export function wishCard(base: string, d: WishView): string {
 ${w.kind ? `<p class="small"><span class="w-chip">${esc(KIND_TEXT[w.kind] ?? w.kind)}</span>${w.size ? `<span class="w-chip">${esc(SIZE_TEXT[w.size] ?? w.size)}</span>` : ""}</p>` : ""}
 ${w.done_when ? `<p class="small"><b>Færdigt når:</b></p><ul class="w-done-when" translate="no">${w.done_when.split("\n").map(x => `<li>${esc(x)}</li>`).join("")}</ul>` : ""}
 ${w.chair_note ? `<p class="small"><b>Note:</b> <span translate="no">${esc(w.chair_note)}</span></p>` : ""}
-${w.status === "open" && (d.mine || d.chair) ? `<form method="post" action="${base}/forslag/${w.id}/send"><button>Send forslaget til godkendelse</button></form><p class="small muted">Vil du rette noget, så skriv det til Jewel herunder, så skriver hun forslaget om.</p>` : ""}
-${d.chair && (w.status === "sent" || w.status === "open") ? `<form method="post" action="${base}/forslag/${w.id}/afgoer" class="w-decide"><label>Note til ${esc(w.author)} (valgfri)<textarea name="note" rows="3" maxlength="1500"></textarea></label>
+${w.status === "open" && (d.mine || d.chair) ? `<form method="post" action="${base}/forslag/${w.id}/send"><button>Send forslaget til udvikling</button></form><p class="small muted">Vil du rette noget, så skriv det til Jewel herunder, så skriver hun forslaget om.</p>` : ""}
+${d.chair && (w.status === "sent" || w.status === "open" || w.status === "approved") ? `<form method="post" action="${base}/forslag/${w.id}/afgoer" class="w-decide"><label>Note til ${esc(w.author)} (valgfri)<textarea name="note" rows="3" maxlength="1500"></textarea></label>
 <p><button name="svar" value="godkend">Godkend</button> <button name="svar" value="afvis" class="ghost">Afvis</button></p></form>` : ""}
 ${d.chair && w.status === "approved" ? `<form method="post" action="${base}/forslag/${w.id}/lavet"><button class="ghost">Markér som lavet</button></form>` : ""}</section>`;
 }
