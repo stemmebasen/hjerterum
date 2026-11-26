@@ -108,7 +108,7 @@ async function handleUpdate(env: SagaEnv, deps: SagaDeps, update: TgUpdate): Pro
 
   // Any board member may ask Saga privately for their personal cockpit login (cockpit/personalLogin.ts).
   if (message.chat.type === "private" && message.from && !message.from.is_bot && isLoginRequest(message.text ?? "")) {
-    await answerLoginRequest(env, deps, requireDb(env), chatId, String(message.from.id));
+    await answerLoginRequest(env, deps, requireDb(env), chatId, String(message.from.id), name(message.from));
     return;
   }
 

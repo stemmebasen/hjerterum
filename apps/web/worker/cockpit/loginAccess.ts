@@ -52,7 +52,7 @@ export async function checkAccess(env: SagaEnv, deps: SagaDeps, db: D1Database, 
   if (owner && telegramId === owner) return true;
   const telegram = telegramClient(env, deps);
   const now = deps.now();
-  const group = role === "suppleant" ? "suppleanternes gruppe" : "bestyrelsens gruppe";
+  const group = role === "suppleant" ? (env.SAGA_DEPUTY_CHAT_ID ? "suppleanternes gruppe" : "Telegram, uden for bestyrelsens gruppe") : "bestyrelsens gruppe";
   if (await nameTaken(env, db, telegramId, name, role)) {
     if (owner) await telegram.sendMessage(owner, `Obs: en Telegram-konto (${telegramId}) bad om login til admin som "${name}", men det navn bruges allerede af en anden konto i ${group}. Jeg har ikke givet adgang.`).catch(() => undefined);
     await telegram.sendMessage(chatId, `Dit navn i Telegram (${name}) bruges også af en anden i ${group}, så jeg kan ikke give dig login. Skriv til formanden, så finder I ud af det.`);

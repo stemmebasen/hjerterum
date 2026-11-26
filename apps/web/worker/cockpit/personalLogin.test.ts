@@ -62,7 +62,7 @@ describe("a personal login from Saga", () => {
     expect(path).toBeTruthy();
     await telegram(999, "/login");
     const refused = services.telegram("sendMessage").at(-1)?.body as { chat_id: number; text: string };
-    expect(refused.text).toContain("kun for Hjerterums bestyrelse");
+    expect(refused.text).toContain("Første gang skal formanden godkende dig");
     expect(refused.text).not.toContain("/login/link/");
     expect(services.calls.filter(c => !c.url.endsWith("/getChatMember") && (c.body as { chat_id?: string })?.chat_id === BOARD)).toHaveLength(0);
   });
