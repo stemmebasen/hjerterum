@@ -107,7 +107,7 @@ export async function signOutMember(db: D1Database, member: string, nowMs: numbe
 
 /** Saga's answer to /login in a private chat. Someone in the board's group gets the board's login; otherwise someone in the deputies'
  * group gets a deputy's login (cockpit/deputies.ts) - requested: "Lad os starte med suppleant adgang". */
-export async function answerLoginRequest(env: SagaEnv, deps: SagaDeps, db: D1Database, chatId: string, telegramId: string): Promise<void> {
+export async function answerLoginRequest(env: SagaEnv, deps: SagaDeps, db: D1Database, chatId: string, telegramId: string, telegramName = ""): Promise<void> {
   const telegram = telegramClient(env, deps);
   const member = await memberByTelegram(env, db, telegramId);
   // Only someone who is in the group right now: a member who was taken out loses access even though their old messages are still there.
@@ -121,7 +121,13 @@ export async function answerLoginRequest(env: SagaEnv, deps: SagaDeps, db: D1Dat
     if (deputy && deputyHere === null) { await telegram.sendMessage(chatId, "Jeg kan ikke tjekke lige nu, om du er med i suppleanternes gruppe. Prøv igen om lidt."); return; }
     if (deputy && deputyHere) { if (await checkAccess(env, deps, db, chatId, telegramId, deputy, "suppleant")) await sendLogin(env, deps, db, chatId, telegramId, deputy, "suppleant"); return; }
     if (member) { await telegram.sendMessage(chatId, "Du er ikke længere med i bestyrelsens gruppe, så jeg kan ikke give dig login til admin. Er det en fejl, så skriv til formanden."); return; }
-    await telegram.sendMessage(chatId, "Login til admin er kun for Hjerterums bestyrelse og suppleanter. Er du med, så skriv først en besked i din gruppe, og prøv igen.");
+    if (deputy) { await telegram.sendMessage(chatId, "Du er ikke længere med i suppleanternes gruppe, så jeg kan ikke give dig login til admin. Er det en fejl, så skriv til formanden."); return; }
+    // Asked (the chair, 26 Nov 2026): "make it possible to give out two new suppleants their access - Line and Kai". Without the deputies' group, anyone
+    // may ask for a deputy's login by writing /login; the chair gets Godkend / Afvis (loginAccess.ts), and only an approved account gets in - read only,
+    // without the member list, as every deputy.
+    const asked = telegramName.trim().slice(0, 80);
+    if (!asked) { await telegram.sendMessage(chatId, "Login til admin er kun for Hjerterums bestyrelse og suppleanter. Skriv til formanden, hvis du skal have adgang."); return; }
+    if (await checkAccess(env, deps, db, chatId, telegramId, asked, "suppleant")) await sendLogin(env, deps, db, chatId, telegramId, asked, "suppleant");
     return;
   }
   // The account, not the name: a name another account goes by gets nothing, and a new account waits for the chair (loginAccess.ts).

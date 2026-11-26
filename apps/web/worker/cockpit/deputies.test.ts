@@ -42,6 +42,27 @@ async function setup(chatMembers: Record<string, string> = {}, ai?: (system: str
 }
 
 describe("a deputy's login", () => {
+  it("is given to a new deputy outside any group when the chair approves - Line and Kai (26 Nov 2026)", async () => {
+    const { env, services, update, call, cookiesOf } = await setup();
+    // Not in the deputies' group: Line writes /login, and the chair is asked.
+    await update({ id: 401, type: "private" }, 401, "/login", "Line");
+    const said = services.telegram("sendMessage").map(c => c.body as { chat_id: string; text: string });
+    expect(said.find(b => String(b.chat_id) === OWNER)!.text).toContain("Line beder om login til admin som suppleant");
+    expect(said.at(-1)!.text).toContain("Første gang skal formanden godkende dig");
+    // The chair presses Godkend.
+    await handleSagaRequest(new Request("https://hjerterum.test/api/saga/telegram", { method: "POST", headers: { "content-type": "application/json", "x-telegram-bot-api-secret-token": "hook-secret" },
+      body: JSON.stringify({ update_id: 2, callback_query: { id: "c1", from: { id: Number(OWNER), first_name: "Jacob" }, data: "approve:login:401" } }) }), env, deps(services.fetcher, NOW));
+    await update({ id: 401, type: "private" }, 401, "/login", "Line");
+    const sent = services.telegram("sendMessage").at(-1)!.body as { text: string };
+    expect(sent.text).toContain("Hej Line");
+    const path = /\/login\/link\/[A-Za-z0-9_-]+/.exec(sent.text)?.[0] ?? null;
+    const line = cookiesOf(await call(path!, { method: "POST" }));
+    expect(line).toContain("hjerterum_cockpit_deputy=");
+    // Read only, without the member list or the membership pages, as every deputy.
+    expect((await call("/medlemmer", { cookie: line })).status).toBe(403);
+    expect((await call("/medlemskab", { cookie: line })).status).toBe(403);
+  });
+
   it("is given to someone in the deputies' group, and Saga keeps no text from that group", async () => {
     const { db, update, loginFor, services } = await setup();
     await update({ id: Number(DEPUTIES), type: "supergroup" }, 301, "Noget fortroligt fra suppleanterne", "Signe");
@@ -56,7 +77,8 @@ describe("a deputy's login", () => {
   it("is refused to someone in neither group", async () => {
     const { loginFor } = await setup();
     const { sent, path } = await loginFor(999);
-    expect(sent.text).toContain("kun for Hjerterums bestyrelse");
+    // The chair (26 Nov 2026): new deputies (Line and Kai) ask by /login, and the chair decides - no login before that.
+    expect(sent.text).toContain("Første gang skal formanden godkende dig");
     expect(path).toBeNull();
   });
 
