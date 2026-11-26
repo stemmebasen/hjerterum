@@ -585,12 +585,12 @@ Til events, hvor medlemmer betaler mindre end ikke-medlemmer for at deltage.
 |---|---|---|
 | Grundpris inkl. de første 2 timer | 150 kr. | 400 kr. |
 | Pris pr. ekstra time | 75 kr. | 150 kr. |
-| Mindste rabat til medlemmer | 50 kr. | 100 kr. |
+| Mindste rabat til medlemmer (medlemspris under 400 kr.) | 75 kr. | 100 kr. |
 
 I en periode giver vi 25 % rabat på A-tidspriserne – det ser du i prisberegneren.
 
 ### C) Gratis leje
-Hjerterum tager ikke betaling for lokalet. Medlemmer deltager gratis, og ikke-medlemmer betaler mindst 150 kr. i A-tid eller 75 kr. i B-tid pr. person, som underviseren selv opkræver. Som underviser kan du booke ét event med gratis leje om ugen.
+Hjerterum tager ikke betaling for lokalet. Medlemmer deltager gratis, og ikke-medlemmer betaler mindst 100 kr. i A-tid eller 75 kr. i B-tid pr. person, som underviseren selv opkræver. Som underviser kan du booke ét event med gratis leje om ugen.
 
 ### Regler
 - **Varighed:** mindst 2 og højst 10 timer pr. booking.

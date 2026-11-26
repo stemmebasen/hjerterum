@@ -123,8 +123,8 @@ function calculateFee(startMs: number, endMs: number, bookingType: RoomBookingTy
 }
 
 /** Decision 0006 and the price table, in the event form too (the chair, 4 Nov 2026, on the teacher Douglas' feedback: "Afvis med en klar forklaring"):
- * the lowest price for non-members a rent type allows - free rent at least 150 kr. a person in A-time and 75 kr. in B-time (decision 0012), reduced at least the member price plus the surcharge (A-time
- * +100 kr., B-time +50 kr. under 400 kr.) - or null for standard rent. A blank non-member price is the members' price. The board's own events (from
+ * the lowest price for non-members a rent type allows - free rent at least 100 kr. a person in A-time and 75 kr. in B-time (decision 0013), reduced at least the member price plus the surcharge (A-time
+ * +100 kr., B-time +75 kr. under 400 kr.) - or null for standard rent. A blank non-member price is the members' price. The board's own events (from
  * admin, "cockpit:") are not held to it, as decision 0006 says. */
 export function nonMemberMinimumKr(startMs: number, bookingType: RoomBookingType | undefined, memberPriceKr: number): number | null {
   if (!bookingType || bookingType === "standard") return null;
@@ -132,12 +132,11 @@ export function nonMemberMinimumKr(startMs: number, bookingType: RoomBookingType
   const quote = calculateRoomPriceQuote({ dayOfWeek, startMinutes, durationMinutes: 120, bookingType, ...(bookingType === "reduced" ? { memberPriceKr } : {}) });
   return bookingType === "free" ? quote.minimumNonMemberPriceKr : quote.nonMemberPriceKr;
 }
-function checkNonMemberPrice(ownerClerkUserId: string, startMs: number, input: CreateRoomBookingInput): void {
-  if (ownerClerkUserId.startsWith("cockpit:")) return;
-  const memberKr = input.ticketPriceMinor / 100;
-  const minimum = nonMemberMinimumKr(startMs, input.bookingType, memberKr);
-  const nonMemberKr = (input.nonMemberPriceMinor ?? input.ticketPriceMinor) / 100;
-  if (minimum !== null && nonMemberKr < minimum) throw new Error(`invalid_non_member_minimum_${minimum}`);
+/** Douglas (forslag #4, decision 0013): "Maybe only warn them, and then we can approve or not as we wish." A price under the minimum is no longer
+ * refused: the form warns, and Saga sends such an event to the board instead of approving it (cockpit/eventDesk.ts belowMinimum). */
+export function belowNonMemberMinimum(startMs: number, bookingType: RoomBookingType | undefined, memberPriceMinor: number, nonMemberPriceMinor: number | null): number | null {
+  const minimum = nonMemberMinimumKr(startMs, bookingType, memberPriceMinor / 100);
+  return minimum !== null && (nonMemberPriceMinor ?? memberPriceMinor) / 100 < minimum ? minimum : null;
 }
 
 const BOOKING_TYPES: readonly RoomBookingType[] = ["standard", "reduced", "free"];
@@ -334,7 +333,6 @@ export async function createRoomBooking(
   if (input.bookingType === "free" && await freeRentUsed(db, ownerClerkUserId, startMs, null)) throw new Error("free_rent_week_used");
 
   const feeKr = feeForDays(windows, input);
-  checkNonMemberPrice(ownerClerkUserId, startMs, input);
   const now = Date.now();
   const insert = await db
     .prepare(
@@ -421,7 +419,6 @@ export async function updateOwnedRoomBooking(
   }
 
   const feeKr = feeForDays(windows, input);
-  checkNonMemberPrice(ownerClerkUserId, startMs, input);
   const result = await db
     .prepare(
       `UPDATE room_bookings

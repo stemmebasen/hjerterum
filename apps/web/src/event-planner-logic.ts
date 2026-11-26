@@ -1,3 +1,4 @@
+import { calculateRoomPriceQuote } from "../../../packages/core/src/legacy-room-pricing.js";
 import { calculate, crossesBand, type CalcResult } from "../worker/beregner/quote";
 
 /** The member's event planner (requested): one date from a date picker, the day's overview next to it, the times as
@@ -201,4 +202,19 @@ export function planFromBooking(startsAt: string, endsAt: string, type: RentType
 /** The instants the server wants, from the plan's local date and times. */
 export function planInstants(plan: Plan): { startsAt: string; endsAt: string } {
   return { startsAt: atLocal(plan.date, minutesOf(plan.start)).toISOString(), endsAt: atLocal(plan.date, endMinutes(plan.end)).toISOString() };
+}
+
+/** Douglas (forslag #4): "if a teacher enters a non-member price below the minimum, show a clear warning with the minimum amount, saying the event will
+ * probably not be approved at that price" - "Maybe only warn them, and then we can approve or not as we wish". Saving is not stopped. */
+export function nonMemberWarning(plan: Plan, memberText: string, nonMemberText: string): string | null {
+  if (plan.type === "standard" || !plan.date || !/^\d{2}:\d{2}$/.test(plan.start)) return null;
+  const member = Number(memberText.replace(",", ".") || "0"), nonMember = nonMemberText.trim() === "" ? member : Number(nonMemberText.replace(",", "."));
+  if (!Number.isFinite(member) || member < 0 || !Number.isFinite(nonMember)) return null;
+  const [h, m] = plan.start.split(":").map(Number);
+  const quote = calculateRoomPriceQuote({ dayOfWeek: new Date(`${plan.date}T12:00:00`).getDay(), startMinutes: h! * 60 + m!, durationMinutes: 120, bookingType: plan.type,
+    ...(plan.type === "reduced" ? { memberPriceKr: member } : {}) });
+  const minimum = plan.type === "free" ? quote.minimumNonMemberPriceKr : quote.nonMemberPriceKr;
+  return minimum !== null && nonMember < minimum
+    ? `Obs: med ${plan.type === "free" ? "gratis leje" : "reduceret leje"} skal ikke-medlemmer betale mindst ${minimum.toLocaleString("da-DK")} kr. Til ${nonMember.toLocaleString("da-DK")} kr. bliver eventet nok ikke godkendt. Du kan stadig gemme det, så ser bestyrelsen på det.`
+    : null;
 }
