@@ -16,7 +16,7 @@ import { EventTextHelp } from "./event-text-help";
 import { EventVarietyNote } from "./event-variety-note";
 import { MIN_EVENT_WORDS, wordCount } from "../site/event-text";
 import { AUTO_POSTER, PosterChoice, savePosterChoice, type PosterChoiceValue, type SavedPoster } from "./poster-choice";
-import { longDay, planFromBooking, planInstants, todayKey, DEFAULT_BUFFER, PROBLEM_TEXT, type Plan } from "./event-planner-logic";
+import { longDay, nonMemberWarning, planFromBooking, planInstants, todayKey, DEFAULT_BUFFER, PROBLEM_TEXT, type Plan } from "./event-planner-logic";
 import { useCallback, useEffect, useRef, useState, type FormEvent, type ReactNode } from "react";
 import { apiFetch, type ClerkBrowser, type ClerkUser } from "./clerk";
 import { MemberNewsletter } from "./member-newsletter";
@@ -376,6 +376,8 @@ function MemberEvents({
     return () => window.removeEventListener("popstate", back);
   }, []);
   const [plan, setPlan] = useState<Plan>(EMPTY_PLAN);
+  // The prices as typed, for the warning under the non-member price (nonMemberWarning).
+  const [typed, setTyped] = useState<{ member: string; nonMember: string } | null>(null);
   // Douglas (18 Nov 2026), for the board: "I cannot see any way to book a whole weekend" - the same times on days in a row.
   const [days, setDays] = useState(1);
   const [cover, setCover] = useState<File | null>(null);
@@ -629,7 +631,8 @@ function MemberEvents({
               {/* Reported: "Dette layout er ikke kønt. det kan gøres meget bedre." - the numbers as one calm row of three, each with one short line. */}
               <fieldset className="event-section">
                 <legend>Deltagere og pris</legend>
-                <div className="event-numbers">
+                <div className="event-numbers" onInput={e => { const f = e.currentTarget; const v = (n: string) => (f.querySelector(`[name="${n}"]`) as HTMLInputElement | null)?.value ?? "";
+                  setTyped({ member: v("ticketPriceKr"), nonMember: v("nonMemberPriceKr") }); }}>
                   <label>Maks. deltagere<input name="maxAttendees" type="number" min="1" placeholder={attendeeHint} defaultValue={editing?.maxAttendees ?? prefill?.draft.max_attendees ?? ""} />
                     <small>Tomt felt: ingen grænse.</small></label>
                   <label>Pris for medlemmer (kr.)
@@ -639,6 +642,8 @@ function MemberEvents({
                   <label>Pris for ikke-medlemmer (kr.)
                     <input name="nonMemberPriceKr" type="number" min="0" step="1" placeholder={priceHint} defaultValue={editing?.nonMemberPriceKr ?? prefill?.draft.non_member_price_kr ?? ""} />
                     <small>{nonMemberRule(plan)}</small>
+                    {(() => { const warning = typed ? nonMemberWarning(plan, typed.member, typed.nonMember) : null;
+                      return warning && <small className="price-warning" role="status"><Live text={warning} /></small>; })()}
                   </label>
                 </div>
               </fieldset>
@@ -747,15 +752,15 @@ function AttendeeList({ clerk, bookingId, count }: { clerk: ClerkBrowser; bookin
   </div>;
 }
 
-/** The rule for the non-member price, shown at the field (the chair, 4 Nov 2026: the form refuses a price that breaks the rent rules "med en klar
- * forklaring"; decision 0012: free rent at least 150 kr. a person in A-time, 75 kr. in B-time; reduced: the member price plus 100 kr. in the evening and at weekends, 50 kr. by day). */
+/** The rule for the non-member price, shown at the field (decision 0013, 26 Nov 2026: free rent at least 100 kr. a person in A-time, 75 kr. in B-time;
+ * reduced: the member price plus 100 kr. in the evening and at weekends, 75 kr. by day, for member prices under 400 kr.). */
 function nonMemberRule(plan: Plan): string {
   const evening = plan.date && plan.start ? (new Date(`${plan.date}T12:00:00`).getDay() % 6 === 0 || plan.start >= "18:30") : null;
-  if (plan.type === "free") return evening === null ? "Ved gratis leje: mindst 150 kr. aften og weekend, 75 kr. om dagen for ikke-medlemmer. Medlemmer deltager gratis."
-    : `Ved gratis leje: mindst ${evening ? "150" : "75"} kr. for ikke-medlemmer. Medlemmer deltager gratis.`;
+  if (plan.type === "free") return evening === null ? "Ved gratis leje: mindst 100 kr. aften og weekend, 75 kr. om dagen for ikke-medlemmer. Medlemmer deltager gratis."
+    : `Ved gratis leje: mindst ${evening ? "100" : "75"} kr. for ikke-medlemmer. Medlemmer deltager gratis.`;
   if (plan.type === "reduced") {
-    return evening === null ? "Ved reduceret leje: mindst medlemsprisen + 100 kr. aften og weekend, + 50 kr. om dagen."
-      : `Ved reduceret leje: mindst medlemsprisen + ${evening ? "100" : "50"} kr. for ikke-medlemmer.`;
+    return evening === null ? "Ved reduceret leje: mindst medlemsprisen + 100 kr. aften og weekend, + 75 kr. om dagen (højere ved dyrere events - se prisberegneren)."
+      : `Ved reduceret leje: mindst medlemsprisen + ${evening ? "100" : "75"} kr. for ikke-medlemmer (højere ved dyrere events - se prisberegneren).`;
   }
   return "Tomt felt: samme pris. Medlemmerne ser, hvad de sparer.";
 }

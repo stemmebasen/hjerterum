@@ -85,7 +85,12 @@ describe("calculateLegacyRoomFee", () => {
       .toMatchObject({ band: "A", totalPriceKr: 412, nonMemberPriceKr: 625 });
     expect(calculateRoomPriceQuote({ bookingType: "reduced", dayOfWeek: 2, startMinutes: 600, durationMinutes: 240, memberPriceKr: 1000 }))
       .toMatchObject({ band: "B", totalPriceKr: 300, nonMemberPriceKr: 1100, discountPercent: 0 });
-    expect(calculateRoomPriceQuote({ bookingType: "free", dayOfWeek: 5, startMinutes: 1110, durationMinutes: 120 })).toMatchObject({ minimumNonMemberPriceKr: 150 }); // A-time: 150 kr. (decision 0012)
+    expect(calculateRoomPriceQuote({ bookingType: "free", dayOfWeek: 5, startMinutes: 1110, durationMinutes: 120 })).toMatchObject({ minimumNonMemberPriceKr: 100 }); // A-time: 100 kr. (decision 0013)
+    // Decision 0013: reduced rent, a member price under 400 kr.: + 100 kr. in A-time, + 75 kr. in B-time; the higher steps as before.
+    expect(calculateRoomPriceQuote({ bookingType: "reduced", dayOfWeek: 2, startMinutes: 600, durationMinutes: 120, memberPriceKr: 100 })).toMatchObject({ band: "B", nonMemberPriceKr: 175 });
+    expect(calculateRoomPriceQuote({ bookingType: "reduced", dayOfWeek: 2, startMinutes: 19 * 60, durationMinutes: 120, memberPriceKr: 100 })).toMatchObject({ band: "A", nonMemberPriceKr: 200 });
+    expect(calculateRoomPriceQuote({ bookingType: "reduced", dayOfWeek: 2, startMinutes: 600, durationMinutes: 120, memberPriceKr: 400 })).toMatchObject({ nonMemberPriceKr: 450 });
+    expect(calculateRoomPriceQuote({ bookingType: "free", dayOfWeek: 2, startMinutes: 600, durationMinutes: 120 })).toMatchObject({ minimumNonMemberPriceKr: 75 });
   });
 
   it("holds the calculator's booking rules", () => {

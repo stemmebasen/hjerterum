@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { createRoomBooking, fixedTeacherByAccount, normalizeCreateRoomBookingInput } from "./room-bookings.js";
+import { belowNonMemberMinimum, createRoomBooking, fixedTeacherByAccount, normalizeCreateRoomBookingInput } from "./room-bookings.js";
 import { testDatabase } from "./saga/test-support.js";
 
 function futureIso(minutes: number): string {
@@ -106,23 +106,23 @@ describe("room bookings priced by Hjerterum's price calculator", () => {
     await expect(createRoomBooking(db, "cockpit:Jacob", booking("2027-11-17T09:00:00Z", "2027-11-17T11:00:00Z", "free"))).resolves.toBeTruthy();
   });
 
-  // Douglas (4 Nov 2026) on the event form's prices - the chair: refuse a price that breaks the rent rules, "med en klar forklaring".
-  it("holds the non-member price to the rent rules, but not the board's own events", async () => {
+  // Douglas (forslag #4, decision 0013): "Maybe only warn them, and then we can approve or not as we wish" - a price under the minimum is saved,
+  // and the minimum is known for the warning and for Saga's review (cockpit/eventDesk.ts).
+  it("saves a non-member price under the minimum, and knows the minimum", async () => {
     vi.stubGlobal("fetch", vi.fn(async () => { throw new Error("offline"); }));
     const db = testDatabase();
-    // Free rent: at least 150 kr. in A-time (here a Saturday), 75 kr. in B-time (decision 0012); a blank price is the members' 0 kr.
-    await expect(createRoomBooking(db, "u1", booking("2027-11-20T09:00:00Z", "2027-11-20T11:00:00Z", "free", 75))).rejects.toThrow("invalid_non_member_minimum_150");
-    await expect(createRoomBooking(db, "u1", booking("2027-11-18T09:00:00Z", "2027-11-18T11:00:00Z", "free", 50))).rejects.toThrow("invalid_non_member_minimum_75");
-    await expect(createRoomBooking(db, "u1", normalizeCreateRoomBookingInput({ teacherName: "Maria", teacherEmail: "m@example.com", title: "Yoga",
-      startsAt: "2027-11-16T09:00:00Z", endsAt: "2027-11-16T11:00:00Z", bookingType: "free" }))).rejects.toThrow("invalid_non_member_minimum_75");
-    await expect(createRoomBooking(db, "u1", booking("2027-11-20T09:00:00Z", "2027-11-20T11:00:00Z", "free", 150))).resolves.toMatchObject({ feeKr: 0 });
-    await expect(createRoomBooking(db, "u1", booking("2027-11-24T09:00:00Z", "2027-11-24T11:00:00Z", "free", 75))).resolves.toMatchObject({ feeKr: 0 }); // the next week: one free rent a week
-    // Reduced: the member price (0 kr. until payment is connected) + 100 kr. in the evening, + 50 kr. by day.
-    await expect(createRoomBooking(db, "u1", booking("2027-11-16T18:00:00Z", "2027-11-16T21:00:00Z", "reduced", 80))).rejects.toThrow("invalid_non_member_minimum_100");
-    await expect(createRoomBooking(db, "u1", booking("2027-11-17T09:00:00Z", "2027-11-17T11:00:00Z", "reduced", 40))).rejects.toThrow("invalid_non_member_minimum_50");
-    await expect(createRoomBooking(db, "u1", booking("2027-11-17T09:00:00Z", "2027-11-17T11:00:00Z", "reduced", 50))).resolves.toBeTruthy();
-    // The board's own events from admin are not held to it (decision 0006).
-    await expect(createRoomBooking(db, "cockpit:Jacob", booking("2027-11-23T09:00:00Z", "2027-11-23T11:00:00Z", "free", 0))).resolves.toBeTruthy();
+    await expect(createRoomBooking(db, "u1", booking("2027-11-20T09:00:00Z", "2027-11-20T11:00:00Z", "free", 75))).resolves.toMatchObject({ feeKr: 0 });
+    const saturday = Date.parse("2027-11-20T09:00:00Z"), wednesday = Date.parse("2027-11-17T09:00:00Z"), tuesdayEvening = Date.parse("2027-11-16T18:00:00Z");
+    // Free rent: at least 100 kr. in A-time (a Saturday), 75 kr. in B-time; a blank price is the members' 0 kr.
+    expect(belowNonMemberMinimum(saturday, "free", 0, 7500)).toBe(100);
+    expect(belowNonMemberMinimum(saturday, "free", 0, 10000)).toBeNull();
+    expect(belowNonMemberMinimum(wednesday, "free", 0, null)).toBe(75);
+    expect(belowNonMemberMinimum(wednesday, "free", 0, 7500)).toBeNull();
+    // Reduced, under 400 kr.: the member price + 100 kr. in the evening, + 75 kr. by day.
+    expect(belowNonMemberMinimum(tuesdayEvening, "reduced", 0, 8000)).toBe(100);
+    expect(belowNonMemberMinimum(wednesday, "reduced", 0, 5000)).toBe(75);
+    expect(belowNonMemberMinimum(wednesday, "reduced", 0, 7500)).toBeNull();
+    expect(belowNonMemberMinimum(wednesday, "standard", 0, 0)).toBeNull();
   });
 
   it("holds the calculator's rules", async () => {

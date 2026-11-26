@@ -6,7 +6,7 @@ import type { D1Database } from "../db.js";
 import { completeAs } from "../saga/ai.js";
 import type { SagaDeps, SagaEnv } from "../saga/env.js";
 import { calculateRoomPriceQuote, roomBookingProblems, ROOM_RENTAL_RULES, type RoomBookingProblem, type RoomBookingType, type RoomPriceQuote } from "../../../../packages/core/src/legacy-room-pricing.js";
-import { createRoomBooking, normalizeCreateRoomBookingInput, type ReviewStatus } from "../room-bookings.js";
+import { belowNonMemberMinimum, createRoomBooking, normalizeCreateRoomBookingInput, type ReviewStatus } from "../room-bookings.js";
 import { STATUTES } from "./statutes.js";
 import { esc } from "./page.js";
 import { copenhagenMs, DEFAULT_PLACE } from "./data.js";
@@ -62,12 +62,12 @@ export function readVerdict(text: string): ReviewVerdict {
   return { approve: data.verdict === "approve" && allMet, note: note || (unmet.length ? `Ikke klart opfyldt: ${unmet.join(", ")}.` : "") };
 }
 
-type PendingEvent = { id: number; teacher_name: string; title: string; description: string | null; starts_at_ms: number; ends_at_ms: number; booking_type: string; ticket_price_minor: number; max_attendees: number | null };
+type PendingEvent = { id: number; teacher_name: string; title: string; description: string | null; starts_at_ms: number; ends_at_ms: number; booking_type: string; ticket_price_minor: number; non_member_price_minor?: number | null; max_attendees: number | null };
 
 /** One run: the members' pending events, each judged on its own. A failed call leaves the event pending. */
 export async function reviewPendingEvents(env: SagaEnv, deps: SagaDeps, db: D1Database, limit = 5): Promise<{ approved: number; toBoard: number }> {
   const now = deps.now();
-  const rows = (await db.prepare(`SELECT id, teacher_name, title, description, starts_at_ms, ends_at_ms, booking_type, ticket_price_minor, max_attendees FROM room_bookings
+  const rows = (await db.prepare(`SELECT id, teacher_name, title, description, starts_at_ms, ends_at_ms, booking_type, ticket_price_minor, non_member_price_minor, max_attendees FROM room_bookings
     WHERE status = 'scheduled' AND review_status = 'pending' AND ends_at_ms > ? ORDER BY created_at_ms LIMIT ?`).bind(now, limit).all<PendingEvent>()).results ?? [];
   let approved = 0, toBoard = 0;
   for (const row of rows) {
@@ -81,7 +81,7 @@ export async function reviewPendingEvents(env: SagaEnv, deps: SagaDeps, db: D1Da
  * has just created with a member is judged at once, by the same criteria and the same never-fail-open reading as the hourly round:
  * "approved" is online now, "needs_board" waits for the board, "pending" (she could not answer) waits for the next round. */
 export async function reviewEventNow(env: SagaEnv, deps: SagaDeps, db: D1Database, id: number): Promise<{ status: "approved" | "needs_board" | "pending"; note: string }> {
-  const row = await db.prepare(`SELECT id, teacher_name, title, description, starts_at_ms, ends_at_ms, booking_type, ticket_price_minor, max_attendees FROM room_bookings
+  const row = await db.prepare(`SELECT id, teacher_name, title, description, starts_at_ms, ends_at_ms, booking_type, ticket_price_minor, non_member_price_minor, max_attendees FROM room_bookings
     WHERE id = ? AND status = 'scheduled' AND review_status = 'pending'`).bind(id).first<PendingEvent>();
   if (!row || !env.AI_API_KEY || !env.AI_MODEL) return { status: "pending", note: "" };
   let note = "";
@@ -113,6 +113,10 @@ async function reviewOne(env: SagaEnv, deps: SagaDeps, db: D1Database, row: Pend
     const variety = await checkVariety(db, { title: row.title, description: row.description, startMs: row.starts_at_ms, exceptBookingId: row.id }).catch(() => null);
     if (variety?.problems.length) verdict = { approve: false, note: `Variation i kalenderen: ${variety.problems.join(" ")}` };
   }
+  // Douglas (forslag #4, decision 0013): a non-member price under the minimum is not refused, but the board decides - "we can approve or not as we wish".
+  const minimum = belowNonMemberMinimum(row.starts_at_ms, row.booking_type as RoomBookingType, row.ticket_price_minor, row.non_member_price_minor ?? null);
+  if (verdict.approve && minimum !== null)
+    verdict = { approve: false, note: `Prisen for ikke-medlemmer (${((row.non_member_price_minor ?? row.ticket_price_minor) / 100).toLocaleString("da-DK")} kr.) er under minimum på ${minimum} kr. for ${row.booking_type === "free" ? "gratis leje" : "reduceret leje"}.` };
   seen?.(verdict);
   // Only an event still pending and unchanged since it was read is decided (the member may have edited it).
   const result = await db.prepare(`UPDATE room_bookings SET review_status = ?, review_note = ?, reviewed_by = 'Saga', reviewed_at_ms = ?

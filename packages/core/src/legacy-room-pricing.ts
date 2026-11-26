@@ -1,6 +1,8 @@
-/** Gratis leje: what a non-member pays at least, per person - 150 kr. in A-time (weekday evenings and weekends), 75 kr. in B-time.
+/** Gratis leje: what a non-member pays at least, per person - 100 kr. in A-time (weekday evenings and weekends), 75 kr. in B-time.
  * The chair (9 Nov 2026): "Brug priserne som i dag" - as on holistisk.org (decision 0012, which replaces 0006). */
-export const FREE_RENT_MIN_NON_MEMBER_KR = { A: 150, B: 75 } as const;
+export const FREE_RENT_MIN_NON_MEMBER_KR = { A: 100, B: 75 } as const;
+/** Reduced rent, the lowest step (member price under 400 kr.): what non-members pay at least on top (decision 0013). */
+export const REDUCED_MIN_SURCHARGE_KR = { A: 100, B: 75 } as const;
 
 export type LegacyRoomPricingInput = {
   /** 0 = Sunday, 1 = Monday, ... 6 = Saturday in the legacy local calendar. */
@@ -98,8 +100,8 @@ export const ROOM_RENTAL_RULES = [
   "Varighed: mindst 2 og højst 10 timer pr. booking, i halve timer. Opsætning og oprydning (typisk 30 min. før og efter) skal ligge inden for den bookede tid.",
   "A) Standard (uden medlemsrabat): fast pakkepris efter længde, samme pris hele døgnet: 2 t 720 kr., 2,5 t 900, 3 t 1.080, 3,5 t 1.230, 4 t 1.380, 4,5 t 1.530, 5 t 1.680, 5,5 t 1.800, 6 t 1.920, 6,5 t 2.040, 7 t 2.160, 7,5 t 2.250, 8 t 2.340, 8,5 t 2.430, 9 t 2.520, 9,5 t 2.610, 10 t 2.700 kr.",
   "B) Reduceret pris (medlemmer får lavere deltagerpris end ikke-medlemmer): B-tid (hverdage før kl. 18:30) 150 kr. for de første 2 timer + 75 kr. pr. ekstra time. A-tid (hverdage fra kl. 18:30 samt weekender) 400 kr. for de første 2 timer + 150 kr. pr. ekstra time, lige nu med 25 % kampagnerabat.",
-  "Ikke-medlemmer betaler mindst så meget mere end medlemmer (medlemspris → tillæg A-tid / B-tid): under 400 kr. → +100 / +50 kr.; 400-799 kr. → 25 % (min. 100) / 12,5 % (min. 50); 800-1.999 kr. → 20 % (min. 200) / 10 % (min. 100); 2.000-3.999 kr. → 15 % (min. 400) / 7,5 % (min. 200); 4.000 kr. og derover → 10 % (min. 600) / 5 % (min. 300).",
-  "C) Gratis leje: Hjerterum tager ikke betaling for lokalet, medlemmer deltager gratis, ikke-medlemmer betaler mindst 150 kr. i A-tid eller 75 kr. i B-tid pr. person, som underviseren selv opkræver. Højst ét event med gratis leje om ugen pr. underviser. Kun for betalende medlemmer.",
+  "Ikke-medlemmer betaler mindst så meget mere end medlemmer (medlemspris → tillæg A-tid / B-tid): under 400 kr. → +100 / +75 kr.; 400-799 kr. → 25 % (min. 100) / 12,5 % (min. 50); 800-1.999 kr. → 20 % (min. 200) / 10 % (min. 100); 2.000-3.999 kr. → 15 % (min. 400) / 7,5 % (min. 200); 4.000 kr. og derover → 10 % (min. 600) / 5 % (min. 300).",
+  "C) Gratis leje: Hjerterum tager ikke betaling for lokalet, medlemmer deltager gratis, ikke-medlemmer betaler mindst 100 kr. i A-tid eller 75 kr. i B-tid pr. person, som underviseren selv opkræver. Højst ét event med gratis leje om ugen pr. underviser. Kun for betalende medlemmer.",
   "Med reduceret pris eller gratis leje kan en booking på en hverdag ikke gå hen over kl. 18:30: den ligger enten helt i B-tid eller helt i A-tid (en hel dag er to bookinger).",
   "Bookingforespørgslen skal have eventnavn, mindst én dato, beskrivelse, arrangørens navn og mail; gerne max. antal deltagere, betalingsmetode, tilmelding (online eller direkte til underviser), coverbillede (royalty-free, helst ikke AI, 1920 × 1005 px) og links."
 ].join("\n");
@@ -128,7 +130,7 @@ export function calculateRoomPriceQuote(input: LegacyRoomPricingInput & {
   if (input.bookingType === "free") {
     return { bookingType: input.bookingType, band, roundedHours, totalPriceKr: 0,
       memberPriceKr: 0, nonMemberPriceKr: null,
-      // Formanden 9.11.2026: "Brug priserne som i dag" - 150 kr. i A-tid, 75 kr. i B-tid (beslutning 0012).
+      // Bestyrelsen 26.11.2026: 100 kr. i A-tid, 75 kr. i B-tid (beslutning 0013, erstatter 0012).
       minimumNonMemberPriceKr: aTime ? FREE_RENT_MIN_NON_MEMBER_KR.A : FREE_RENT_MIN_NON_MEMBER_KR.B, memberSurchargeKr: null, discountPercent: 0 };
   }
 
@@ -142,7 +144,7 @@ export function calculateRoomPriceQuote(input: LegacyRoomPricingInput & {
   if (memberPriceKr === undefined || !Number.isFinite(memberPriceKr) || memberPriceKr < 0) {
     throw new Error("memberPriceKr must be a non-negative number for reduced bookings");
   }
-  const surcharge = memberPriceKr < 400 ? (aTime ? 100 : 50)
+  const surcharge = memberPriceKr < 400 ? (aTime ? REDUCED_MIN_SURCHARGE_KR.A : REDUCED_MIN_SURCHARGE_KR.B)
     : memberPriceKr < 800 ? Math.max(aTime ? 100 : 50, Math.round(memberPriceKr * (aTime ? .25 : .125)))
     : memberPriceKr < 2000 ? Math.max(aTime ? 200 : 100, Math.round(memberPriceKr * (aTime ? .2 : .1)))
     : memberPriceKr < 4000 ? Math.max(aTime ? 400 : 200, Math.round(memberPriceKr * (aTime ? .15 : .075)))

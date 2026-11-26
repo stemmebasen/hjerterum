@@ -1203,3 +1203,6 @@ body, .workspace-shell, .admin-workspace, .auth-shell, .profile-workspace { back
 .event-row.is-past:hover, .event-row.is-past:focus-within { opacity: .9; }
 .event-row-date small { display: block; margin-top: 3px; font-size: 10px; letter-spacing: .08em; color: var(--lys-muted, inherit); }
 .past-more { text-align: center; margin-top: 16px; }
+
+/* Douglas (forslag #4): the warning under the non-member price when it is under the minimum - saving is not stopped. */
+.price-warning { display: block; margin-top: 6px; padding: 8px 10px; border-radius: 10px; background: color-mix(in srgb, var(--lys-terra, #b5553b) 14%, transparent); color: inherit; font-weight: 500; }

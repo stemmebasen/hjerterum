@@ -52,6 +52,17 @@ describe("Saga's event desk", () => {
     expect((await listUpcomingPublicRoomBookings(db, NOW)).map(e => e.title)).toEqual(["Yin yoga"]);
   });
 
+  // Douglas (forslag #4, decision 0013): a non-member price under the minimum is saved, but Saga does not approve it - the board decides.
+  it("sends an event with a non-member price under the minimum to the board, however good it is", async () => {
+    vi.stubGlobal("fetch", vi.fn(async () => { throw new Error("offline"); }));
+    const db = testDatabase();
+    const low = await createRoomBooking(db, "member-1", normalizeCreateRoomBookingInput({ teacherName: "Maria", teacherEmail: "maria@example.com", title: "Yin yoga",
+      description: "Rolig yin yoga for alle. Underviser: Maria." + LONG, startsAt: "2027-03-06T09:00:00Z", endsAt: "2027-03-06T11:00:00Z", bookingType: "free", nonMemberPriceKr: 75 }));
+    const services = fakeServices({ ai: () => ALL_MET });
+    expect(await reviewPendingEvents(sagaEnv(db), deps(services.fetcher, NOW), db)).toEqual({ approved: 0, toBoard: 1 });
+    expect(await statusOf(db, low.id)).toMatchObject({ review_status: "needs_board", review_note: expect.stringContaining("under minimum på 100 kr.") });
+  });
+
   // Douglas (13 Nov 2026): "Saga says it is under 75 words, but it is actually 75 words".
   it("never sends a text that is long enough back for its length - she is given the count and her length remarks are dropped", async () => {
     vi.stubGlobal("fetch", vi.fn(async () => { throw new Error("offline"); }));
