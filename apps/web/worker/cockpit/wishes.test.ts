@@ -76,19 +76,20 @@ describe("wishes and faults in admin", () => {
     expect(page).toContain("Lille opgave");
     expect(page).toContain("The button is easy to see on a phone");
     expect(page).toContain("Bigger sign-up button on the event page");
-    expect(page).toContain("Send forslaget til godkendelse");
+    expect(page).toContain("Send forslaget til udvikling");
     // Douglas cannot decide.
     expect((await call(`/forslag/${id}/afgoer`, { method: "POST", cookie: douglas, body: form({ svar: "godkend" }) })).status).toBe(403);
 
+    // "We don't need that buffer" (the chair, 26 Nov 2026): what Douglas sends is approved at once, and the chair hears of it.
     await call(`/forslag/${id}/send`, { method: "POST", cookie: douglas });
-    expect((await db.prepare("SELECT status FROM wishes WHERE id = ?").bind(id).first<{ status: string }>())!.status).toBe("sent");
+    expect((await db.prepare("SELECT status, decided_by FROM wishes WHERE id = ?").bind(id).first())).toEqual({ status: "approved", decided_by: "Douglas Crawford" });
     const told = services.telegram("sendMessage").map(c => JSON.stringify(c.body));
-    expect(told.some(t => t.includes("har sendt et forslag til udvikling") && t.includes("Bigger sign-up button"))).toBe(true);
+    expect(told.some(t => t.includes("har sendt et forslag til udvikling") && t.includes("Bigger sign-up button") && t.includes("direkte videre til udvikling"))).toBe(true);
     // The conversation is closed once it is sent.
     await call(`/forslag/${id}/besked`, { method: "POST", cookie: douglas, body: form({ text: "One more thing" }) });
     expect(asked).toHaveLength(2);
 
-    expect(await (await call("/forslag", { cookie: chair })).text()).toContain("Venter på dig");
+    // The chair can still add a note - or turn it down.
     await call(`/forslag/${id}/afgoer`, { method: "POST", cookie: chair, body: form({ svar: "godkend", note: "Good idea" }) });
     expect((await db.prepare("SELECT status, chair_note FROM wishes WHERE id = ?").bind(id).first())).toEqual({ status: "approved", chair_note: "Good idea" });
     expect(services.telegram("sendMessage").map(c => JSON.stringify(c.body)).some(t => t.includes("was approved") && t.includes("202"))).toBe(true);
