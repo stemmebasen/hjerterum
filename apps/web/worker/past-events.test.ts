@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { pastEvents } from "./past-events.js";
 import { testDatabase } from "./saga/test-support.js";
-import { matchesPast } from "../src/past-events.js";
+import { matchesPast } from "../src/past-search.js";
 
 // Douglas (forslag #3, 26 Nov 2026): "Show past events in the website and Min side calendars" - "finding a teacher or event again to check on some detail".
 const NOW = Date.parse("2026-11-26T12:00:00Z");

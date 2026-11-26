@@ -1,17 +1,12 @@
 import { useEffect, useMemo, useState } from "react";
 import { EVENTS_PER_PAGE, RowDate, RowPhoto, RowText } from "./event-row";
+import { matchesPast } from "./past-search";
 
 /** Douglas (forslag #3, 26 Nov 2026): "Show past events in the website and Min side calendars" - "finding a teacher or event again to check on some
  * detail". Under both calendars: a switch that shows the events that have been held, newest first, greyed and without sign-up, each opening its
  * own page (which says "Eventet er afholdt"), with a search on the title or the teacher. From /api/events/past (worker/past-events.ts). */
 export type PastEvent = { key: string; title: string; startsAt: string; endsAt: string | null; host: string | null; category: string | null; imageUrl: string | null; page: string | null };
 
-const fold = (text: string) => text.toLocaleLowerCase("da-DK").normalize("NFD").replace(/[̀-ͯ]/g, "");
-export const matchesPast = (event: Pick<PastEvent, "title" | "host">, query: string) => {
-  const words = fold(query).split(/\s+/).filter(Boolean);
-  const text = fold(`${event.title} ${event.host ?? ""}`);
-  return words.every(word => text.includes(word));
-};
 
 export function PastEvents() {
   const [open, setOpen] = useState(false);
