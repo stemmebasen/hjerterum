@@ -2,7 +2,7 @@ import type { D1Database } from "../db.js";
 import type { SagaDeps, SagaEnv } from "../saga/env.js";
 import { telegramClient } from "../saga/telegram.js";
 import { LINK_MINUTES, linkHash, loginCodeHash, newLinkToken, newLoginCode } from "./auth.js";
-import { deputyByTelegram, stillDeputy } from "./deputies.js";
+import { deputyByTelegram, recordDeputy, stillDeputy } from "./deputies.js";
 import { checkAccess } from "./loginAccess.js";
 
 /** Requested: "Hvordan kan vi sikre os, at kontoen, når først den er identificeret, bliver låst fast til
@@ -122,12 +122,21 @@ export async function answerLoginRequest(env: SagaEnv, deps: SagaDeps, db: D1Dat
     if (deputy && deputyHere) { if (await checkAccess(env, deps, db, chatId, telegramId, deputy, "suppleant")) await sendLogin(env, deps, db, chatId, telegramId, deputy, "suppleant"); return; }
     if (member) { await telegram.sendMessage(chatId, "Du er ikke længere med i bestyrelsens gruppe, så jeg kan ikke give dig login til admin. Er det en fejl, så skriv til formanden."); return; }
     if (deputy) { await telegram.sendMessage(chatId, "Du er ikke længere med i suppleanternes gruppe, så jeg kan ikke give dig login til admin. Er det en fejl, så skriv til formanden."); return; }
-    // Asked (the chair, 26 Nov 2026): "make it possible to give out two new suppleants their access - Line and Kai". Without the deputies' group, anyone
-    // may ask for a deputy's login by writing /login; the chair gets Godkend / Afvis (loginAccess.ts), and only an approved account gets in - read only,
-    // without the member list, as every deputy.
+    // Asked (the chair, 26 Nov 2026): "make it possible to give out two new suppleants their access - Line and Kai", and then "Hvordan ved saga det er den
+    // rigtige Line og den rigtige Kai?" With the deputies' group set up, only someone Telegram says is in it now may ask - also before they have written
+    // there - and the chair still approves the account the first time (loginAccess.ts). Without the group, anyone may ask, and the chair decides.
     const asked = telegramName.trim().slice(0, 80);
-    if (!asked) { await telegram.sendMessage(chatId, "Login til admin er kun for Hjerterums bestyrelse og suppleanter. Skriv til formanden, hvis du skal have adgang."); return; }
-    if (await checkAccess(env, deps, db, chatId, telegramId, asked, "suppleant")) await sendLogin(env, deps, db, chatId, telegramId, asked, "suppleant");
+    const refuse = "Login til admin er kun for Hjerterums bestyrelse og suppleanter. Skriv til formanden, hvis du skal have adgang.";
+    if (!asked) { await telegram.sendMessage(chatId, refuse); return; }
+    if (env.SAGA_DEPUTY_CHAT_ID) {
+      const inGroup = await stillDeputy(env, deps, telegramId);
+      if (inGroup === null) { await telegram.sendMessage(chatId, "Jeg kan ikke tjekke lige nu, om du er med i suppleanternes gruppe. Prøv igen om lidt."); return; }
+      if (!inGroup) { await telegram.sendMessage(chatId, refuse); return; }
+    }
+    if (!await checkAccess(env, deps, db, chatId, telegramId, asked, "suppleant")) return;
+    // Noted as a deputy once let in, so the hourly check closes their access when they leave the group (deputies.ts).
+    if (env.SAGA_DEPUTY_CHAT_ID) await recordDeputy(db, telegramId, asked, deps.now());
+    await sendLogin(env, deps, db, chatId, telegramId, asked, "suppleant");
     return;
   }
   // The account, not the name: a name another account goes by gets nothing, and a new account waits for the chair (loginAccess.ts).

@@ -44,7 +44,7 @@ async function setup(chatMembers: Record<string, string> = {}, ai?: (system: str
 describe("a deputy's login", () => {
   it("is given to a new deputy outside any group when the chair approves - Line and Kai (26 Nov 2026)", async () => {
     const { env, services, update, call, cookiesOf } = await setup();
-    // Not in the deputies' group: Line writes /login, and the chair is asked.
+    // In the deputies' group, but she has not written there yet: Line writes /login, Telegram says she is in the group, and the chair is asked.
     await update({ id: 401, type: "private" }, 401, "/login", "Line");
     const said = services.telegram("sendMessage").map(c => c.body as { chat_id: string; text: string });
     expect(said.find(b => String(b.chat_id) === OWNER)!.text).toContain("Line beder om login til admin som suppleant");
@@ -75,10 +75,11 @@ describe("a deputy's login", () => {
   });
 
   it("is refused to someone in neither group", async () => {
-    const { loginFor } = await setup();
+    // "Hvordan ved saga det er den rigtige Line og den rigtige Kai?" (the chair, 26 Nov 2026): the deputies' group is how - nobody outside it is even asked about.
+    const { loginFor, services } = await setup({ "999": "left" });
     const { sent, path } = await loginFor(999);
-    // The chair (26 Nov 2026): new deputies (Line and Kai) ask by /login, and the chair decides - no login before that.
-    expect(sent.text).toContain("Første gang skal formanden godkende dig");
+    expect(sent.text).toContain("kun for Hjerterums bestyrelse og suppleanter");
+    expect(services.telegram("sendMessage").some(c => String((c.body as { chat_id: string }).chat_id) === OWNER)).toBe(false);
     expect(path).toBeNull();
   });
 
