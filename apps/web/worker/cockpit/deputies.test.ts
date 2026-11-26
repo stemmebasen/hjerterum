@@ -58,8 +58,8 @@ describe("a deputy's login", () => {
     const path = /\/login\/link\/[A-Za-z0-9_-]+/.exec(sent.text)?.[0] ?? null;
     const line = cookiesOf(await call(path!, { method: "POST" }));
     expect(line).toContain("hjerterum_cockpit_deputy=");
-    // Read only, without the member list or the membership pages, as every deputy.
-    expect((await call("/medlemmer", { cookie: line })).status).toBe(403);
+    // The board's admin, member list included - but not the membership pages, which are the chair's and Douglas's.
+    expect((await call("/medlemmer", { cookie: line })).status).toBe(200);
     expect((await call("/medlemskab", { cookie: line })).status).toBe(403);
   });
 
@@ -88,55 +88,50 @@ describe("a deputy's login", () => {
     expect((await loginFor(301)).path).toBeNull();
   });
 
-  // Changed: "Vedr. suppleanter, så skal de have adgang til samme viden, men kan blot ikke stemme" - "Suppleanter har i øvrigt kun læseadgang".
-  it("logs in with a cookie of its own and sees admin as the board does - under a name of its own, read only", async () => {
+  // Changed again (the chair, 26 Nov 2026): "Suppleanter må gerne se den fulde board admin uden begrænsninger. De må bare ikke stemme".
+  it("logs in with a cookie of its own and uses admin as the board does - under a name of its own, without voting", async () => {
     const { call, deputy } = await setup();
     const signe = await deputy();
     expect(signe).toContain("hjerterum_cockpit_deputy=");
     expect(signe).not.toContain("hjerterum_cockpit_person=");
     const home = await (await call("/", { cookie: signe })).text();
     expect(home).toContain("Signe (suppleant)");
-    expect(home).toContain("Du er logget ind som suppleant og har læseadgang");
+    expect(home).toContain("Du er logget ind som suppleant: du har samme adgang som bestyrelsen");
     for (const path of ["/posthus", "/opslag", "/beslutninger", "/moder", "/arrangementer"])
       expect((await call(path, { cookie: signe })).status, path).toBe(200);
-    // Asked: "Skal suppleanterne fortsat kunne se medlemslisten?" - "Nej": not the list, not a member's page, and no link to them.
-    for (const path of ["/medlemmer", "/medlemmer/1", "/medlemmer/skifte"]) expect((await call(path, { cookie: signe })).status, path).toBe(403);
-    expect(home).not.toMatch(/href="[^"]*\/medlemmer(?!\/tal)/);
-    // The counts, without names, stay theirs.
-    expect((await call("/medlemmer/tal", { cookie: signe })).status).toBe(200);
-    expect(home).toContain('href="/statistik" class="grp-top">Medlemmer</a>');
+    // The member list too, now.
+    for (const path of ["/medlemmer", "/medlemmer/tal"]) expect((await call(path, { cookie: signe })).status, path).toBe(200);
     // The same minutes as the board - nothing to share first.
     const minutes = await (await call("/referat/1", { cookie: signe })).text();
     expect(minutes).toContain("Vi holder åbent hus i november");
     expect(minutes).toContain("Hemmeligt om økonomien");
     expect(minutes).not.toContain("Del med suppleanterne");
-    // No form that changes something - only logging out and asking Saga.
+    // The forms are theirs - but none to vote.
     const forms = [...home.matchAll(/<form\b[^>]*method="post"[^>]*action="([^"]*)"/gi), ...home.matchAll(/<form\b[^>]*action="([^"]*)"[^>]*method="post"/gi)].map(m => m[1]);
-    expect(forms.every(a => ["/logout", "/sprog", "/saga"].includes(a!))).toBe(true);
+    expect(forms.some(a => a!.endsWith("/logout"))).toBe(true);
+    expect(forms.some(a => /\/afstemninger\/(stem|moede)$/.test(a!))).toBe(false);
   });
 
-  it("can neither change, create nor vote - whatever is posted", async () => {
+  it("cannot vote or sign off the minutes - whatever is posted", async () => {
     const { db, call, deputy } = await setup();
     const signe = await deputy();
-    for (const path of ["/opslag", "/afstemninger/stem", "/afstemninger/ny", "/referat/1/godkend", "/referat/1/rettelse", "/opgaver/ny", "/moder", "/posthus/klaret"]) {
+    for (const path of ["/afstemninger/stem", "/afstemninger/moede", "/referat/1/godkend", "/referat/1/rettelse"]) {
       const response = await call(path, { method: "POST", cookie: signe, body: (() => { const f = new FormData(); f.append("id", "1"); f.append("vote", "for"); f.append("comment", "x"); f.append("title", "x"); return f; })() });
       expect(response.status, path).toBe(303);
     }
     const signed = await db.prepare("SELECT COUNT(*) AS n FROM board_minutes_signoffs").first<{ n: number }>();
     expect(signed?.n ?? 0).toBe(0);
-    expect((await call("/referat/1?suppleant=1", { cookie: signe }).then(r => r.text()))).toContain("Som suppleant har du læseadgang");
+    expect((await call("/referat/1?suppleant=1", { cookie: signe }).then(r => r.text()))).toContain("Som suppleant kan du læse referatet, men ikke godkende det");
+    expect((await db.prepare("SELECT COUNT(*) AS n FROM board_votes").first<{ n: number }>())?.n ?? 0).toBe(0);
   });
 
-  it("asks Saga about the board's knowledge, but she does nothing for a deputy", async () => {
-    const { call, deputy, services } = await setup({}, (system, user) => user.includes("suppleant med læseadgang") && system.includes("Vi holder åbent hus i november")
-      ? "Bestyrelsen har besluttet åbent hus i november. [[GRUPPEN: Hej alle]]" : "Ved det ikke.");
+  it("asks Saga about the board's knowledge, as a board member does", async () => {
+    const { call, deputy } = await setup({}, (system, user) => user.includes("Signe (suppleant)") && system.includes("Vi holder åbent hus i november")
+      ? "Bestyrelsen har besluttet åbent hus i november." : "Ved det ikke.");
     const signe = await deputy();
-    const sentBefore = services.telegram("sendMessage").length;
     const response = await call("/saga", { method: "POST", cookie: signe, body: JSON.stringify({ question: "Hvad har bestyrelsen besluttet om november?", history: [] }) });
     const reply = await response.json() as { html?: string };
     expect(reply.html).toContain("åbent hus i november");
-    expect(reply.html).not.toContain("GRUPPEN");
-    expect(services.telegram("sendMessage").length).toBe(sentBefore);
   });
 
   it("cannot be read as a board login, not even with a board member's name", async () => {
