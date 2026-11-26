@@ -61,19 +61,22 @@ export async function deputyStillOpen(db: D1Database, member: string, issuedMs: 
  * mistaken for something a board member did, and no board member's own lists or approvals open to them. */
 export const deputyWho = (member: string) => `${member} (suppleant)`;
 
-/** The POSTs a deputy may make: logging out, their language, and asking Saga (who then only answers - ask.ts readOnly). */
-export const DEPUTY_POSTS = new Set(["/logout", "/sprog", "/saga"]);
+/** Then (the chair, 26 Nov 2026): "Suppleanter må gerne se den fulde board admin uden begrænsninger. De må bare ikke stemme." A deputy uses admin as a
+ * board member does - the member list too, creating and changing - but does not vote, record a vote taken at a meeting, or approve the minutes (the
+ * board's own acts). The chair's own powers stay the chair's (authority.ts). */
+export const DEPUTY_BLOCKED: RegExp[] = [/^\/afstemninger\/stem$/, /^\/afstemninger\/moede$/, /^\/referat\/\d+\/(godkend|rettelse)$/];
+export const deputyMayNot = (path: string) => DEPUTY_BLOCKED.some(r => r.test(path));
 
-const READ_ONLY_NOTE = `<div class="deputy-note" style="max-width:1100px;margin:14px auto 0;padding:10px 16px;border-radius:12px;background:var(--panel,rgba(127,127,127,.12));font-size:14px">Du er logget ind som suppleant og har læseadgang: du ser det samme som bestyrelsen, men kan ikke ændre, oprette eller stemme.</div>`;
+const DEPUTY_NOTE = `<div class="deputy-note" style="max-width:1100px;margin:14px auto 0;padding:10px 16px;border-radius:12px;background:var(--panel,rgba(127,127,127,.12));font-size:14px">Du er logget ind som suppleant: du har samme adgang som bestyrelsen, men kan ikke stemme eller godkende referater.</div>`;
 
-/** A page as a deputy gets it: every form that changes something is taken out (the handler refuses those POSTs anyway), and a line under
- * the header says why. Only the forms to log out, choose a language and ask Saga stay. */
+/** A page as a deputy gets it: the forms to vote and to approve the minutes are taken out (the handler refuses those POSTs anyway), and a line under
+ * the header says why. */
 export function deputyView(page: string): string {
-  const kept = (open: string) => { const action = /\baction="([^"]*)"/.exec(open)?.[1] ?? ""; return [...DEPUTY_POSTS].some(p => action === p || action.endsWith(p)); };
+  const blocked = (open: string) => { const action = (/\baction="([^"]*)"/.exec(open)?.[1] ?? "").replace(/^https?:\/\/[^/]+/, "").replace(/^\/cockpit(?=\/)/, "").split("?")[0]!; return deputyMayNot(action); };
   const stripped = page.replace(/<form\b[^>]*>[\s\S]*?<\/form>/gi, form => {
     const open = /^<form\b[^>]*>/i.exec(form)?.[0] ?? "";
-    return !/\bmethod="post"/i.test(open) || kept(open) ? form : "";
+    return /\bmethod="post"/i.test(open) && blocked(open) ? "" : form;
   }).replace(/<span class="state todo">Du mangler at stemme<\/span>/g, `<span class="state">Til afstemning</span>`);
   const at = stripped.indexOf("</header>");
-  return at < 0 ? stripped : `${stripped.slice(0, at + 9)}${READ_ONLY_NOTE}${stripped.slice(at + 9)}`;
+  return at < 0 ? stripped : `${stripped.slice(0, at + 9)}${DEPUTY_NOTE}${stripped.slice(at + 9)}`;
 }

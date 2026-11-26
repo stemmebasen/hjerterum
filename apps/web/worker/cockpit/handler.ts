@@ -19,7 +19,7 @@ import { queueMinutes } from "../saga/store.js";
 import { classifyDecisions, decisionKinds, onlyDecisions, setDecisionKind, unsorted, withKinds } from "./decisionKinds.js";
 import { DEPUTY_COOKIE, deputySessionValue, readDeputySession, cookie, codeGuessingBlocked, loginBlocked, readLoginCode, recordWrongCode, passwordMatches, PERSON_COOKIE, PERSON_DAYS, personSessionValue, readCookies, readPersonSession, readSessionMember, recordFailedLogin, SESSION_COOKIE, MEMBER_COOKIE, sessionMemberValue, SESSION_DAYS, sessionValue, validSession, WHO_COOKIE } from "./auth.js";
 import { linkMember, signedOutAfter, signOutMember, useCodeAs, useLinkAs, type LoginRole } from "./personalLogin.js";
-import { DEPUTY_POSTS, deputyStillOpen, deputyView, deputyWho } from "./deputies.js";
+import { deputyMayNot, deputyStillOpen, deputyView, deputyWho } from "./deputies.js";
 import { allDecisions, allTasks, approvedMinutes, approvedMinutesById, boardMembers, boardPicture, deleteMeeting, groupNow, meeting, meetingInput, meetingOn, meetings, minutesDecisions, minutesInProgress,
   minutesStatusByDate, minutesTasks, sagaMeetings, saveMeeting, signOff, signoffs, lockIfApproved, inEditWindow, agendaClosed, meetingOver, answerLinks, tasksFor, unsignedFor, weeklySummary,
   addAgendaPoints, addTodo, approvalCounts, editAgendaPoint, editTodo, nextTeamMeeting, sagaRoom, reorderAgendaPoints, checkedTasks, currentTasks, lastMonthTasks, taskChecksByKey, tasksByPerson, currentTodos, openFor, removeAgendaPoint, removeTodo, removedTasks, markMemberDone, removeTaskFor, responsibilities, sagaItemsFor, setResponsibilities, setTaskChecked, setTodoDone, todosFor } from "./data.js";
@@ -144,7 +144,7 @@ export async function handleCockpitRequest(request: Request, env: SagaEnv, deps:
     response = new Response(at < 0 ? body : `${body.slice(0, at + 9)}${SIGN_STYLE}${state.banner}${body.slice(at + 9)}`, { status: response.status, headers: response.headers });
   }
   // A deputy reads what the board reads; the buttons to approve minutes and to vote are not theirs (deputies.ts deputyView) - nor the member list.
-  if (state.deputy && isHtml && response.status === 200) response = new Response(withoutMemberList(deputyView(await response.text())), { status: response.status, headers: response.headers });
+  if (state.deputy && isHtml && response.status === 200) response = new Response(deputyView(await response.text()), { status: response.status, headers: response.headers });
   if (state.lang !== "en" || !isHtml) return response;
   const page = await response.text();
   // Requested: "I think that overview, tasks, and decisions should be automatically translated".
@@ -272,15 +272,12 @@ async function route(request: Request, env: SagaEnv, deps: SagaDeps, state: Stat
   // Reported (3 Nov 2026): "Der er kun Posthus derinde, ikke PR og Some" - the menu is made on every page, also on those answered before the chair's
   // powers further down (Overblik, Møder, Status): what the person may open is known as soon as we know who they are.
   state.may = power => can(actorOf(who, personal, members.chair), power);
-  // A deputy reads only: nothing is changed, created or voted on for them (deputies.ts).
-  if (deputyName && request.method !== "GET" && request.method !== "HEAD" && !DEPUTY_POSTS.has(path)) {
-    if (path.startsWith("/api/") || (request.headers.get("accept") ?? "").includes("application/json")) return answer({ error: "Som suppleant har du læseadgang." }, 403);
+  // A deputy uses admin as the board does, but does not vote or approve the minutes (deputies.ts; the chair, 26 Nov 2026).
+  if (deputyName && request.method !== "GET" && request.method !== "HEAD" && deputyMayNot(path)) {
+    if (path.startsWith("/api/") || (request.headers.get("accept") ?? "").includes("application/json")) return answer({ error: "Som suppleant kan du ikke stemme eller godkende referater." }, 403);
     const minutes = /^\/referat\/(\d+)\//.exec(path);
     return redirect(minutes ? `${base}/referat/${minutes[1]}?suppleant=1` : `${base}/?suppleant=1`);
   }
-  // Asked: "Skal suppleanterne fortsat kunne se medlemslisten?" - "Nej" (3 Nov 2026): the members' names, e-mails and phones are the board's.
-  // Only the counts (/medlemmer/tal, no names) stay open to them.
-  if (deputyName && (path === "/medlemmer" || path.startsWith("/medlemmer/")) && path !== "/medlemmer/tal") return html(problem(base, who, "Medlemslisten er kun for bestyrelsen."), 403);
   const today = copenhagenDay(now);
   state.lang = await memberLang(db, who);
   // Not on a minutes' own page, where the approval stands at the top.
@@ -492,7 +489,7 @@ async function route(request: Request, env: SagaEnv, deps: SagaDeps, state: Stat
     const notice = url.searchParams.get("laast") ? "Referatet er godkendt af alle og låst. Det kan ikke længere ændres." : url.searchParams.get("godkendt") ? "Tak - din godkendelse er noteret." : url.searchParams.get("rettelse") ? "Tak - formanden har fået din besked."
       : url.searchParams.get("retperiode") ? "Referatet kan stadig rettes. Du godkender det, når rettelsesperioden er slut." : url.searchParams.get("lukket") ? "Rettelsesperioden er slut, så referatet kan ikke længere ændres. Nu godkender I det hver især."
       : url.searchParams.get("oversat") ? "Saga kunne ikke oversætte referatet lige nu. Prøv igen om lidt."
-      : url.searchParams.get("suppleant") ? "Som suppleant har du læseadgang: du kan læse referatet, men ikke rette eller godkende det." : "";
+      : url.searchParams.get("suppleant") ? "Som suppleant kan du læse referatet, men ikke godkende det eller bede om rettelser - det gør bestyrelsen." : "";
     const panel = signoffPanel(base, minutes, { members: members.names, signoffs: await signoffs(db, minutes.id), who, notice, nowMs: now });
     // Requested: "Douglas taler engelsk" - the Danish summary is the original; the English one is made with it (translate.ts scheduledEnglishSummaries), and "Read in English" has Saga make it at once when it is missing.
     const english = state.lang === "en" && minutes.draft_markdown && !url.searchParams.get("original") ? await translatedMinutes(db, minutes.draft_markdown) : null;
@@ -2055,7 +2052,7 @@ async function route(request: Request, env: SagaEnv, deps: SagaDeps, state: Stat
     if (!input) return answer({ error: "Skriv et spørgsmål." }, 400);
     if (!env.AI_API_KEY || !env.AI_MODEL) return answer({ error: "Saga kan ikke svare lige nu (hendes AI er ikke sat op)." }, 503);
     if (await questionsToday(db, now) >= DAILY_QUESTIONS) return answer({ error: "Saga har svaret på mange spørgsmål det seneste døgn. Prøv igen i morgen." }, 429);
-    try { return answer({ html: await askSaga(env, deps, db, who, input, base, state.lang, { readOnly: Boolean(deputyName) }) }); }
+    try { return answer({ html: await askSaga(env, deps, db, who, input, base, state.lang) }); }
     catch (error) {
       console.warn("cockpit_ask_failed", error instanceof Error ? error.message : error);
       return answer({ error: "Saga kunne ikke svare lige nu. Prøv igen om lidt." }, 502);
