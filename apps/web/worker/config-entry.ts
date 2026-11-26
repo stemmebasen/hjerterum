@@ -62,7 +62,7 @@ const app = appWorker as unknown as {
  * refused them without our permission. Google's translation may now read what anyone may read - the built files, the pictures and the public
  * calendar - and nothing else: no cookies, no member or admin data. */
 const TRANSLATE_ORIGIN = /^https:\/\/[a-z0-9-]+\.translate\.goog$/;
-const OPEN_TO_TRANSLATION = /^\/(?:assets\/|media\/|dokumenter\/|logo\.png$|api\/events\/(?:external(?:\/[0-9a-f]{24})?|program|upcoming)$|api\/room-bookings\/public(?:\/\d+)?$|api\/public-profiles$)/;
+const OPEN_TO_TRANSLATION = /^\/(?:assets\/|media\/|dokumenter\/|logo\.png$|api\/events\/(?:external(?:\/[0-9a-f]{24})?|program|upcoming|past)$|api\/room-bookings\/public(?:\/\d+)?$|api\/public-profiles$)/;
 
 export function translationHeaders(request: Request, response: Response): Response {
   const origin = request.headers.get("origin") ?? "";

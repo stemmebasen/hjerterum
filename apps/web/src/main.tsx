@@ -6,6 +6,7 @@ import { ComingUp, comingUp, MonthSection } from "./month-hero";
 import { isKind, kindOf } from "./event-kinds";
 import { CategoryNav, LanguageSwitch, SiteFooter, SiteHome, SiteNav, SitePageView } from "./site-pages";
 import { isPartnerEvent, PARTNER_HEADING } from "../partner-events";
+import { PastEvents } from "./past-events";
 import { redirectFor, sitePage } from "../site/redirects";
 import { SIGNUP_URL, type Section } from "../site/pages";
 import { membershipPlans } from "../membership";
@@ -251,6 +252,7 @@ function EventSection({ events, reachable, full = false, limit = 6 }: { events: 
     </> : <div className="member-event-grid calendar-all">{visible.map(card)}</div> : <div className="calendar-empty"><p>{!reachable ? "Kalenderen indlæses." : kind ? `Der er ingen kommende ${kind.label.toLocaleLowerCase("da-DK")} i kalenderen lige nu.` : "Der er ingen kommende events i kalenderen endnu."}</p></div>}
     {reachable && partnersShown.length > 0 && <section className="calendar-month partner-events" aria-label={PARTNER_HEADING}>
       <h2>{PARTNER_HEADING}</h2><ol className="event-rows">{partnersShown.map(event => <EventRow key={event.key} event={event} />)}</ol></section>}
+    {full && <PastEvents />}
   </section>;
 }
 

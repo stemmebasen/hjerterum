@@ -1,4 +1,5 @@
 import { Live } from "./live-text";
+import { PastEvents } from "./past-events";
 import { TEAM_MAIL } from "../site/mail";
 import { EventCard, calendarMonth, calendarText } from "./event-card";
 import { EVENTS_PER_PAGE, initialPage, Pager, rememberPage, RowDate, RowPhoto, RowText } from "./event-row";
@@ -890,6 +891,7 @@ export function MemberCalendar({
             <span className="event-row-more" aria-hidden="true">Læs mere ↗</span>
           </a></li>)}</ol>
       </section>}
+      <PastEvents />
     </section>
   );
 }
