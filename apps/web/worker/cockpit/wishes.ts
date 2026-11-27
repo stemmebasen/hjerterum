@@ -302,13 +302,26 @@ export async function markWishDone(env: SagaEnv, deps: SagaDeps, db: D1Database,
  * secret (DEV_REQUESTS_TOKEN) is the key; without it the address is not there. The code is public, so the requests stay here and not in GitHub. */
 export async function requestsApi(request: Request, env: SagaEnv, deps: SagaDeps, db: D1Database, path: string, cockpitUrl: string): Promise<Response | null> {
   const match = /^\/udvikling\/api\/forslag(?:\/(\d+)\/lavet)?$/.exec(path);
-  if (!match) return null;
+  const social = path === "/udvikling/api/opslag";
+  if (!match && !social) return null;
   const json = (data: unknown, status = 200) => new Response(JSON.stringify(data, null, 2), { status, headers: { "content-type": "application/json; charset=utf-8", "cache-control": "no-store", "x-robots-tag": "noindex, nofollow" } });
   const token = env.DEV_REQUESTS_TOKEN ?? "";
   const sent = (request.headers.get("authorization") ?? "").replace(/^Bearer\s+/i, "");
   // Says which side is missing (the repo is public, so that the address exists is no secret): admin without its key, or a wrong key sent.
   if (token.length < 24) return json({ error: "admin_has_no_key" }, 503);
   if (!sameSecret(sent, token)) return json({ error: "not_found", sent_key: sent ? "wrong" : "none" }, 404);
+  // The chair (27 Nov 2026): "Only two Instagram posts this week - how come?" The posts of the last and the coming two weeks with their status, so whoever
+  // makes the system can see why one did not go out (waiting for approval, skipped, failed) - read only; what goes out is public anyway.
+  if (social && request.method === "GET") {
+    const now = deps.now();
+    type Row = { id: number; kind: string; week: string | null; channels: string; status: string; publish_at_ms: number | null; published_at_ms: number | null; error: string | null; source: string; approved_by: string | null };
+    const rows = (await db.prepare(`SELECT id, kind, week, channels, status, publish_at_ms, published_at_ms, error, source, approved_by FROM social_posts
+      WHERE coalesce(publish_at_ms, created_at_ms) BETWEEN ? AND ? ORDER BY coalesce(publish_at_ms, created_at_ms)`).bind(now - 14 * 86_400_000, now + 14 * 86_400_000).all<Row>().catch(() => ({ results: [] as Row[] }))).results ?? [];
+    const at = (ms: number | null) => ms === null ? null : new Date(ms).toISOString();
+    const title = (source: string) => { try { const s = JSON.parse(source) as { title?: string; instagramAtMs?: number }; return { title: s.title ?? null, instagramAt: at(s.instagramAtMs ?? null) }; } catch { return { title: null, instagramAt: null }; } };
+    return json({ opslag: rows.map(r => ({ id: r.id, kind: r.kind, week: r.week, channels: r.channels, status: r.status, publishAt: at(r.publish_at_ms), publishedAt: at(r.published_at_ms), error: r.error, approvedBy: r.approved_by, ...title(r.source) })) });
+  }
+  if (!match) return json({ error: "not_found" }, 404);
   if (!match[1] && request.method === "GET") {
     const approved = (await listWishes(db)).filter(w => w.status === "approved");
     return json({ forslag: approved.map(w => ({ id: w.id, eta: w.eta_ms ? new Date(w.eta_ms).toISOString() : null, fra: w.author, titel: w.title, beskrivelse: w.summary, type: w.kind ?? null, stoerrelse: w.size ?? null, faerdig_naar: w.done_when ? w.done_when.split("\n") : [], note: w.chair_note, godkendt: w.decided_at_ms ? new Date(w.decided_at_ms).toISOString() : null, admin: `${cockpitUrl}/forslag/${w.id}` })) });
