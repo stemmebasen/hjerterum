@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import { siteClosedResponse } from "../site-closed.js";
 import { handleCockpitRequest } from "./handler.js";
 import { handleSagaRequest } from "../saga/handler.js";
 import { saveBoardMessage } from "../saga/store.js";
@@ -52,6 +53,25 @@ describe("a personal login from Saga", () => {
     expect(page).toContain('action="/posthus/forbind"');
     // Until team@ is connected the card is the first thing on Posthus, not under the whole inbox.
     expect(page.indexOf("Forbindelse til team@")).toBeLessThan(page.indexOf("Vigtige mails, der stadig er ubesvarede"));
+  });
+
+  // "Douglas kan stadig ikke komme ind" (the chair, 27 Nov 2026): while the website is closed, the chair and Douglas get the way in with the login.
+  it("gives the chair and Douglas a link straight to the closed website with the login - and nobody else", async () => {
+    const { db, linkFor } = await setup({ SITE_CLOSED: "1" } as never);
+    await saveBoardMessage(db, { chatId: BOARD, messageId: 40, author: "Douglas Crawford", authorId: "203", text: "Hi", sentAtMs: NOW - 86_400_000 });
+    for (const from of [Number(OWNER), 203]) {
+      const { sent } = await linkFor(from);
+      expect(sent.text).toContain("Den lukkede hjemmeside og Min side");
+      const link = /https:\/\/www\.hjerterum[^\s]*\/__adgang\?t=[^\s]+/.exec(sent.text)?.[0];
+      expect(link, String(from)).toBeTruthy();
+      const opened = await siteClosedResponse(new Request(link!), { SITE_CLOSED: "1", SAGA_TELEGRAM_BOT_TOKEN: "bot-token" }, NOW);
+      expect(opened!.status).toBe(302);
+      expect(opened!.headers.get("set-cookie")).toContain("hjerterum_preview=");
+    }
+    expect((await linkFor(202)).sent.text).not.toContain("Den lukkede hjemmeside");
+    // Open again: no link.
+    const open = await setup();
+    expect((await open.linkFor(Number(OWNER))).sent.text).not.toContain("Den lukkede hjemmeside");
   });
 
   it("is sent privately to a board member's own Telegram, and to no one else", async () => {
