@@ -74,8 +74,8 @@ export interface SagaEnv {
 
 /** The part of an R2 bucket the cockpit and Saga use. */
 export interface RecordingBucket {
-  put(key: string, value: ArrayBuffer | ReadableStream, options?: { httpMetadata?: { contentType?: string } }): Promise<unknown>;
-  get(key: string): Promise<{ arrayBuffer(): Promise<ArrayBuffer> } | null>;
+  put(key: string, value: ArrayBuffer | ReadableStream | Blob, options?: { httpMetadata?: { contentType?: string } }): Promise<unknown>;
+  get(key: string): Promise<{ arrayBuffer(): Promise<ArrayBuffer>; blob?(): Promise<Blob> } | null>;
   delete?(key: string): Promise<unknown>;
 }
 

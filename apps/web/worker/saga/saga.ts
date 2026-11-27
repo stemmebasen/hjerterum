@@ -19,7 +19,7 @@ import { EDIT_DAYS, inEditWindow, removeDuplicateTodos } from "../cockpit/data.j
 import { mailWatch } from "./connections.js";
 import { readTeamMail } from "./teamMail.js";
 import { complete, completeAs, MINUTES_MAX_TOKENS, type ChatMessage } from "./ai.js";
-import { appendToDoc, createGoogleDoc, downloadDriveFile, driveAccessToken, listRecordings, MAX_RECORDING_BYTES, minutesDocText, minutesDocUrl, plainMinutes } from "./drive.js";
+import { appendToDoc, createGoogleDoc, downloadDriveFile, driveAccessToken, listRecordings, MAX_RECORDING_BYTES, MAX_UPLOADED_RECORDING_BYTES, minutesDocText, minutesDocUrl, plainMinutes } from "./drive.js";
 import { postsToBoard, requireDb, SAGA_NAME, type SagaDeps, type SagaEnv } from "./env.js";
 import { markdownToHtml, section } from "./markdown.js";
 import { transcribe } from "./transcribe.js";
@@ -208,7 +208,8 @@ const minutesModel = (purpose: string) => (env: SagaEnv, deps: SagaDeps, message
 
 /** A recording Jacob sent Saga privately. Telegram lets a bot download at most 20 MB. */
 export async function queueTelegramRecording(env: SagaEnv, deps: SagaDeps, file: { fileId: string; fileName: string; mimeType: string | null; size: number }): Promise<string> {
-  if (file.size > 20 * 1024 * 1024) return "Filen er over 20 MB, som er Telegrams grænse for bots. Læg optagelsen i Drev-mappen til optagelser, så tager jeg den derfra.";
+  // The chair (27 Nov 2026): a recording of 61 MB, and Saga sent him to a Drive folder - the way that works is admin's upload (up to 95 MB).
+  if (file.size > 20 * 1024 * 1024) return `Filen er over 20 MB, som er Telegrams grænse for bots, så jeg kan ikke hente den herfra. Upload den i admin under Møder - der kan den være op til 95 MB, og jeg går i gang inden for fem minutter: ${(env.COCKPIT_URL ?? "https://admin.hjerterum.info").replace(/\/+$/, "")}/moder`;
   const queued = await queueMinutes(requireDb(env), { source: "telegram", fileId: file.fileId, fileName: file.fileName, mimeType: file.mimeType, meetingDate: copenhagenDate(deps.now()), nowMs: deps.now() });
   return queued ? "Modtaget. Jeg transskriberer optagelsen og sender dig et referatudkast til godkendelse." : "Den optagelse har jeg allerede fået.";
 }
@@ -237,16 +238,17 @@ export async function processNextMinutes(env: SagaEnv, deps: SagaDeps): Promise<
   const item = await claimNextMinutes(db, deps.now());
   if (!item) return false;
   try {
-    let audio: ArrayBuffer;
+    let audio: ArrayBuffer | Blob;
     if (item.source === "drive") audio = await downloadDriveFile(deps, await driveAccessToken(env, deps), item.source_file_id);
     else if (item.source === "upload") {
-      // Uploaded in the board cockpit (cockpit/handler.ts) and kept in R2 until now.
+      // Uploaded in the board cockpit (cockpit/handler.ts) and kept in R2 until now - handed on as a Blob, so a large one is not copied in memory.
       const stored = await env.BOARD_RECORDINGS?.get(item.source_file_id);
       if (!stored) throw new Error("recording_not_found");
-      audio = await stored.arrayBuffer();
+      audio = stored.blob ? await stored.blob() : new Blob([await stored.arrayBuffer()], { type: item.mime_type || "audio/mp4" });
     }
     else audio = await telegramClient(env, deps).downloadFile(item.source_file_id);
-    if (audio.byteLength > MAX_RECORDING_BYTES) throw new Error("recording_too_large");
+    const size = audio instanceof Blob ? audio.size : audio.byteLength;
+    if (size > (item.source === "upload" ? MAX_UPLOADED_RECORDING_BYTES : MAX_RECORDING_BYTES)) throw new Error("recording_too_large");
     const transcript = await transcribe(env, deps, audio, item.file_name, item.mime_type ?? "");
     const draft = await minutesModel("referat")(env, deps, [{ role: "system", content: MINUTES_SYSTEM },
       { role: "user", content: `Mødedato: ${danishDate(item.meeting_date) || "ukendt"}${await agendaFor(db, item.meeting_date)}\n\nTRANSSKRIPTION:\n${transcript}`
@@ -259,7 +261,7 @@ export async function processNextMinutes(env: SagaEnv, deps: SagaDeps): Promise<
     const final = message === "recording_too_large" || message === "recording_not_found" || item.attempts >= 3;
     await updateMinutes(db, item.id, { status: final ? "failed" : "queued", error: message }, deps.now());
     if (final) await telegramClient(env, deps).sendMessage(owner(env), message === "recording_too_large"
-      ? `Optagelsen ${item.file_name} er for stor til at behandle (over 60 MB). Gem den gerne i lavere kvalitet (fx m4a/mp3) og læg den ind igen.`
+      ? `Optagelsen ${item.file_name} er for stor til at behandle (over ${item.source === "upload" ? 95 : 60} MB). Gem den gerne i lavere kvalitet (fx m4a/mp3) og læg den ind igen.`
       : `Jeg kunne ikke lave referat af ${item.file_name} (${message}).`).catch(() => undefined);
   }
   return true;

@@ -22,14 +22,15 @@ export function speakerTranscript(result: { text?: string; words?: Word[] }): st
 }
 
 /** Danish transcription with speakers told apart (ElevenLabs Speech-to-Text). */
-export async function transcribe(env: SagaEnv, deps: SagaDeps, audio: ArrayBuffer, fileName: string, mimeType: string): Promise<string> {
+export async function transcribe(env: SagaEnv, deps: SagaDeps, audio: ArrayBuffer | Blob, fileName: string, mimeType: string): Promise<string> {
   if (!env.ELEVENLABS_API_KEY) throw new Error("transcription_not_configured");
   const form = new FormData();
   form.set("model_id", "scribe_v1");
   form.set("language_code", "dan");
   form.set("diarize", "true");
   form.set("tag_audio_events", "false");
-  form.set("file", new Blob([audio], { type: mimeType || "application/octet-stream" }), fileName);
+  // A Blob (a recording kept in R2) goes on as it is - a copy of a long recording would not fit in the Worker's memory.
+  form.set("file", audio instanceof Blob ? audio : new Blob([audio], { type: mimeType || "application/octet-stream" }), fileName);
   const response = await deps.fetcher("https://api.elevenlabs.io/v1/speech-to-text", {
     method: "POST", headers: { "xi-api-key": env.ELEVENLABS_API_KEY }, body: form
   });
