@@ -26,7 +26,7 @@ export function MembershipPlans({ lang = "da" }: { lang?: "da" | "en" }) {
         <p className="site-plan-price"><b>{(plan.month / 100).toLocaleString("da-DK")}</b> {en ? "DKK/month" : "kr./md."}</p>
         <p className="site-plan-year">{en ? "or" : "eller"} {kr(plan.year, en)} {en ? "a year" : "om året"}{saving > 0 && <span> · {en ? "save" : "spar"} {kr(saving, en)}</span>}</p>
         <p className="site-plan-text">{text.description}</p>
-        <a className={"lys-btn" + (id === "standard" ? "" : " ghost")} href={signup} target="_blank" rel="noopener noreferrer">
+        <a className={"lys-btn" + (id === "standard" ? "" : " ghost")} href={signup}>
           {plan.benefits ? (en ? "Become a member" : "Bliv medlem") : (en ? "Become a supporter" : "Bliv støttemedlem")}
         </a>
       </article>;

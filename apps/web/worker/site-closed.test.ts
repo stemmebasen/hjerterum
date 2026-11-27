@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { siteClosedResponse, PREVIEW_COOKIE } from "./site-closed.js";
+import { siteClosedResponse, PREVIEW_COOKIE, wayBack } from "./site-closed.js";
 import { handleCockpitRequest } from "./cockpit/handler.js";
 import { previewValue } from "./cockpit/auth.js";
 import { deps, fakeServices, personalCookie, sagaEnv, testDatabase, memberCookie } from "./saga/test-support.js";
@@ -21,6 +21,12 @@ describe("the closed website", () => {
       expect(await r.text()).toContain("åbner snart");
     }
     expect(await (await get("https://www.hjerterum.info/robots.txt"))!.text()).toContain("Disallow: /");
+    // "Douglas kan ikke komme ind nu" (27 Nov 2026): the page shows the board the way in, back to the page asked for.
+    const page = await (await get("https://medlem.hjerterum.info/member-portal/kalender"))!.text();
+    expect(page).toContain("https://admin.hjerterum.info/hjemmeside-adgang?vaert=medlem.hjerterum.info&amp;til=%2Fmember-portal%2Fkalender");
+    expect(wayBack("medlem.hjerterum.info", "/member-portal/kalender", "hjerterum.info")).toBe("https://medlem.hjerterum.info/member-portal/kalender");
+    expect(wayBack("evil.example", "//evil.example", "hjerterum.info")).toBe("https://www.hjerterum.info/");
+    expect(wayBack("admin.hjerterum.info", "/", "hjerterum.info")).toBe("https://www.hjerterum.info/");
     for (const url of ["https://admin.hjerterum.info/", "https://www.hjerterum.info/api/saga/telegram", "https://www.hjerterum.info/api/stripe/member-webhook", "https://www.hjerterum.info/api/social-reels/abcdefgh.mp4"])
       expect(await get(url), url).toBeNull();
     // Open again when it is not closed.
@@ -58,6 +64,15 @@ describe("the closed website", () => {
       expect(r.status).toBe(303);
       expect(r.headers.get("location")).toMatch(/^https:\/\/www\.hjerterum\.info\/__adgang\?t=/);
     }
+    // Back to the page asked for, on its own address - and the key sends the holder there.
+    const back = (await call("/hjemmeside-adgang?vaert=medlem.hjerterum.info&til=%2Fmember-portal", await personalCookie("Douglas Crawford", NOW))).headers.get("location")!;
+    expect(back).toMatch(/^https:\/\/medlem\.hjerterum\.info\/__adgang\?t=.+&til=%2Fmember-portal$/);
+    expect((await siteClosedResponse(new Request(back), env, NOW))!.headers.get("location")).toBe("/member-portal");
+    // The front page of admin shows the way in to those who may see the site.
+    const closedEnv = sagaEnv(db, { COCKPIT_PASSWORD: "hjerte-2026", SITE_CLOSED: "1" } as never);
+    const home = async (cookie: string) => (await handleCockpitRequest(new Request("https://admin.hjerterum.info/", { headers: { cookie } }), closedEnv, deps(services.fetcher, NOW))).text();
+    expect(await home(await personalCookie("Douglas Crawford", NOW))).toContain("Se den lukkede hjemmeside →");
+    expect(await home(await memberCookie(session, "Lisbeth"))).not.toContain("Se den lukkede hjemmeside →");
     expect((await call("/hjemmeside-adgang", await memberCookie(session, "Lisbeth"))).status).toBe(403);
   });
 });
