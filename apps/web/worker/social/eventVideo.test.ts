@@ -60,6 +60,23 @@ describe("an event's post with its video", () => {
     expect((await socialPosts(db, "kind = 'event'"))[0]).toMatchObject({ status: "published", published: { facebook: "755_1", instagram: "ig1" } });
   });
 
+  // Found 27 Nov 2026 (Yin yoga): Instagram's time a day after Facebook's, and the six hours counted from Facebook's - the post was lost at once.
+  it("waits six hours from Instagram's own time, then puts the picture on Instagram instead of the video", async () => {
+    const { db, env, graph, fetcher } = await setup();
+    const igAt = AT + 14 * 3_600_000;
+    await db.prepare("UPDATE social_posts SET status = 'approved', source = json_set(source, '$.instagramAtMs', ?)").bind(igAt).run();
+    const slow: typeof fetch = async (input, init) => String(input).startsWith(`${GRAPH}/c1`) ? new Response(JSON.stringify({ status_code: "IN_PROGRESS" })) : fetcher(input, init);
+    await publishDue(env as never, deps(slow, AT + 60_000), db);
+    await publishDue(env as never, deps(slow, igAt + 60_000), db);
+    expect((await socialPosts(db, "kind = 'event'"))[0]).toMatchObject({ status: "approved", published: { facebook: "755_1", instagram_container: "c1" } });
+    await publishDue(env as never, deps(slow, igAt + 7 * 3_600_000), db);
+    expect((await socialPosts(db, "kind = 'event'"))[0]).toMatchObject({ status: "approved", source: { noVideo: true } });
+    expect((await socialPosts(db, "kind = 'event'"))[0]!.published.instagram_container).toBeUndefined();
+    await publishDue(env as never, deps(slow, igAt + 7 * 3_600_000 + 60_000), db);
+    expect(graph.filter(c => c.path === "/17841/media").at(-1)!.params).toMatchObject({ image_url: "https://d1tif55lvfk8gc.cloudfront.net/a.jpg" });
+    expect((await socialPosts(db, "kind = 'event'"))[0]).toMatchObject({ status: "published", published: { facebook: "755_1", instagram: "ig1" } });
+  }, 30_000);
+
   it("keeps the picture on Facebook when the chair takes the video off there, or the page may not post videos yet", async () => {
     const { db, env, graph, fetcher, call } = await setup();
     const [post] = await socialPosts(db, "kind = 'event'");
