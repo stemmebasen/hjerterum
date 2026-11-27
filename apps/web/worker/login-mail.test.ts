@@ -41,6 +41,9 @@ describe("login emails through Resend", () => {
     expect(calls[0]!.body).toMatchObject({ from: "Hjerterum <login@hjerterum.info>", to: ["medlem@example.dk"], subject: "123456 er din kode til Hjerterum" });
     expect(calls[0]!.body.text).toContain("Din kode til at logge ind hos Hjerterum er 123456.");
     expect(calls[0]!.body.html).toContain("123456");
+    // Douglas (forslag #5, 27 Nov 2026): the login code in the same template as the system's other mails.
+    expect(calls[0]!.body.html).toContain('alt="Hjerterum"');
+    expect(calls[0]!.body.text).toContain("Hjerterum · Guldsmedgade 26B, 8000 Aarhus C");
     expect(calls[0]!.body.html).not.toContain("Clerk's own");
   });
 

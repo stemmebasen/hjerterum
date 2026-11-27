@@ -1,5 +1,7 @@
 import type { D1Database } from "./db.js";
 import { isMemberAttendee } from "./membership-access.js";
+import { hjerterumMail } from "./mail-template.js";
+import { withKl } from "../site/when.js";
 
 /** Douglas (13 Nov 2026): "a box for the teacher's email address so they can be notified when people book for their event" and "Will there be
  * opportunity for teachers to write a confirmation email for when people sign up for their workshops?" - the chair: "Ja".
@@ -31,7 +33,6 @@ export async function signupSettingsByBooking(db: D1Database, ids: number[]): Pr
   return map;
 }
 
-const escapeHtml = (text: string) => text.replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c]!);
 const WHEN = new Intl.DateTimeFormat("da-DK", { timeZone: "Europe/Copenhagen", weekday: "long", day: "numeric", month: "long", hour: "2-digit", minute: "2-digit" });
 
 /** A mail to the organiser that someone signed up: who, their e-mail, member or not, and how many are signed up now. Never stops the sign-up. */
@@ -47,16 +48,21 @@ export async function notifyOrganiser(env: { DB?: D1Database; RESEND_API_KEY?: s
     // Not about the organiser's own sign-up.
     if (!event || !event.notify_signups || event.clerk_user_id === person.clerkUserId || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(event.teacher_email ?? "")) return;
     const member = await isMemberAttendee(db, person.clerkUserId, person.email).catch(() => false);
-    const when = WHEN.format(event.starts_at_ms).replace(/(\d{2})[.:](\d{2})$/, "kl. $1.$2");
+    const when = withKl(WHEN.format(event.starts_at_ms));
     const count = `${event.taken}${event.max_attendees ? ` af ${event.max_attendees}` : ""} tilmeldt`;
     const mine = `${siteOrigin.replace(/\/$/, "")}/member-portal/events/mine`;
     const first = event.teacher_name.split(/\s+/)[0] ?? "";
     const party = person.seats && person.seats > 1 ? ` for ${person.seats} personer` : "";
-    const text = `Kære ${first}\n\n${person.name} (${person.email}) har tilmeldt sig${party} "${event.title}" ${when}. ${member ? "Medlem" : "Ikke-medlem"}.\n\nNu: ${count}.\n\n`
-      + `Se alle tilmeldte under Mine events: ${mine}\nVil du ikke have en mail ved hver tilmelding, kan du slå det fra, når du redigerer eventet.\n\nVarme hilsner\nHjerterum`;
-    const html = `<p>Kære ${escapeHtml(first)}</p><p><b>${escapeHtml(person.name)}</b> (<a href="mailto:${escapeHtml(person.email)}">${escapeHtml(person.email)}</a>) har tilmeldt sig${party} `
-      + `<b>${escapeHtml(event.title)}</b> ${escapeHtml(when)}. ${member ? "Medlem" : "Ikke-medlem"}.</p><p>Nu: ${escapeHtml(count)}.</p>`
-      + `<p><a href="${escapeHtml(mine)}">Se alle tilmeldte under Mine events</a></p><p style="color:#777">Vil du ikke have en mail ved hver tilmelding, kan du slå det fra, når du redigerer eventet.</p><p>Varme hilsner<br>Hjerterum</p>`;
+    const who = `${when}. ${member ? "Medlem" : "Ikke-medlem"}.`;
+    // Douglas (forslag #5, 27 Nov 2026): the organiser's mail in Hjerterum's mail template too (mail-template.ts).
+    const { text, html } = hjerterumMail({ title: "Ny tilmelding", preheader: `${person.name} har tilmeldt sig ${event.title}. Nu: ${count}.`, blocks: [
+      { p: `Kære ${first}` },
+      { p: [{ text: person.name, bold: true }, " (", { text: person.email, href: `mailto:${person.email}` }, `) har tilmeldt sig${party} `, { text: event.title, bold: true }, ` ${who}`],
+        text: `${person.name} (${person.email}) har tilmeldt sig${party} "${event.title}" ${who}` },
+      { p: `Nu: ${count}.` },
+      { button: "Se alle tilmeldte under Mine events", url: mine },
+      { small: "Vil du ikke have en mail ved hver tilmelding, kan du slå det fra, når du redigerer eventet." }
+    ] });
     const sent = await fetcher("https://api.resend.com/emails", { method: "POST", headers: { authorization: `Bearer ${env.RESEND_API_KEY}`, "content-type": "application/json",
       "idempotency-key": `signup-organiser/${bookingId}/${person.email.toLowerCase()}/${Math.floor(Date.now() / 60_000)}` },
       body: JSON.stringify({ from: env.RESEND_FROM_EMAIL, to: [event.teacher_email], reply_to: person.email, subject: `Ny tilmelding: ${event.title}`, text, html }) }).catch(() => null);

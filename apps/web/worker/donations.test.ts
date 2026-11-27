@@ -22,6 +22,10 @@ describe("a donation", () => {
     expect(sent[0]).toMatchObject({ to: ["bo@x.dk"], subject: "Tak for din donation til Hjerterum" });
     expect(String(sent[0]!.text)).toContain("Beløb: 250 kr.");
     expect(String(sent[0]!.text)).toContain("CVR 40827692");
+    // Douglas (forslag #5, 27 Nov 2026): the receipt in the common mail template, with the logo and the footer.
+    expect(String(sent[0]!.html)).toContain('alt="Hjerterum"');
+    expect(String(sent[0]!.html)).toContain("Kvittering for donation");
+    expect(String(sent[0]!.text)).toContain("Hjerterum · Guldsmedgade 26B, 8000 Aarhus C");
     expect((await db.prepare("SELECT amount_minor, receipt_sent_at_ms IS NOT NULL AS sent FROM donations").first())).toEqual({ amount_minor: 25000, sent: 1 });
   });
 });
