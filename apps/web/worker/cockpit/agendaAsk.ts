@@ -102,7 +102,7 @@ export function leaderAgendaText(lang: Lang, member: string, m: Meeting, link: s
   const points = agendaPoints(m.agenda).map((p, i) => `${i + 1}. ${p}`).join("\n");
   const time = m.start_time ? m.start_time.replace(":", ".") : "";
   if (lang === "en") return `Hi ${first(member)} 🙂 ${role === "leader" ? "You are leading today's team meeting" : role === "moderator" ? "You are the moderator of today's team meeting" : "Today's team meeting has no meeting leader yet"}${time ? ` at ${time}` : ""}${m.place ? ` (${m.place})` : ""}. Here is the final agenda:\n\n${points || "(no points)"}`
-    + `${rolesLine(m) ? `\n\n${rolesLine(m)}` : ""}${link ? `\n\nOn the meeting's page: ${link}` : ""}`;
+    + `${rolesLine(m, "en") ? `\n\n${rolesLine(m, "en")}` : ""}${link ? `\n\nOn the meeting's page: ${link}` : ""}`;
   return `Hej ${first(member)} 🙂 ${role === "leader" ? "Du er mødeleder på dagens teammøde" : role === "moderator" ? "Du er ordstyrer på dagens teammøde" : "Dagens teammøde har ingen mødeleder endnu"}${time ? ` kl. ${time}` : ""}${m.place ? ` (${m.place})` : ""}. Her er den færdige dagsorden:\n\n${points || "(ingen punkter)"}`
     + `${rolesLine(m) ? `\n\n${rolesLine(m)}` : ""}${link ? `\n\nPå mødets side: ${link}` : ""}`;
 }

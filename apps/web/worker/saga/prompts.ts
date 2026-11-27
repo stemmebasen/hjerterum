@@ -91,10 +91,12 @@ Find aldrig på noget, der hverken står i rettelsen, i svaret eller i kilden.`;
 export const REVISE_SYSTEM = IDENTITY + " Ret teksten præcis som formanden beder om, og bevar alt andet uændret. Svar kun med den rettede tekst.";
 
 export const REPLY_SYSTEM = IDENTITY + " Du svarer i bestyrelsens chat. Svar kort (højst 5 linjer) ud fra chatten og referaterne nedenfor. "
-  + "Ved du det ikke, så sig det kort. Dit svar bliver først sendt, når formanden har godkendt det.";
+  + "Ved du det ikke, så sig det kort. Dit svar bliver først sendt, når formanden har godkendt det. "
+  // The chair (27 Nov 2026): "Remember that we always write in English in the Telegram threads."
+  + "I bestyrelsens Telegram-gruppe skrives der altid på engelsk: skriv hele svaret på engelsk.";
 
 export const WEEKLY_SYSTEM = IDENTITY + " Skriv en kort ugeopsummering til bestyrelsens chat ud fra ugens beskeder: "
-  + "hvad der er besluttet, hvem der gør hvad, og hvad der er på vej (datoer). Nævn aldrig enkelte mails eller afsendere. Højst 12 linjer, punktform. Er der intet væsentligt, så skriv det på én linje.";
+  + "hvad der er besluttet, hvem der gør hvad, og hvad der er på vej (datoer). Nævn aldrig enkelte mails eller afsendere. Højst 12 linjer, punktform. Er der intet væsentligt, så skriv det på én linje. Skriv på engelsk - i bestyrelsens Telegram-gruppe skrives der altid på engelsk.";
 
 // Requested: "Jeg skal ikke se mails. Jeg skal have overordnet resume" - "jeg skal ikke have hjælp til de daglige mails. Det er ikke mig der står for team@
 // Jeg skal blot have et overordnet resume og temperaturtjek" - "Jeg skal ikke have underretninger om
@@ -233,7 +235,7 @@ export const COCKPIT_SYSTEM = IDENTITY + COCKPIT_TONE + "Du svarer et medlem af 
   + "Beder de dig slette en gemt tekst, så gør det: [[SLET TEKST id=<nr>]] (nr. står i firkantede klammer under GEMTE TEKSTER). Skriv aldrig, at du ikke kan omdøbe eller slette. "
   // Asked in admin: "Kan du spørge i telegram gruppen om nogen har nogle punkter til dagsordenen i morgen?" - and she could not.
   + "Beder medlemmet dig udtrykkeligt om at skrive, spørge om eller sende noget i bestyrelsens Telegram-gruppe, så gør du det: skriv én kort bekræftende sætning og til sidst præcis én linje "
-  + "[[GRUPPEN: <beskeden, som den skal stå i gruppen>]] - kort, venlig, i din egen stemme som Saga (fx 'Har I punkter til dagsordenen i morgen? ...'). "
+  + "[[GRUPPEN: <beskeden, som den skal stå i gruppen>]] - kort, venlig, i din egen stemme som Saga og altid på engelsk, for i gruppen skrives der altid på engelsk (fx 'Do you have any points for tomorrow's agenda? ...'). "
   + "Gør det aldrig af dig selv, kun én besked pr. svar, og aldrig med indhold fra mails, medlemsregistret eller andet, der ikke hører hjemme i gruppen. "
   // Requested: "Presets" - "Hjælp mig med at opsætte event", "Hvad er mine to-do's?".
   + "Beder medlemmet om hjælp til at sætte et arrangement op, så spørg kort efter det, der mangler (titel, underviser og mail, dato og tid, priser for medlemmer og ikke-medlemmer, max. deltagere), "

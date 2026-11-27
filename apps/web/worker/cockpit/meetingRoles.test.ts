@@ -49,8 +49,8 @@ describe("the meeting's leader and moderator in turn", () => {
     expect(next).toMatchObject({ meeting_date: "2026-10-29", start_time: "13:30", end_time: "15:30", kind: "team", leader: "Douglas Crawford", moderator: "Frederik" });
     expect(await meetingOn(db, "2026-10-29")).toMatchObject({ leader: "Douglas Crawford", moderator: "Frederik", updated_by: "Saga" });
     const sent = services.telegram("sendMessage").map(text);
-    expect(sent).toEqual([expect.objectContaining({ chat_id: BOARD, text: "Næste teammøde: torsdag d. 29. oktober kl. 13.30-15.30 i Hjerterum 🌿\nMødeleder: Douglas · Ordstyrer: Frederik\n"
-      + "Douglas, jeg minder dig om at gøre dagsordenen klar 3 dage før.\nhttps://admin.hjerterum.example/moder/2" })]);
+    expect(sent).toEqual([expect.objectContaining({ chat_id: BOARD, text: "Next team meeting: Thursday 29 October at 13.30-15.30 at Hjerterum 🌿\nLeading: Douglas · Moderator: Frederik\n"
+      + "Douglas, I will remind you to get the agenda ready 3 days before.\nhttps://admin.hjerterum.example/moder/2" })]);
     // Once per meeting.
     expect(await scheduledMeetingRoles(env, deps(services.fetcher, DAY_AFTER + 600_000), db, claim(DAY_AFTER + 600_000))).toBeNull();
     expect((await meetings(db)).length).toBe(2);
@@ -92,7 +92,7 @@ describe("the meeting's leader and moderator in turn", () => {
     expect(after.leader).not.toBe("Gitta");
     expect(after.moderator).toBe("Lisbeth");
     const told = services.telegram("sendMessage").map(text).filter(m => m.chat_id === BOARD).at(-1)!.text;
-    expect(told).toContain(`er mødeleder i stedet for Gitta`);
+    expect(told).toContain("is leading instead of Gitta");
     // Once.
     expect(await scheduledRoleReplacements(env, deps(services.fetcher, DAY_AFTER + 600_000), db, claim(DAY_AFTER + 600_000))).toEqual([]);
   });

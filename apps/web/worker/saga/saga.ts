@@ -41,6 +41,7 @@ import { handlePendingCorrections } from "../cockpit/corrections.js";
 
 const DAY = 86_400_000, HOUR = 3_600_000;
 const copenhagenDate = (ms: number) => new Intl.DateTimeFormat("sv-SE", { timeZone: "Europe/Copenhagen" }).format(ms);
+const englishDate = (iso: string) => new Intl.DateTimeFormat("en-GB", { timeZone: "UTC", day: "numeric", month: "long", year: "numeric" }).format(new Date(`${iso.slice(0, 10)}T12:00:00Z`));
 const danishDate = (iso: string | null) => {
   if (!iso) return "";
   const date = new Date(`${iso}T12:00:00Z`);
@@ -369,7 +370,8 @@ export async function publishMinutes(env: SagaEnv, deps: SagaDeps, id: number, n
   if (env.SAGA_BOARD_CHAT_ID && env.AI_API_KEY) await draftOverview(env, deps).catch(error => console.warn("saga_overview_failed", error instanceof Error ? error.message : error));
   // Requested: "Hej alle sammen 😊 / Så er referatet klar til godkendelse: / URL" - then: "Referat-udkast kan tilrettes og ændres i 3 dage.
   // Herefter ... skal bestyrelsesmedlemmerne godkende det hver især." Now they are told to correct it; approving comes when the three days are over.
-  await pingBoard(env, deps, `Hej alle sammen 😊\nSå er referatet${item.meeting_date ? ` fra mødet ${danishDate(item.meeting_date)}` : ""} lagt op. I kan rette i det de næste ${EDIT_DAYS} dage - derefter godkender I det hver især:\n${link || "Se det i admin."}`);
+  // In English, as all Saga writes in the group (cockpit/data.ts GROUP_LANG); in English the minutes are a "summary".
+  await pingBoard(env, deps, `Hi everyone 😊\nThe summary${item.meeting_date ? ` of the meeting on ${englishDate(item.meeting_date)}` : ""} is up. You can make changes to it for the next ${EDIT_DAYS} days - after that you each approve it:\n${link || "See it in admin."}`);
   return `${result} Svar på referat-filen for at rette det.`;
 }
 
@@ -382,7 +384,7 @@ export async function scheduledApprovalOpen(env: SagaEnv, deps: SagaDeps): Promi
   for (const row of rows) {
     if (!await claimJob(db, "minutes_approval_open", row.id, now)) continue;
     const link = cockpitLink(env, `/referat/${row.id}`);
-    await pingBoard(env, deps, `Rettelsesperioden er slut 🌿\nReferatet${row.meeting_date ? ` fra mødet ${danishDate(row.meeting_date)}` : ""} kan ikke længere ændres. Nu godkender I det hver især - når alle har godkendt, låses det:\n${link || "Se det i admin."}`);
+    await pingBoard(env, deps, `The time for changes is over 🌿\nThe summary${row.meeting_date ? ` of the meeting on ${englishDate(row.meeting_date)}` : ""} can no longer be changed. Now you each approve it - when everyone has, it is locked:\n${link || "See it in admin."}`);
     sent++;
   }
   return sent;
@@ -488,7 +490,8 @@ export async function approveMinutes(env: SagaEnv, deps: SagaDeps, id: number, a
     : readOnly ? `Godkendt og gemt hos Saga. Hun kan læse referatdokumentet, men ikke skrive i det, så sæt referatet ind her: ${readOnly}`
     : "Godkendt. Referatet er filen ovenfor (referatdokumentet er ikke koblet på endnu).";
   const decisions = section(item.draft_markdown, /beslutninger/i), tasks = section(item.draft_markdown, /opgaver/i);
-  const text = [`${title}`, decisions && `Beslutninger:\n${decisions}`, tasks && `Opgaver:\n${tasks}`, link ? `Hele referatet: ${link}` : ""].filter(Boolean).join("\n\n");
+  // The headings in English, as all Saga writes in the group (cockpit/data.ts GROUP_LANG); the points stay as the minutes have them.
+  const text = [`Summary - board meeting ${item.meeting_date ?? ""}`.trim(), decisions && `Decisions:\n${decisions}`, tasks && `Tasks:\n${tasks}`, link ? `The whole summary: ${link}` : ""].filter(Boolean).join("\n\n");
   const sent = await telegram.sendMessage(board(env), text);
   await saveBoardMessage(db, { chatId: board(env), messageId: sent.message_id, author: SAGA_NAME, authorId: null, text, sentAtMs: deps.now(), fromAssistant: true });
   if (!link) await telegram.sendDocument(board(env), `${title}.md`, item.draft_markdown, title).catch(() => undefined);

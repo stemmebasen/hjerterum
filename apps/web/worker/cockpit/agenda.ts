@@ -92,8 +92,9 @@ export async function suggestForTeamMeeting(env: SagaEnv, deps: SagaDeps, db: D1
 export function agendaReadyText(env: SagaEnv, meeting: Meeting): string {
   const points = agendaPoints(meeting.agenda), shown = points.slice(0, 12);
   const link = env.COCKPIT_URL ? `${env.COCKPIT_URL.replace(/\/+$/, "")}/moder/${meeting.id}#dagsorden` : "";
-  const list = `${shown.map((p, i) => `${i + 1}. ${p}`).join("\n")}${points.length > shown.length ? `\n... og ${points.length - shown.length} punkter mere` : ""}`;
-  return `God morgen 🙂 Dagsordenen til dagens teammøde er klar (${points.length} ${points.length === 1 ? "punkt" : "punkter"}), og vi ses ${meeting.start_time ? `kl. ${meeting.start_time}` : "i dag"}${meeting.place ? ` - ${meeting.place}` : ""}.${rolesLine(meeting) ? `\n${rolesLine(meeting)}` : ""}\n\n${list}${link ? `\n\nSe dagsordenen her: ${link}` : ""}`;
+  const list = `${shown.map((p, i) => `${i + 1}. ${p}`).join("\n")}${points.length > shown.length ? `\n... and ${points.length - shown.length} more ${points.length - shown.length === 1 ? "point" : "points"}` : ""}`;
+  // In English, as all Saga writes in the group (data.ts GROUP_LANG). The points stay as they were written.
+  return `Good morning 🙂 The agenda for today's team meeting is ready (${points.length} ${points.length === 1 ? "point" : "points"}), and we meet ${meeting.start_time ? `at ${meeting.start_time.replace(":", ".")}` : "today"}${meeting.place ? ` - ${meeting.place}` : ""}.${rolesLine(meeting, "en") ? `\n${rolesLine(meeting, "en")}` : ""}\n\n${list}${link ? `\n\nSee the agenda here: ${link}` : ""}`;
 }
 
 /** In Saga's round: on the day of a team meeting, from 08:00 and until it begins (12:00 when it has no time), once - and only when the agenda has points. She writes in the board's group only when she
