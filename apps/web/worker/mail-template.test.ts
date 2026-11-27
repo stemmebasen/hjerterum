@@ -126,4 +126,8 @@ describe("the system's mails in the template", () => {
     expect(withKl("lørdag 28. november 10.00")).toBe("lørdag 28. november kl. 10.00");
     expect(withKl("lørdag 28. november kl. 10:00")).toBe("lørdag 28. november kl. 10.00");
   });
+  // Douglas (forslag #7, 27 Nov 2026): "please make the logo in the emails a bit bigger".
+  it("shows the logo a third bigger", () => {
+    expect(hjerterumMail({ title: "Test", blocks: [{ p: "Hej" }] }).html).toContain('width="128" height="128"');
+  });
 });

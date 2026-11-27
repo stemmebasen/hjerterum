@@ -41,7 +41,8 @@ export function CancelRegistration({ clerk, booking, onDone, label = "Annullér"
     {error && <p className="workspace-message" role="alert">{error}</p>}
     <p className="cancel-registration-actions">
       <button type="button" className="pill-button dark" disabled={busy} onClick={() => void cancel()}>{busy ? "Arbejder …" : keep === null ? "Ja, annullér" : "Ja, annullér pladserne"}</button>
-      <button type="button" className="pill-button subtle" disabled={busy} onClick={() => setOpen(false)}>Fortryd</button>
+      {/* Douglas (forslag #8): the button that closes the step without cancelling keeps the registration - and says so, in words Google translates as "Keep". */}
+      <button type="button" className="pill-button subtle" disabled={busy} onClick={() => setOpen(false)}>Nej, behold min tilmelding</button>
     </p>
   </div>;
 }
