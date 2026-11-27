@@ -1,7 +1,9 @@
 import type { D1Database } from "../db.js";
 import type { SagaDeps, SagaEnv } from "../saga/env.js";
 import { telegramClient } from "../saga/telegram.js";
-import { LINK_MINUTES, linkHash, loginCodeHash, newLinkToken, newLoginCode } from "./auth.js";
+import { LINK_MINUTES, linkHash, loginCodeHash, newLinkToken, newLoginCode, previewValue } from "./auth.js";
+import { POWERS } from "./authority.js";
+import { PREVIEW_PATH } from "../site-closed.js";
 import { deputyByTelegram, recordDeputy, stillDeputy } from "./deputies.js";
 import { checkAccess } from "./loginAccess.js";
 
@@ -152,7 +154,20 @@ async function sendLogin(env: SagaEnv, deps: SagaDeps, db: D1Database, chatId: s
   // Requested after: "Det er som om, jeg bliver logget ind i Telegrams egen browser." The link logs in Telegram's browser; the code logs in the usual one.
   await telegram.sendMessage(chatId, `Hej ${escapeHtml(member.split(/\s+/)[0] ?? "")}. Her er dit personlige login til ${role === "suppleant" ? "admin som suppleant" : "bestyrelsens admin"}. Det virker én gang inden for ${LINK_MINUTES} minutter - del det ikke.\n\n`
     + `Åbn linket:\n${address}/login/link/${token}\n\n`
-    + `Åbner det i Telegrams egen browser, og vil du logge ind i din almindelige browser (Safari, Chrome ...)? Gå så til ${address.replace(/^https?:\/\//, "")} og skriv koden:\n<code>${code.slice(0, 4)} ${code.slice(4)}</code>`, { html: true });
+    + `Åbner det i Telegrams egen browser, og vil du logge ind i din almindelige browser (Safari, Chrome ...)? Gå så til ${address.replace(/^https?:\/\//, "")} og skriv koden:\n<code>${code.slice(0, 4)} ${code.slice(4)}</code>`
+    + (role === "bestyrelse" ? await closedSiteLine(env, telegramId, member, deps.now()) : ""), { html: true });
+}
+
+/** "Douglas kan stadig ikke komme ind" (the chair, 27 Nov 2026): while the website is closed (site-closed.ts), whoever may see it (the chair and Douglas,
+ * power "site.preview") gets the way in with the login - a link straight to the website, without going through admin. It works for 30 days and only
+ * for the website and the member pages. */
+async function closedSiteLine(env: SagaEnv, telegramId: string, member: string, nowMs: number): Promise<string> {
+  if ((env as { SITE_CLOSED?: string }).SITE_CLOSED !== "1" || !env.COCKPIT_URL || !env.SAGA_TELEGRAM_BOT_TOKEN) return "";
+  const chair = Boolean(env.SAGA_OWNER_TELEGRAM_ID) && telegramId === env.SAGA_OWNER_TELEGRAM_ID;
+  if (!chair && !((POWERS["site.preview"].also ?? []) as readonly string[]).includes(member.split(/\s+/)[0] ?? "")) return "";
+  const site = new URL(env.COCKPIT_URL).hostname.replace(/^(?:admin|cockpit)\./i, "www.");
+  const token = await previewValue(env.SAGA_TELEGRAM_BOT_TOKEN, member, nowMs);
+  return `\n\nDen lukkede hjemmeside og Min side (virker i 30 dage på den enhed, du åbner det på):\nhttps://${site}${PREVIEW_PATH}?t=${encodeURIComponent(token)}`;
 }
 
 const escapeHtml = (text: string) => text.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
