@@ -97,6 +97,7 @@ describe("a deputy's login", () => {
     expect(signe).not.toContain("hjerterum_cockpit_person=");
     const home = await (await call("/", { cookie: signe })).text();
     expect(home).toContain("Signe (suppleant)");
+    expect(home).toMatch(/class="avatar"[^>]*>S<\/a>/);
     expect(home).toContain("Du er logget ind som suppleant: du har samme adgang som bestyrelsen");
     for (const path of ["/posthus", "/opslag", "/beslutninger", "/moder", "/arrangementer"])
       expect((await call(path, { cookie: signe })).status, path).toBe(200);

@@ -235,7 +235,8 @@ export function layout(base: string, title: string, body: string, options: { sec
   const tabs = PHONE_TABS.map(([path, label]) => `<a href="${base}${path}"${tab === path ? ' class="on" aria-current="page"' : ""}>${icon(path)}<span>${label}</span></a>`).join("");
   // The tab on the right edge on every page, for whoever has said who they are.
   const drawer = options.section !== undefined && Boolean(options.who);
-  const initials = (options.who ?? "").split(/\s+/).filter(Boolean).slice(0, 2).map(w => w[0]!.toUpperCase()).join("") || "?";
+  // "Signe (suppleant)" is "S", not "S(": what stands in brackets is not part of the name.
+  const initials = (options.who ?? "").replace(/\([^)]*\)/g, "").split(/\s+/).filter(Boolean).slice(0, 2).map(w => w[0]!.toUpperCase()).join("") || "?";
   return `<!doctype html><html lang="da"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <meta name="robots" content="noindex,nofollow"><meta name="theme-color" content="#f6f1e7" media="(prefers-color-scheme: light)"><meta name="theme-color" content="#10151f" media="(prefers-color-scheme: dark)">
 <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin><link rel="stylesheet" href="${BRICOLAGE_FONT_URL.replace(/&/g, "&amp;")}">
