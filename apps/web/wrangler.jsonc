@@ -18,6 +18,7 @@
       "name": "hjerterum-platform-staging",
       "vars": {
         "ENVIRONMENT": "staging",
+        "SITE_CLOSED": "1",
         "SAGA_TELEGRAM_BOT_USERNAME": "jacobhaugemathiassen_bot_bot",
         "SAGA_BOARD_CHAT_ID": "-1003488840083",
         "SAGA_DEPUTY_CHAT_ID": "-5198953189",
@@ -55,6 +56,7 @@
       "workers_dev": true,
       "vars": {
         "ENVIRONMENT": "test",
+        "SITE_CLOSED": "1",
         "RESEND_FROM_EMAIL": "Hjerterum <login@hjerterum.info>"
       },
       "routes": [

@@ -97,12 +97,18 @@ export const DEPUTY_COOKIE = "hjerterum_cockpit_deputy";
 export const deputySessionValue = (secret: string, member: string, nowMs: number) => signedLogin("deputy", secret, member, nowMs);
 export const readDeputySession = (secret: string | undefined, value: string | undefined, nowMs: number) => readSignedLogin("deputy", secret, value, nowMs);
 
-async function signedLogin(purpose: "person" | "deputy", secret: string, member: string, nowMs: number): Promise<string> {
-  const body = `${b64(member)}.${nowMs}.${nowMs + PERSON_DAYS * 86_400_000}`;
+/** The chair (27 Nov 2026): "Siden skal nu kun kunne ses af Douglas og jeg" - the key to the closed website and member pages (site-closed.ts), signed for
+ * its own purpose, so it is never read as a login to admin. */
+export const PREVIEW_DAYS = 30;
+export const previewValue = (secret: string, member: string, nowMs: number) => signedLogin("preview", secret, member, nowMs, PREVIEW_DAYS);
+export const readPreview = (secret: string | undefined, value: string | undefined, nowMs: number) => readSignedLogin("preview", secret, value, nowMs);
+
+async function signedLogin(purpose: "person" | "deputy" | "preview", secret: string, member: string, nowMs: number, days = PERSON_DAYS): Promise<string> {
+  const body = `${b64(member)}.${nowMs}.${nowMs + days * 86_400_000}`;
   return `${body}.${await sign(purpose, secret, body)}`;
 }
 
-async function readSignedLogin(purpose: "person" | "deputy", secret: string | undefined, value: string | undefined, nowMs: number): Promise<{ member: string; issuedMs: number } | null> {
+async function readSignedLogin(purpose: "person" | "deputy" | "preview", secret: string | undefined, value: string | undefined, nowMs: number): Promise<{ member: string; issuedMs: number } | null> {
   if (!secret || !value) return null;
   const parts = value.split(".");
   if (parts.length !== 4 || !/^\d+$/.test(parts[1]!) || !/^\d+$/.test(parts[2]!) || Number(parts[2]) <= nowMs) return null;

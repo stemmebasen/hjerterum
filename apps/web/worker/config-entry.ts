@@ -8,6 +8,7 @@ import type { D1Database } from "./db.js";
 import type { SagaEnv } from "./saga/env.js";
 import { handleSagaRequest } from "./saga/handler.js";
 import { handleCockpitRequest, isCockpitHost, isCockpitRequest } from "./cockpit/handler.js";
+import { siteClosedResponse } from "./site-closed.js";
 import { handleCalculatorRequest, isCalculatorRequest } from "./beregner/handler.js";
 import { isMailRun, runSagaJobs, runTeamMailRound } from "./saga/saga.js";
 import { runEventSync } from "./cockpit/events.js";
@@ -86,6 +87,9 @@ export default {
 
 async function handle(request: Request, env: Env, ctx?: ExecutionContextLike): Promise<Response> {
     const url = new URL(request.url);
+    // "Siden skal nu kun kunne ses af Douglas og jeg" (site-closed.ts): while closed, the website and the member pages are only for those let in from admin.
+    const closed = await siteClosedResponse(request, env as never, Date.now());
+    if (closed) return closed;
     // The membership levels as saved in admin (membership-levels.ts), for everything below that reads the plans.
     await refreshMembershipLevels(env.DB as D1Database | undefined);
     if (request.method === "GET" && url.pathname === "/api/membership-levels") {

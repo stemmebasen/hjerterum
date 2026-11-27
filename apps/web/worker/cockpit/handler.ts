@@ -1,4 +1,5 @@
 import { setSiteLive, siteLive, toPublicSite } from "../public-site.js";
+import { PREVIEW_PATH } from "../site-closed.js";
 import { WEBMAIL_PAGE_HEADERS, webmailRoute } from "./webmail.js";
 import { cleanFolder, copies, COPIES, deleteFile, deleteFolder, FILES, listFolder, finishBigUpload, makeFolder, MAX_UPLOAD_BYTES, PART_BYTES, startBigUpload, uploadBigPart, uploadFile, type ArchiveObject } from "../archive.js";
 import { copiesPage, eventMaterialPage, fileArchivePage } from "./filearchivePage.js";
@@ -17,7 +18,7 @@ import { markdownToHtml } from "../saga/markdown.js";
 import { splitMinutesDoc } from "../saga/picture.js";
 import { queueMinutes } from "../saga/store.js";
 import { classifyDecisions, decisionKinds, onlyDecisions, setDecisionKind, unsorted, withKinds } from "./decisionKinds.js";
-import { DEPUTY_COOKIE, deputySessionValue, readDeputySession, cookie, codeGuessingBlocked, loginBlocked, readLoginCode, recordWrongCode, passwordMatches, PERSON_COOKIE, PERSON_DAYS, personSessionValue, readCookies, readPersonSession, readSessionMember, recordFailedLogin, SESSION_COOKIE, MEMBER_COOKIE, sessionMemberValue, SESSION_DAYS, sessionValue, validSession, WHO_COOKIE } from "./auth.js";
+import { previewValue, DEPUTY_COOKIE, deputySessionValue, readDeputySession, cookie, codeGuessingBlocked, loginBlocked, readLoginCode, recordWrongCode, passwordMatches, PERSON_COOKIE, PERSON_DAYS, personSessionValue, readCookies, readPersonSession, readSessionMember, recordFailedLogin, SESSION_COOKIE, MEMBER_COOKIE, sessionMemberValue, SESSION_DAYS, sessionValue, validSession, WHO_COOKIE } from "./auth.js";
 import { linkMember, signedOutAfter, signOutMember, useCodeAs, useLinkAs, type LoginRole } from "./personalLogin.js";
 import { deputyMayNot, deputyStillOpen, deputyView, deputyWho } from "./deputies.js";
 import { allDecisions, allTasks, approvedMinutes, approvedMinutesById, boardMembers, boardPicture, deleteMeeting, groupNow, meeting, meetingInput, meetingOn, meetings, minutesDecisions, minutesInProgress,
@@ -533,6 +534,14 @@ async function route(request: Request, env: SagaEnv, deps: SagaDeps, state: Stat
     const form = await request.formData().catch(() => null);
     const saved = await setResponsibilities(db, who, String(form?.get("text") ?? ""), now);
     return redirect(String(form?.get("back") ?? "") === "/profil" ? `${base}/profil?${saved ? "ansvar=gemt" : "ansvar=tom"}#ansvar` : `${base}/`);
+  }
+  // "Siden skal nu kun kunne ses af Douglas og jeg" (27 Nov 2026): the key to the closed website and member pages (site-closed.ts), on to the website.
+  if (path === "/hjemmeside-adgang" && request.method === "GET") {
+    if (!who) return redirect(`${base}/hvem`);
+    if (!may("site.preview")) return denied("site.preview");
+    const site = isCockpitHost(url.hostname) ? url.hostname.replace(/^(?:admin|cockpit)\./i, "www.") : url.hostname;
+    const token = await previewValue(env.SAGA_TELEGRAM_BOT_TOKEN!, personal ?? who, now);
+    return redirect(`${url.protocol}//${site}${PREVIEW_PATH}?t=${encodeURIComponent(token)}`);
   }
   // Asked (the chair, 24 Nov 2026): Douglas talks his wishes through with Saga, and the chair decides (wishes.ts).
   // The chair (24 Nov 2026): "Brug i stedet udtryk som: Forslag til udvikling / Development requests" - the first address leads there.
