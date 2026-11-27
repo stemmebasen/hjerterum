@@ -3,7 +3,8 @@ import { handleCockpitRequest } from "./cockpit/handler.js";
 import { grantMembership, linkMembershipWorks, memberById, memberTimeline, readMembershipWorksExport, saveMembershipWorksExport, statusText } from "./member-admin.js";
 import { createBillingPortalUrl, getMemberByClerkUserId, processMemberStripeEvent } from "./members.js";
 import { resolveActiveMembership } from "./membership-access.js";
-import { deps, memberCookie, sagaEnv, testDatabase } from "./saga/test-support.js";
+import { BOARD, deps, memberCookie, OWNER, personalCookie, sagaEnv, testDatabase } from "./saga/test-support.js";
+import { saveBoardMessage } from "./saga/store.js";
 import type { D1Database } from "./db.js";
 
 // Requested: "Hvad med "Medlemmer"-sektion i admin, hvor vi kan se medlemmer, profilinfo, status og historik?" - "Husk den
@@ -186,6 +187,24 @@ describe("admin → Medlemmer", () => {
     for (const text of ["Ringede om at flytte sit kort.", "Adgang blokeret", "Medlemskab ændret: Standard medlemskab → Reduceret pris medlemskab", "Medlemskab afsluttet",
       "Medlemskab givet: Standard medlemskab", "Fundet i MembershipWorks", "Jacob Hauge"]) expect(timeline).toContain(text);
     expect((await memberById(db, id))).toMatchObject({ status: "canceled", tier: "reduceret", accessBlocked: true });
+
+    // As MembershipWorks' "Create New Entry" (the chair, 27 Nov 2026): a note for everyone on the board; a payment and the next renewal date only with the
+    // membership overview (members.cockpit) - and a hand-written line can be removed again.
+    await saveBoardMessage(db, { chatId: BOARD, messageId: 90, author: "Jacob Hauge", authorId: OWNER, text: "Hej", sentAtMs: NOW - 86_400_000, fromAssistant: false });
+    const chair = await personalCookie("Jacob Hauge", NOW);
+    const entry = (fields: Record<string, string>, who = chair) => { const f = new FormData(); for (const [k, v] of Object.entries(fields)) f.append(k, v); return call(`/medlemmer/${id}/post`, { method: "POST", body: f, headers: { cookie: who } }); };
+    expect((await entry({ type: "betaling", day: "2026-10-01", amount: "222" }, cookie)).status).toBe(403);
+    expect((await entry({ type: "betaling", day: "2026-10-01", amount: "222", note: "MobilePay" })).headers.get("location")).toContain("post=betaling");
+    expect(decodeURIComponent((await entry({ type: "betaling", day: "2099-01-01", amount: "222" })).headers.get("location")!)).toContain("En betaling kan ikke ligge ude i fremtiden.");
+    expect((await entry({ type: "fornyelse", renewal: "2026-12-19" })).headers.get("location")).toContain("post=fornyelse");
+    expect((await memberById(db, id))!.nextChargeOn).toBe("2026-12-19");
+    const entries = await (await call(`/medlemmer/${id}?fane=tidslinje`, { headers: { cookie: chair } })).text();
+    for (const text of ["Ny post på tidslinjen", "Betaling registreret", "222 kr.", "MobilePay", "Næste fornyelse", "Fornyelsesdato ændret", 'value="fornyelse"']) expect(entries).toContain(text);
+    // Who has no membership overview gets the note only.
+    expect(await (await call(`/medlemmer/${id}?fane=tidslinje`, { headers: { cookie } })).text()).not.toContain('value="fornyelse"');
+    const paymentId = Number(/action="[^"]*\/post\/(\d+)\/slet"/.exec(entries)?.[1]);
+    expect(paymentId).toBeGreaterThan(0);
+    expect((await call(`/medlemmer/${id}/post/${paymentId}/slet`, { method: "POST", headers: { cookie: chair } })).headers.get("location")).toContain("post=slettet");
 
     // Events: what they created here and in the calendar, and what they signed up for.
     await db.prepare(`INSERT INTO room_bookings (id, clerk_user_id, teacher_name, teacher_email, title, starts_at_ms, ends_at_ms, created_at_ms, updated_at_ms)
