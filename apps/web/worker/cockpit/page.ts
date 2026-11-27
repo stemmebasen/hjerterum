@@ -184,7 +184,8 @@ const icon = (key: string) => `<svg viewBox="0 0 24 24" fill="none" stroke="curr
 export type MenuItem = { path: string; label: string; power?: Power; also?: string[] };
 export type MenuGroup = { path: string; label: string; items: MenuItem[] };
 export const MENU: MenuGroup[] = [
-  { path: "/", label: "Overblik", items: [{ path: "/", label: "Overblik" }, { path: "/status", label: "Sagas fulde overblik" }, { path: "/forslag", label: "Forslag til udvikling", power: "wishes.write" }] },
+  { path: "/", label: "Overblik", items: [{ path: "/", label: "Overblik" }, { path: "/status", label: "Sagas fulde overblik" }, { path: "/forslag", label: "Forslag til udvikling", power: "wishes.write" },
+    { path: "/hjemmeside-adgang", label: "Se den lukkede hjemmeside", power: "site.preview" }] },
   // Requested: "Put i øvrigt gerne \"Opgaver\" som det første i Bestyrelse".
   { path: "/opgaver", label: "Bestyrelse", items: [{ path: "/opgaver", label: "Opgaver" }, { path: "/moder", label: "Møder" }, { path: "/beslutninger", label: "Beslutninger og afstemninger" }, { path: "/opslag", label: "Opslagstavle" },
     { path: "/arkiv", label: "Ældre referater" }, { path: "/filarkiv", label: "Filarkiv" }] },

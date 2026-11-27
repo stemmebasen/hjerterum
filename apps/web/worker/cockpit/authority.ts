@@ -44,6 +44,8 @@ export const POWERS = {
   // Asked (the chair, 24 Nov 2026): "Er det muligt han [Douglas] på en eller måde kan chatte med ai om ændringerne - og så ligger den endelig implementering og
   // godkendelse stadig hos mig?" - "Ja" (wishes.ts). Douglas and the chair talk wishes through with Saga; only the chair decides.
   "wishes.write": { label: "Forslag til udvikling: tale et forslag eller en fejl igennem med Jewel og sende det videre til udvikling - og få Sagas besked på Telegram, når der er nyt på siderne", needs: "personal", also: ["Douglas"] },
+  // "Siden skal nu kun kunne ses af Douglas og jeg" (27 Nov 2026): the key to the closed website and member pages (site-closed.ts).
+  "site.preview": { label: "Den lukkede hjemmeside og Min side: se dem, mens de er lukket for alle andre", needs: "personal", also: ["Douglas"] },
   "wishes.decide": { label: "Forslag til udvikling: godkende eller afvise forslagene og markere dem som lavet", needs: "personal" },
   // Requested: "Gør mig i stand til at slette CIRKLER-møder som formand" (3 Nov 2026) - new, so the chair's first.
   "cirkler.delete": { label: "Slette et CIRKLER-møde i salen, så salen bliver ledig", needs: "personal" }
