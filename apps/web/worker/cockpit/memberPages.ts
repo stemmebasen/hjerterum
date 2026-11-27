@@ -102,10 +102,26 @@ export type MemberTab = (typeof MEMBER_TABS)[number];
 const TAB_LABEL: Record<MemberTab, string> = { medlemskab: "Medlemskab", kontakt: "Kontakt", tidslinje: "Tidslinje", events: "Events" };
 
 const BAD = new Set(["payment_failed", "cancelled", "ended"]);
-function timelineList(entries: TimelineEntry[]): string {
+function timelineList(entries: TimelineEntry[], removeAt: string | null): string {
   if (!entries.length) return `<p class="empty">Intet på tidslinjen endnu.</p>`;
-  return `<ol class="tl">${entries.map(e => `<li${BAD.has(e.kind) ? ' class="bad"' : ""}><span class="when">${esc(WEEKDAY.format(e.atMs))}<b>${esc(DAY_MONTH.format(e.atMs))}</b>${esc(YEAR.format(e.atMs))}</span>
-<div><h3>${esc(e.title)}${e.amountMinor ? ` <span class="amt">${esc(kr(e.amountMinor))}</span>` : ""}</h3>${e.detail ? `<p>${esc(e.detail)}</p>` : ""}${e.by ? `<p class="by">${esc(e.by)}</p>` : ""}</div></li>`).join("")}</ol>`;
+  return `<ol class="tl">${entries.map(e => `<li${BAD.has(e.kind) ? ' class="bad"' : e.kind === "renewal" ? ' class="next"' : ""}><span class="when">${esc(WEEKDAY.format(e.atMs))}<b>${esc(DAY_MONTH.format(e.atMs))}</b>${esc(YEAR.format(e.atMs))}</span>
+<div><h3>${esc(e.title)}${e.amountMinor ? ` <span class="amt">${esc(kr(e.amountMinor))}</span>` : ""}</h3>${e.detail ? `<p>${esc(e.detail)}</p>` : ""}${e.by ? `<p class="by">${esc(e.by)}</p>` : ""}
+${removeAt && e.manual && e.id ? `<form method="post" action="${removeAt}/${e.id}/slet" onsubmit="return confirm('Slet denne post fra tidslinjen?')"><button class="ghost small">Slet</button></form>` : ""}</div></li>`).join("")}</ol>`;
+}
+
+/** The chair (27 Nov 2026), of MembershipWorks' "Create New Entry" with its types: "We need this feature in our system as well". Everyone on the board
+ * may write a note; a registered payment and the next renewal date are for those with the membership overview (members.cockpit). */
+function newEntryForm(at: string, m: AdminMember, canMoney: boolean, today: string): string {
+  return `<form class="m-note m-entry" method="post" action="${at}/post">
+<label>Ny post på tidslinjen<select name="type" onchange="this.form.dataset.type=this.value">
+<option value="note">Note</option>${canMoney ? `<option value="betaling">Betaling registreret</option><option value="fornyelse">Næste fornyelsesdato</option>` : ""}</select></label>
+<label class="f-day">Dato<input type="date" name="day" value="${esc(today)}" max="${esc(today)}"></label>
+<label class="f-renewal">Ny fornyelsesdato<input type="date" name="renewal" value="${esc(m.nextChargeOn ?? "")}" min="${esc(today)}"></label>
+<label class="f-amount">Beløb (kr.)<input type="number" name="amount" min="1" step="1" inputmode="numeric"></label>
+<label class="f-text">Tekst<textarea name="note" maxlength="2000" placeholder="Fx aftale om betaling, en samtale eller en bemærkning - ved en betaling fx MobilePay eller bankoverførsel"></textarea></label>
+<div class="actions"><button>Gem posten</button></div></form>
+<style>.m-entry{display:grid;gap:10px}.m-entry .f-day,.m-entry .f-amount,.m-entry .f-renewal{display:none}.m-entry[data-type=betaling] .f-day,.m-entry[data-type=betaling] .f-amount{display:grid}
+.m-entry[data-type=fornyelse] .f-renewal{display:grid}.m-entry[data-type=fornyelse] .f-text{display:none}.tl li.next h3{color:var(--accent,#2f6f4f)}.tl form{margin-top:6px}</style>`;
 }
 
 function eventList(title: string, events: MemberEvent[], empty: string): string {
@@ -124,7 +140,9 @@ ${stillPaying && m.status === "active" ? `<p class="warn">Betaler stadig i Membe
 }
 
 export type MemberPageData = { member: AdminMember; tab: MemberTab; timeline: TimelineEntry[]; events: { created: MemberEvent[]; registered: MemberEvent[] };
-  mw: MembershipWorksAccount | null; notice?: string | undefined; now: number; today: string };
+  mw: MembershipWorksAccount | null; notice?: string | undefined; now: number; today: string;
+  /** May register payments, move the renewal date and remove hand-written lines (members.cockpit). */
+  canMoney?: boolean };
 
 export function memberPage(base: string, who: string | null, d: MemberPageData): string {
   const m = d.member, at = `${base}/medlemmer/${m.id}`;
@@ -138,8 +156,7 @@ ${m.phone ? `<a href="tel:${esc(m.phone.replace(/\s+/g, ""))}">☎ ${esc(m.phone
 <a href="mailto:${esc(m.email)}">✉ ${esc(m.email)}</a>${m.birthday ? `<span>Fødselsdag ${esc(new Date(`${m.birthday}T12:00:00Z`).toLocaleDateString("da-DK", { day: "numeric", month: "long", timeZone: "UTC" }))}</span>` : ""}
 <a class="button ghost" style="justify-self:start;margin-top:6px" href="mailto:${esc(m.email)}">Send en mail</a></div></section>`;
   } else if (d.tab === "tidslinje") {
-    body = `<section class="panel"><form class="m-note" method="post" action="${at}/note"><label>Ny note på tidslinjen<textarea name="note" maxlength="2000" required placeholder="Fx aftale om betaling, en samtale eller en bemærkning"></textarea></label>
-<div class="actions"><button>Tilføj note</button></div></form>${timelineList(d.timeline)}</section>`;
+    body = `<section class="panel">${newEntryForm(at, m, Boolean(d.canMoney), d.today)}${timelineList(d.timeline, d.canMoney ? `${at}/post` : null)}</section>`;
   } else if (d.tab === "events") {
     body = `<div class="grid">${eventList("Har oprettet", d.events.created, "Har ikke oprettet events.")}${eventList("Tilmeldt", d.events.registered, "Ingen tilmeldinger i det nye system.")}</div>`;
   } else {

@@ -27,7 +27,7 @@ import { allDecisions, allTasks, approvedMinutes, approvedMinutesById, boardMemb
 import { todosPage } from "./todosPage.js";
 import { statsPage } from "./statsPage.js";
 import { memberPage, membersListPage, turnoverPage, MEMBER_TABS, type MemberTab } from "./memberPages.js";
-import { addNote, changeManualMembership, grantMembership, listMembers, memberById, memberCounts, memberEvents, membershipWorksAccount, membershipWorksSummary,
+import { addNote, addPayment, removeTimelineEntry, changeManualMembership, grantMembership, listMembers, memberById, memberCounts, memberEvents, membershipWorksAccount, membershipWorksSummary,
   memberTimeline, recordTimeline, saveMembershipWorksExport, importTurnover, turnoverPlan, STATUS_FILTERS, type StatusFilter } from "../member-admin.js";
 import { changeMemberAccess } from "../admin-members.js";
 import { enquiryTopics, periodOf, siteStats } from "../site-stats.js";
@@ -864,6 +864,38 @@ async function route(request: Request, env: SagaEnv, deps: SagaDeps, state: Stat
     const moved = url.searchParams.get("flyttet");
     return html(turnoverPage(base, who, { rows: await turnoverPlan(db, today), today, notice: moved && /^\d+$/.test(moved) ? `${moved} medlemmer er flyttet til det nye system.` : undefined }));
   }
+  // The chair (27 Nov 2026), of MembershipWorks' "Create New Entry": "We need this feature in our system as well" - a line of a chosen type on the
+  // member's timeline, and a hand-written one removed again (memberPages.ts newEntryForm).
+  const entryPath = /^\/medlemmer\/(\d{1,9})\/post(?:\/(\d{1,12})\/slet)?$/.exec(path);
+  if (entryPath && request.method === "POST") {
+    if (!who) return redirect(`${base}/hvem`);
+    const id = Number(entryPath[1]);
+    const m = await memberById(db, id);
+    if (!m) return redirect(`${base}/medlemmer`);
+    const back = (code: string) => redirect(`${base}/medlemmer/${id}?fane=tidslinje&post=${encodeURIComponent(code)}`);
+    if (entryPath[2]) {
+      if (!may("members.cockpit")) return denied("members.cockpit");
+      const removed = await removeTimelineEntry(db, id, Number(entryPath[2]));
+      if (removed) await audit(db, actor, "members.cockpit", `Post slettet fra tidslinjen for ${m.fullName}`, now);
+      return back(removed ? "slettet" : "ikke-slettet");
+    }
+    const form = await request.formData().catch(() => null);
+    const type = String(form?.get("type") ?? "note");
+    if (type === "note") { await addNote(db, id, String(form?.get("note") ?? ""), who, now); return back("note"); }
+    if (!may("members.cockpit")) return denied("members.cockpit");
+    if (type === "betaling") {
+      const problem = await addPayment(db, id, { day: String(form?.get("day") ?? ""), amountKr: Number(String(form?.get("amount") ?? "").replace(",", ".")), text: String(form?.get("note") ?? "") }, who, now);
+      if (!problem) await audit(db, actor, "members.cockpit", `Betaling registreret for ${m.fullName}: ${String(form?.get("amount") ?? "")} kr.`, now);
+      return back(problem ?? "betaling");
+    }
+    if (type === "fornyelse") {
+      const moved = await moveRenewal(db, env as { STRIPE_SECRET_KEY?: string }, id, String(form?.get("renewal") ?? ""), who, now);
+      if ("error" in moved) return back(moved.error);
+      await audit(db, actor, "members.cockpit", `Fornyelsesdato for ${m.fullName}: ${moved.from ?? "–"} → ${moved.to}`, now);
+      return back("fornyelse");
+    }
+    return back("note");
+  }
   const memberPath = /^\/medlemmer\/(\d{1,9})(?:\/(note|adgang|medlemskab|afslut|genaktiver))?$/.exec(path);
   if (memberPath) {
     const id = Number(memberPath[1]), action = memberPath[2];
@@ -888,7 +920,13 @@ async function route(request: Request, env: SagaEnv, deps: SagaDeps, state: Stat
     const tab: MemberTab = (MEMBER_TABS as readonly string[]).includes(asked) ? asked as MemberTab : "medlemskab";
     const [timeline, events, mw] = await Promise.all([tab === "tidslinje" ? memberTimeline(db, m) : Promise.resolve([]), tab === "events" ? memberEvents(db, m) : Promise.resolve({ created: [], registered: [] }),
       membershipWorksAccount(db, m.email)]);
-    return html(memberPage(base, who, { member: m, tab, timeline, events, mw, now, today, notice: memberNotice(url.searchParams.get("besked")) }));
+    const POSTED: Record<string, string> = { note: "Noten er tilføjet.", betaling: "Betalingen er registreret på tidslinjen.", fornyelse: "Fornyelsesdatoen er rettet.", slettet: "Posten er slettet.", "ikke-slettet": "Posten kunne ikke slettes." };
+    const posted = url.searchParams.get("post");
+    // A message from the renewal or the payment (member-renewal.ts, member-admin.ts addPayment) is shown as it is - escaped, and only those words.
+    const ENTRY_ERRORS = new Set(["Vælg en dato.", "En betaling kan ikke ligge ude i fremtiden.", "Skriv beløbet i kroner.", "Medlemmet findes ikke.", "Den nye fornyelsesdato skal ligge efter i dag.",
+      "Kortbetaling er ikke slået til endnu, så datoen kan ikke flyttes i Stripe.", "Stripe tog ikke imod den nye dato. Prøv igen, eller skriv til formanden."]);
+    const notice = memberNotice(url.searchParams.get("besked")) ?? (posted ? POSTED[posted] ?? (ENTRY_ERRORS.has(posted) ? posted : undefined) : undefined);
+    return html(memberPage(base, who, { member: m, tab, timeline, events, mw, now, today, notice, canMoney: may("members.cockpit") }));
   }
 
   // MembershipWorks' figures from a screenshot (members.ts) - now under Medlemmer → Tal fra MembershipWorks.

@@ -61,7 +61,9 @@ export async function memberById(db: D1Database, id: number): Promise<AdminMembe
 }
 
 export type TimelineKind = "joined" | "granted" | "moved" | "payment" | "payment_failed" | "status" | "plan" | "cancelled" | "ended" | "reactivated" | "note";
-export type TimelineEntry = { atMs: number; kind: TimelineKind | "access" | "registered" | "created"; title: string; amountMinor: number | null; detail: string | null; by: string | null };
+export type TimelineEntry = { atMs: number; kind: TimelineKind | "access" | "registered" | "created" | "renewal"; title: string; amountMinor: number | null; detail: string | null; by: string | null;
+  /** A line the board wrote by hand (a note or a payment) - it can be removed again (removeTimelineEntry). */
+  id?: number; manual?: boolean };
 
 /** One line on a member's timeline; a Stripe event id keeps a webhook delivered twice to one line. */
 export async function recordTimeline(db: D1Database, memberId: number, entry: { atMs: number; kind: TimelineKind; title: string; amountMinor?: number | null; detail?: string | null; by?: string | null }, sourceEventId: string | null = null): Promise<void> {
@@ -74,8 +76,8 @@ const TIME = new Intl.DateTimeFormat("da-DK", { day: "numeric", month: "short", 
 /** The member's history, newest first: the timeline, access changes, and the events they signed up for or created here. */
 export async function memberTimeline(db: D1Database, m: AdminMember): Promise<TimelineEntry[]> {
   const [own, access, registered, created] = await Promise.all([
-    db.prepare("SELECT at_ms, kind, title, amount_minor, detail, by_name FROM member_timeline WHERE member_id = ? ORDER BY at_ms DESC, id DESC LIMIT 500").bind(m.id)
-      .all<{ at_ms: number; kind: TimelineKind; title: string; amount_minor: number | null; detail: string | null; by_name: string | null }>(),
+    db.prepare("SELECT id, at_ms, kind, title, amount_minor, detail, by_name, source_event_id FROM member_timeline WHERE member_id = ? ORDER BY at_ms DESC, id DESC LIMIT 500").bind(m.id)
+      .all<{ id: number; at_ms: number; kind: TimelineKind; title: string; amount_minor: number | null; detail: string | null; by_name: string | null; source_event_id: string | null }>(),
     db.prepare("SELECT blocked, changed_by_email, changed_at_ms FROM member_access_changes WHERE source = 'hjerterum' AND source_member_id = ?").bind(m.id)
       .all<{ blocked: number; changed_by_email: string; changed_at_ms: number }>(),
     db.prepare(`SELECT a.created_at_ms, a.registration_status, a.ticket_amount_minor, b.title, b.starts_at_ms FROM room_booking_attendees a JOIN room_bookings b ON b.id = a.room_booking_id
@@ -84,13 +86,16 @@ export async function memberTimeline(db: D1Database, m: AdminMember): Promise<Ti
       .all<{ created_at_ms: number; title: string; starts_at_ms: number; status: string }>()
   ]);
   const entries: TimelineEntry[] = [
-    ...(own.results ?? []).map(r => ({ atMs: r.at_ms, kind: r.kind, title: r.title, amountMinor: r.amount_minor, detail: r.detail, by: r.by_name })),
+    ...(own.results ?? []).map(r => ({ atMs: r.at_ms, kind: r.kind, title: r.title, amountMinor: r.amount_minor, detail: r.detail, by: r.by_name, id: r.id,
+      manual: !r.source_event_id && Boolean(r.by_name) && (r.kind === "note" || r.kind === "payment") && MANUAL_TITLES.has(r.title) })),
     ...(access.results ?? []).map(r => ({ atMs: r.changed_at_ms, kind: "access" as const, title: r.blocked ? "Adgang blokeret" : "Adgang genåbnet", amountMinor: null, detail: null, by: r.changed_by_email })),
     ...(registered.results ?? []).map(r => ({ atMs: r.created_at_ms, kind: "registered" as const, title: r.registration_status === "cancelled" ? "Tilmelding annulleret" : "Tilmeldt event",
       amountMinor: r.ticket_amount_minor || null, detail: `${r.title} (${TIME.format(r.starts_at_ms)})`, by: null })),
     ...(created.results ?? []).map(r => ({ atMs: r.created_at_ms, kind: "created" as const, title: r.status === "cancelled" ? "Oprettede event (aflyst)" : "Oprettede event",
       amountMinor: null, detail: `${r.title} (${TIME.format(r.starts_at_ms)})`, by: null }))
   ];
+  // As in MembershipWorks (the chair, 27 Nov 2026: "We need this feature in our system as well"): the next renewal stands at the top, on its date.
+  if (m.nextChargeOn && /^\d{4}-\d{2}-\d{2}$/.test(m.nextChargeOn)) entries.push({ atMs: Date.parse(`${m.nextChargeOn}T11:00:00Z`), kind: "renewal", title: "Næste fornyelse", amountMinor: null, detail: null, by: null });
   // A member from before the timeline: when they joined is still a line.
   if (!entries.some(e => e.kind === "joined" || e.kind === "granted")) entries.push({ atMs: m.createdAtMs, kind: "joined", title: "Blev medlem", amountMinor: null, detail: membershipPlan(m.tier)?.name ?? m.tier, by: null });
   return entries.sort((a, b) => b.atMs - a.atMs);
@@ -196,6 +201,29 @@ export async function changeManualMembership(db: D1Database, id: number, action:
     await db.prepare("UPDATE members SET status = 'active', status_since_ms = ?, updated_at_ms = ? WHERE id = ?").bind(now, now, id).run();
     await recordTimeline(db, id, { atMs: now, kind: "reactivated", title: "Medlemskab genaktiveret", by });
   }
+}
+
+/** The titles of the lines the board writes by hand on the timeline - only those can be removed again. */
+const MANUAL_TITLES = new Set(["Note", "Betaling registreret"]);
+
+/** The chair (27 Nov 2026), of MembershipWorks' "Create New Entry" on a member's timeline: "We need this feature in our system as well". A payment
+ * the board has received by hand (MobilePay, bank, cash) as a line with its date and amount - a record only; the membership's status is changed
+ * where it always is. The date may lie back in time, not ahead. */
+export async function addPayment(db: D1Database, id: number, input: { day: string; amountKr: number; text: string }, by: string, now: number): Promise<string | null> {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(input.day) || Number.isNaN(Date.parse(`${input.day}T12:00:00Z`))) return "Vælg en dato.";
+  const at = Date.parse(`${input.day}T11:00:00Z`);
+  if (at > now + 86_400_000) return "En betaling kan ikke ligge ude i fremtiden.";
+  if (!Number.isFinite(input.amountKr) || input.amountKr <= 0 || input.amountKr > 100_000) return "Skriv beløbet i kroner.";
+  if (!(await memberById(db, id))) return "Medlemmet findes ikke.";
+  await recordTimeline(db, id, { atMs: at, kind: "payment", title: "Betaling registreret", amountMinor: Math.round(input.amountKr * 100), detail: input.text.trim().slice(0, 2000) || null, by });
+  return null;
+}
+
+/** A line the board wrote by hand (a note or a registered payment) taken off the timeline again. */
+export async function removeTimelineEntry(db: D1Database, memberId: number, entryId: number): Promise<boolean> {
+  const result = await db.prepare(`DELETE FROM member_timeline WHERE id = ? AND member_id = ? AND source_event_id IS NULL AND by_name IS NOT NULL
+    AND kind IN ('note', 'payment') AND title IN ('Note', 'Betaling registreret')`).bind(entryId, memberId).run();
+  return Number(result.meta?.changes ?? 0) === 1;
 }
 
 export async function addNote(db: D1Database, id: number, text: string, by: string, now: number): Promise<void> {
