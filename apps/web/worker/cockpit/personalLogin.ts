@@ -13,7 +13,11 @@ import { checkAccess } from "./loginAccess.js";
  * account and answers with a link that logs in as them - once, within 15 minutes. Nobody can ask for
  * someone else's link, and the name cannot be changed afterwards. */
 
-export const isLoginRequest = (text: string) => /^\/(?:login|start\s+login)\b/i.test(text.trim());
+/** "/login" - also as it arrives when copied from a formatted message (the chair, 27 Nov 2026: Douglas sent /login between two asterisks, and Saga did not see it):
+ * marks, quotes and the bot's name around it, or just "login" / "log ind" on its own. Only the whole message, so a sentence about logging in is not one. */
+export const isLoginRequest = (text: string) =>
+  /^\/(?:login|start\s+login)\b/i.test(text.trim())
+  || /^[\s*_~`"'“”‘’«»]*\/?(?:login|log\s?ind|start\s+login)(?:@\w+)?[\s*_~`"'“”‘’«».!]*$/i.test(text);
 
 /** The board member behind a Telegram account: their name in the board's chat (or the chair). */
 export async function memberByTelegram(env: SagaEnv, db: D1Database, telegramId: string): Promise<string | null> {
