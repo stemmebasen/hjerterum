@@ -25,6 +25,11 @@ const lower = (s: string) => s.trim().toLocaleLowerCase("da-DK");
 const same = (a: string | null | undefined, b: string | null | undefined) => Boolean(a && b) && (lower(a!) === lower(b!) || lower(first(a)) === lower(first(b)));
 const START = 9;
 
+/** Asked (the chair, 27 Nov 2026): "Gitta skal ikke længere have roller til møder." Board members who are not given a meeting role. Never
+ * said why in the group. Take a name out again when they are back. */
+export const NO_MEETING_ROLES = ["Gitta"];
+const left = (name: string | null | undefined) => Boolean(name) && NO_MEETING_ROLES.some(n => same(n, name));
+
 /** The ISO week of a day (YYYY-MM-DD). */
 export function isoWeek(day: string): number {
   const d = new Date(`${day}T12:00:00Z`);
@@ -100,10 +105,10 @@ export async function scheduledMeetingRoles(env: SagaEnv, deps: SagaDeps, db: D1
     next = await meeting(db, id);
     if (!next) return null;
   }
-  const board = await reachableBoard(env, deps, db);
+  const board = (await reachableBoard(env, deps, db)).filter(b => !left(b.name));
   if (board.length < 2) return null;
   const history = team.filter(m => m.meeting_date <= last.meeting_date);
-  const roles = pickRoles(board.map(b => b.name), history, { leader: next.leader, moderator: next.moderator }, last, next.id);
+  const roles = pickRoles(board.map(b => b.name), history, { leader: left(next.leader) ? null : next.leader, moderator: left(next.moderator) ? null : next.moderator }, last, next.id);
   if (!roles.leader || !roles.moderator) return null;
   if (roles.leader !== next.leader || roles.moderator !== next.moderator) {
     await db.prepare("UPDATE board_meetings SET leader = ?, moderator = ?, updated_at_ms = ?, updated_by = ? WHERE id = ?").bind(roles.leader, roles.moderator, now, SAGA_NAME, next.id).run();
@@ -113,6 +118,35 @@ export async function scheduledMeetingRoles(env: SagaEnv, deps: SagaDeps, db: D1
   const sent = await telegramClient(env, deps).sendMessage(env.SAGA_BOARD_CHAT_ID, text).catch(() => null);
   if (sent) await saveBoardMessage(db, { chatId: env.SAGA_BOARD_CHAT_ID, messageId: sent.message_id, author: SAGA_NAME, authorId: null, text, sentAtMs: now, fromAssistant: true }).catch(() => undefined);
   return next;
+}
+
+/** NO_MEETING_ROLES, for the meetings already given their roles: from 09, a coming team meeting with one of them as leader or moderator gets someone
+ * else in turn, and the group is told who takes over - once per meeting and person. */
+export async function scheduledRoleReplacements(env: SagaEnv, deps: SagaDeps, db: D1Database, claim: (key: string, slot: number) => Promise<boolean>): Promise<Meeting[]> {
+  if (!env.SAGA_BOARD_CHAT_ID || !env.SAGA_TELEGRAM_BOT_TOKEN) return [];
+  const now = deps.now(), today = copenhagenDay(now);
+  if (copenhagenHour(now) < START) return [];
+  const team = (await meetings(db)).filter(m => !isAssocMeeting(m));
+  const due = team.filter(m => m.meeting_date >= today && !meetingOver(m, now) && (left(m.leader) || left(m.moderator)));
+  if (!due.length) return [];
+  const board = (await reachableBoard(env, deps, db)).filter(b => !left(b.name));
+  if (board.length < 2) return [];
+  const changed: Meeting[] = [];
+  for (const m of due) {
+    const gone = [m.leader, m.moderator].filter(left).join(",");
+    if (!(await claim(`meeting_roles_replace_${m.id}_${lower(gone)}`, m.id))) continue;
+    const history = team.filter(x => x.meeting_date < m.meeting_date);
+    const before = history.sort((a, b) => b.meeting_date.localeCompare(a.meeting_date))[0] ?? null;
+    const roles = pickRoles(board.map(b => b.name), history, { leader: left(m.leader) ? null : m.leader, moderator: left(m.moderator) ? null : m.moderator }, before, m.id);
+    if (!roles.leader || !roles.moderator) continue;
+    await db.prepare("UPDATE board_meetings SET leader = ?, moderator = ?, updated_at_ms = ?, updated_by = ? WHERE id = ?").bind(roles.leader, roles.moderator, now, SAGA_NAME, m.id).run();
+    const lines = [left(m.leader) ? `${first(roles.leader)} er mødeleder i stedet for ${first(m.leader)}` : "", left(m.moderator) ? `${first(roles.moderator)} er ordstyrer i stedet for ${first(m.moderator)}` : ""].filter(Boolean);
+    const text = `Ændring til teammødet ${lowerFirst(meetingHeading(m))}: ${lines.join(", og ")}.${left(m.leader) ? ` ${first(roles.leader)}, jeg minder dig om dagsordenen 3 dage før.` : ""}${link(env, m.id) ? `\n${link(env, m.id)}` : ""}`;
+    const sent = await telegramClient(env, deps).sendMessage(env.SAGA_BOARD_CHAT_ID, text).catch(() => null);
+    if (sent) await saveBoardMessage(db, { chatId: env.SAGA_BOARD_CHAT_ID, messageId: sent.message_id, author: SAGA_NAME, authorId: null, text, sentAtMs: now, fromAssistant: true }).catch(() => undefined);
+    changed.push({ ...m, ...roles });
+  }
+  return changed;
 }
 
 const DAY_EN = new Intl.DateTimeFormat("en-GB", { timeZone: "UTC", weekday: "long", day: "numeric", month: "long" });
@@ -146,7 +180,7 @@ export async function scheduledRoleReminders(env: SagaEnv, deps: SagaDeps, db: D
   const start = copenhagenMs(m.meeting_date, m.start_time && /^\d{2}:\d{2}$/.test(m.start_time) ? m.start_time : "12:00");
   let sent = 0;
   for (const role of ["leader", "moderator"] as const) {
-    const person = find(m[role]);
+    const person = left(m[role]) ? undefined : find(m[role]);
     if (!person) continue;
     const text = roleReminderText(await memberLang(db, person.name), person.name, m, role, url);
     if (await telegram.sendMessage(person.id, text).then(() => true, () => false)) {
