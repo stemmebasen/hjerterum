@@ -19,6 +19,6 @@ describe("the end of the three days of corrections", () => {
     const env = sagaEnv(db, { SAGA_MINUTES_PING: "on", COCKPIT_URL: "https://admin.hjerterum.info" });
     expect(await scheduledApprovalOpen(env, deps(services.fetcher, NOW))).toBe(1);
     expect(await scheduledApprovalOpen(env, deps(services.fetcher, NOW + 600_000))).toBe(0);
-    expect(services.telegram("sendMessage").map(m => m.body)).toMatchObject([{ chat_id: BOARD, text: "Rettelsesperioden er slut 🌿\nReferatet fra mødet 8. oktober 2026 kan ikke længere ændres. Nu godkender I det hver især - når alle har godkendt, låses det:\nhttps://admin.hjerterum.info/referat/1" }]);
+    expect(services.telegram("sendMessage").map(m => m.body)).toMatchObject([{ chat_id: BOARD, text: "The time for changes is over 🌿\nThe summary of the meeting on 8 October 2026 can no longer be changed. Now you each approve it - when everyone has, it is locked:\nhttps://admin.hjerterum.info/referat/1" }]);
   });
 });

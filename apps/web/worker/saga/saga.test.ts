@@ -280,7 +280,7 @@ describe("Saga's minutes", () => {
     const published = (await getMinutes(db, 1))!;
     expect(published).toMatchObject({ status: "approved", draft_markdown: MINUTES });
     expect((services.telegram("sendMessage").at(-1)?.body as { text: string }).text).toContain("Det er lagt op: https://cockpit.hjerterum.info/referat/1");
-    expect(pings()).toEqual(["Hej alle sammen 😊\nSå er referatet fra mødet 23. september 2026 lagt op. I kan rette i det de næste 3 dage - derefter godkender I det hver især:\nhttps://cockpit.hjerterum.info/referat/1"]);
+    expect(pings()).toEqual(["Hi everyone 😊\nThe summary of the meeting on 23 September 2026 is up. You can make changes to it for the next 3 days - after that you each approve it:\nhttps://cockpit.hjerterum.info/referat/1"]);
 
     // A reply corrects the minutes in place; the board's sign-offs start over.
     await db.prepare("INSERT INTO board_minutes_signoffs (minutes_id, member, status, comment, at_ms) VALUES (1, 'Gitta', 'approved', NULL, 1)").run();

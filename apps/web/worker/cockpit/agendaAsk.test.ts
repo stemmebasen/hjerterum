@@ -79,7 +79,7 @@ describe("Saga asks each board member for agenda points the day before a team me
     // Then: "husk at de begge skal have dagsordnen sendt på selve dagen" - the moderator gets it too.
     expect(sent.find(m => m.chat_id === "201")!.text).toContain("Hej Lisbeth 🙂 Du er ordstyrer på dagens teammøde kl. 13.30 (Hjerterum). Her er den færdige dagsorden:\n\n1. Velkommen\n2. Økonomi\n3. Evt.");
     expect(sent.filter(m => m.chat_id !== "201")).toEqual([{ chat_id: "203", text: "Hi Douglas 🙂 You are leading today's team meeting at 13.30 (Hjerterum). Here is the final agenda:\n\n1. Velkommen\n2. Økonomi\n3. Evt."
-      + "\n\nMødeleder: Douglas · Ordstyrer: Lisbeth\n\nOn the meeting's page: https://admin.hjerterum.example/moder/1#dagsorden", disable_web_page_preview: true }].map(m => expect.objectContaining({ chat_id: m.chat_id, text: m.text })));
+      + "\n\nLeading: Douglas · Moderator: Lisbeth\n\nOn the meeting's page: https://admin.hjerterum.example/moder/1#dagsorden", disable_web_page_preview: true }].map(m => expect.objectContaining({ chat_id: m.chat_id, text: m.text })));
 
     const none = await setup();
     await scheduledLeaderAgenda(none.env, deps(none.fetcher, START - 20 * 60_000), none.db, none.claim);

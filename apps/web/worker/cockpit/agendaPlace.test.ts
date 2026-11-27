@@ -344,7 +344,8 @@ describe("a meeting's agenda and place", () => {
     expect(sent).toHaveLength(1);
     expect(sent[0]!.body).toMatchObject({ chat_id: BOARD });
     const text = String((sent[0]!.body as { text: string }).text);
-    expect(text).toBe(`God morgen 🙂 Dagsordenen til dagens teammøde er klar (2 punkter), og vi ses kl. 13:30 - ${DEFAULT_PLACE}.\n\n1. Julefest: valg af dato\n2. Lokaleleje\n\nSe dagsordenen her: https://admin.hjerterum.info/moder/${id}#dagsorden`);
+    // "Remember that we always write in English in the Telegram threads" (the chair, 27 Nov 2026) - the points as they were written.
+    expect(text).toBe(`Good morning 🙂 The agenda for today's team meeting is ready (2 points), and we meet at 13.30 - ${DEFAULT_PLACE}.\n\n1. Julefest: valg af dato\n2. Lokaleleje\n\nSee the agenda here: https://admin.hjerterum.info/moder/${id}#dagsorden`);
     expect(text).toBe(agendaReadyText(env, (await meeting(db, id))!));
     expect(services.calls.some(c => c.url.includes("chat/completions"))).toBe(false);
     expect((await recentBoardMessages(db, BOARD, 0)).some(m => m.from_assistant && m.text === text)).toBe(true);
@@ -366,7 +367,7 @@ describe("a meeting's agenda and place", () => {
     // No time on the meeting: "i dag". No address of the admin: no link, but the message still goes.
     const plain = await mk({ COCKPIT_URL: "" }, { time: "" });
     expect(await plain.run()).toBe(true);
-    expect(String((plain.services.telegram("sendMessage")[0]!.body as { text: string }).text)).toBe(`God morgen 🙂 Dagsordenen til dagens teammøde er klar (2 punkter), og vi ses i dag - ${DEFAULT_PLACE}.\n\n1. Julefest: valg af dato\n2. Lokaleleje`);
+    expect(String((plain.services.telegram("sendMessage")[0]!.body as { text: string }).text)).toBe(`Good morning 🙂 The agenda for today's team meeting is ready (2 points), and we meet today - ${DEFAULT_PLACE}.\n\n1. Julefest: valg af dato\n2. Lokaleleje`);
     // Leader and moderator are in it when they are chosen; a long agenda is cut after twelve points.
     const roles = await mk({}, { agenda: Array.from({ length: 14 }, (_, i) => `Punkt ${i + 1}`).join("\n") });
     await roles.db.prepare("UPDATE board_meetings SET leader = 'Frederik Madsen', moderator = 'Lisbeth' WHERE id = ?").bind(roles.id).run();

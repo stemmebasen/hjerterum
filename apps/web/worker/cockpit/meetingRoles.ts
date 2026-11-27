@@ -3,7 +3,7 @@ import { SAGA_NAME, type SagaDeps, type SagaEnv } from "../saga/env.js";
 import { saveBoardMessage } from "../saga/store.js";
 import { telegramClient } from "../saga/telegram.js";
 import { isAssocMeeting } from "./assocEvents.js";
-import { meeting, meetingHeading, meetingOver, meetings, saveMeeting, type Meeting } from "./data.js";
+import { meeting, meetingHeading, meetingOver, meetings, meetingWhenEn, saveMeeting, type Meeting } from "./data.js";
 import { copenhagenMs } from "./eventDesk.js";
 import { memberLang, type Lang } from "./i18n.js";
 import { stillOnBoard } from "./personalLogin.js";
@@ -60,11 +60,12 @@ export function pickRoles(members: string[], history: Meeting[], keep: { leader?
 }
 
 const lowerFirst = (s: string) => s.charAt(0).toLocaleLowerCase("da-DK") + s.slice(1);
-const where = (m: Meeting) => m.place ? ` i ${m.place.split(",")[0]!.trim()}` : "";
+const where = (m: Meeting) => m.place ? ` at ${m.place.split(",")[0]!.trim()}` : "";
 
+/** In English, as all Saga writes in the group (data.ts GROUP_LANG). */
 export function rolesGroupText(m: Meeting, link: string): string {
-  return `Næste teammøde: ${lowerFirst(meetingHeading(m))}${where(m)} 🌿\nMødeleder: ${first(m.leader)} · Ordstyrer: ${first(m.moderator)}\n`
-    + `${first(m.leader)}, jeg minder dig om at gøre dagsordenen klar 3 dage før.${link ? `\n${link}` : ""}`;
+  return `Next team meeting: ${meetingWhenEn(m)}${where(m)} 🌿\nLeading: ${first(m.leader)} · Moderator: ${first(m.moderator)}\n`
+    + `${first(m.leader)}, I will remind you to get the agenda ready 3 days before.${link ? `\n${link}` : ""}`;
 }
 
 /** The board as Saga can reach it: everyone who has written in the group and is still in it. */
@@ -140,8 +141,8 @@ export async function scheduledRoleReplacements(env: SagaEnv, deps: SagaDeps, db
     const roles = pickRoles(board.map(b => b.name), history, { leader: left(m.leader) ? null : m.leader, moderator: left(m.moderator) ? null : m.moderator }, before, m.id);
     if (!roles.leader || !roles.moderator) continue;
     await db.prepare("UPDATE board_meetings SET leader = ?, moderator = ?, updated_at_ms = ?, updated_by = ? WHERE id = ?").bind(roles.leader, roles.moderator, now, SAGA_NAME, m.id).run();
-    const lines = [left(m.leader) ? `${first(roles.leader)} er mødeleder i stedet for ${first(m.leader)}` : "", left(m.moderator) ? `${first(roles.moderator)} er ordstyrer i stedet for ${first(m.moderator)}` : ""].filter(Boolean);
-    const text = `Ændring til teammødet ${lowerFirst(meetingHeading(m))}: ${lines.join(", og ")}.${left(m.leader) ? ` ${first(roles.leader)}, jeg minder dig om dagsordenen 3 dage før.` : ""}${link(env, m.id) ? `\n${link(env, m.id)}` : ""}`;
+    const lines = [left(m.leader) ? `${first(roles.leader)} is leading instead of ${first(m.leader)}` : "", left(m.moderator) ? `${first(roles.moderator)} is the moderator instead of ${first(m.moderator)}` : ""].filter(Boolean);
+    const text = `A change for the team meeting on ${meetingWhenEn(m)}: ${lines.join(", and ")}.${left(m.leader) ? ` ${first(roles.leader)}, I will remind you about the agenda 3 days before.` : ""}${link(env, m.id) ? `\n${link(env, m.id)}` : ""}`;
     const sent = await telegramClient(env, deps).sendMessage(env.SAGA_BOARD_CHAT_ID, text).catch(() => null);
     if (sent) await saveBoardMessage(db, { chatId: env.SAGA_BOARD_CHAT_ID, messageId: sent.message_id, author: SAGA_NAME, authorId: null, text, sentAtMs: now, fromAssistant: true }).catch(() => undefined);
     changed.push({ ...m, ...roles });

@@ -146,9 +146,18 @@ export const guessKind = (what: string): MeetingKind | "" =>
   /team|bestyrelsesmøde/i.test(what) ? "team" : /generalforsamling|infomøde|workshop|fest\b|kursus|arrangement|åbent hus/i.test(what) ? "andet" : "";
 
 /** "Mødeleder: Frederik · Ordstyrer: Lisbeth" - first names; "" when no one is picked. */
-export function rolesLine(m: Pick<Meeting, "leader" | "moderator">): string {
+export function rolesLine(m: Pick<Meeting, "leader" | "moderator">, lang: "da" | "en" = "da"): string {
   const first = (name: string | null | undefined) => (name ?? "").trim().split(/\s+/)[0] ?? "";
-  return [first(m.leader) && `Mødeleder: ${first(m.leader)}`, first(m.moderator) && `Ordstyrer: ${first(m.moderator)}`].filter(Boolean).join(" · ");
+  return [first(m.leader) && `${lang === "en" ? "Leading" : "Mødeleder"}: ${first(m.leader)}`, first(m.moderator) && `${lang === "en" ? "Moderator" : "Ordstyrer"}: ${first(m.moderator)}`].filter(Boolean).join(" · ");
+}
+
+/** The chair (27 Nov 2026): "Remember that we always write in English in the Telegram threads." What Saga writes in the board's group is in English. */
+export const GROUP_LANG = "en" as const;
+const GROUP_DAY = new Intl.DateTimeFormat("en-GB", { timeZone: "UTC", weekday: "long", day: "numeric", month: "long" });
+/** "Thursday 10 December at 13.30-15.30", for the group. */
+export function meetingWhenEn(m: Pick<Meeting, "meeting_date" | "start_time" | "end_time">): string {
+  const time = (t: string | null | undefined) => (t ?? "").replace(":", ".");
+  return `${GROUP_DAY.format(new Date(`${m.meeting_date}T12:00:00Z`))}${m.start_time ? ` at ${time(m.start_time)}${m.end_time ? `-${time(m.end_time)}` : ""}` : ""}`;
 }
 
 /** Copenhagen's wall clock to an instant. */
