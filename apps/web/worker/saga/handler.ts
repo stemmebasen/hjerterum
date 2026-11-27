@@ -2,6 +2,7 @@ import { teamMailAccount } from "./teamMail.js";
 import { chairItemDone, chairItems } from "../cockpit/chairTasks.js";
 import { askInput, askSagaMarkdown, DAILY_QUESTIONS, questionsToday } from "../cockpit/ask.js";
 import { boardMembers } from "../cockpit/data.js";
+import { chairTodos } from "../cockpit/chairTodosApi.js";
 import { decideAccess } from "../cockpit/loginAccess.js";
 import { sagaBrief } from "./brief.js";
 import { answerLoginRequest, isLoginRequest } from "../cockpit/personalLogin.js";
@@ -167,6 +168,8 @@ export async function handleSagaRequest(request: Request, env: SagaEnv, deps: Sa
     if (!sameSecret(bearer, env.SAGA_LIVA_SECRET)) return json({ error: "unauthorized" }, 401);
     if (!env.SAGA_BOARD_CHAT_ID) return json({ error: "board_not_configured" }, 503);
     const db = requireDb(env);
+    // "Kan du få mine personlige opgaver ind i Matrix som kan læses via API" (the chair, 27 Nov 2026) - cockpit/chairTodosApi.ts.
+    if (url.pathname === "/api/saga/liva/todos" && request.method === "GET") return json(await chairTodos(env, db, deps.now()));
     if (url.pathname === "/api/saga/liva/overview" && request.method === "GET") {
       const days = Math.min(Math.max(Number(url.searchParams.get("days") || 7), 1), 60);
       const [messages, minutes, pending, weekly, mail, overview, connections, fortnight, done] = await Promise.all([recentBoardMessages(db, env.SAGA_BOARD_CHAT_ID, deps.now() - days * 86_400_000, 200),
@@ -199,6 +202,8 @@ export async function handleSagaRequest(request: Request, env: SagaEnv, deps: Sa
           link: telegramLink(env.SAGA_BOARD_CHAT_ID, fortnight.at(-1)?.telegram_message_id)
         },
         connections,
+        // The chair's own list in admin ("Dine to-do's"), for Matrix (cockpit/chairTodosApi.ts).
+        chairTodos: (await chairTodos(env, db, deps.now()).catch(() => ({ todos: [] }))).todos,
         minutesDoc: { url: minutesDocUrl(env), writable: Boolean(env.GOOGLE_SERVICE_ACCOUNT_JSON && env.GOOGLE_MINUTES_DOC_ID) },
         // Only a count: the chair does not handle team@ (no single mail is shown to him).
         mail: { week: { total: week.length } }
