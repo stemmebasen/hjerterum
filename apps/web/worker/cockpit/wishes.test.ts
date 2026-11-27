@@ -125,6 +125,13 @@ describe("wishes and faults in admin", () => {
     expect((await (await call("/udvikling/api/forslag", { headers: { authorization: `Bearer ${TOKEN}` } })).json() as { forslag: unknown[] }).forslag).toEqual([]);
     expect((await db.prepare("SELECT status FROM wishes WHERE id = ?").bind(id).first<{ status: string }>())!.status).toBe("done");
 
+    // "Only two Instagram posts this week - how come?" (the chair, 27 Nov 2026): the posts' status, read only, with the key.
+    await db.prepare(`INSERT INTO social_posts (kind, source_key, channels, text, source, publish_at_ms, status, error, created_at_ms, updated_at_ms)
+      VALUES ('event', 'mw:x', '["facebook","instagram"]', 'Tekst', '{"title":"Yin yoga"}', ?, 'draft', NULL, ?, ?)`).bind(NOW + 86_400_000, NOW, NOW).run();
+    expect((await call("/udvikling/api/opslag")).status).toBe(404);
+    const posts = await (await call("/udvikling/api/opslag", { headers: { authorization: `Bearer ${TOKEN}` } })).json() as { opslag: Array<{ status: string; title: string }> };
+    expect(posts.opslag).toEqual([expect.objectContaining({ status: "draft", title: "Yin yoga" })]);
+
     // A wish can be let go. An empty conversation is used again rather than a new one, and conversations are not kept on the overview.
     const other = (await call("/forslag/ny", { method: "POST", cookie: douglas })).headers.get("location")!.split("/").pop()!;
     expect((await call("/forslag/ny", { method: "POST", cookie: douglas })).headers.get("location")!.split("/").pop()).toBe(other);
