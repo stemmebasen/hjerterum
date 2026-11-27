@@ -373,9 +373,9 @@ describe("a meeting's agenda and place", () => {
     await roles.db.prepare("UPDATE board_meetings SET leader = 'Frederik Madsen', moderator = 'Lisbeth' WHERE id = ?").bind(roles.id).run();
     expect(await roles.run()).toBe(true);
     const long = String((roles.services.telegram("sendMessage")[0]!.body as { text: string }).text);
-    expect(long).toContain("(14 punkter)");
-    expect(long).toContain(`.\nMødeleder: Frederik · Ordstyrer: Lisbeth\n\n1. Punkt 1\n`);
-    expect(long).toContain("12. Punkt 12\n... og 2 punkter mere\n\nSe dagsordenen her:");
+    expect(long).toContain("(14 points)");
+    expect(long).toContain(`.\nLeading: Frederik · Moderator: Lisbeth\n\n1. Punkt 1\n`);
+    expect(long).toContain("12. Punkt 12\n... and 2 more points\n\nSee the agenda here:");
     expect(long).not.toContain("13. Punkt 13");
     // A send that fails is tried again in her next round.
     const flaky = await mk();
