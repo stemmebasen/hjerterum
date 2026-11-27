@@ -1206,3 +1206,14 @@ body, .workspace-shell, .admin-workspace, .auth-shell, .profile-workspace { back
 
 /* Douglas (forslag #4): the warning under the non-member price when it is under the minimum - saving is not stopped. */
 .price-warning { display: block; margin-top: 6px; padding: 8px 10px; border-radius: 10px; background: color-mix(in srgb, var(--lys-terra, #b5553b) 14%, transparent); color: inherit; font-weight: 500; }
+
+/* Douglas (forslag #6): cancelling from "Mine tilmeldinger" and Kalender - one button, then an "are you sure?" step (cancel-registration.tsx). */
+.cancel-registration { margin-top: 8px; padding: 12px 14px; border-radius: 12px; border: 1px solid var(--lys-line); background: var(--lys-surface, #fff); display: grid; gap: 8px; }
+.cancel-registration p { margin: 0; }
+.cancel-registration-choice { display: grid; gap: 6px; }
+.cancel-registration-choice select { margin-left: 4px; }
+.cancel-registration-actions { display: flex; gap: 8px; flex-wrap: wrap; }
+.lys-list .registration-row { display: grid; gap: 4px; }
+.lys-list .registration-row-top { display: flex; justify-content: space-between; gap: 10px; align-items: center; flex-wrap: wrap; }
+.lys-list .registration-row-top > span:last-child { display: flex; gap: 8px; align-items: center; }
+.cancel-registration-open { padding: 4px 12px; font-size: 13px; }

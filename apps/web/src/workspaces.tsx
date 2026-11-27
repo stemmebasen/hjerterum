@@ -1,4 +1,5 @@
 import { Live } from "./live-text";
+import { CancelRegistration } from "./cancel-registration";
 import { PastEvents } from "./past-events";
 import { TEAM_MAIL } from "../site/mail";
 import { EventCard, calendarMonth, calendarText } from "./event-card";
@@ -75,6 +76,8 @@ type Booking = {
   contact?: { share: ContactShare | null; email: string | null; phone: string | null } | null;
   attendeeCount?: number;
   isAttending?: boolean;
+  /** How many places the member's own registration holds (forslag #6). */
+  mySeats?: number | null;
   isOwner?: boolean;
   feeKr: number;
   ticketPriceKr: number;
@@ -244,7 +247,9 @@ const REVIEW_LABEL: Record<NonNullable<Booking["reviewStatus"]>, [string, string
 
 /** Hjerterum Lys (apps/web/lys.ts), in the website's layout: kicker, a serif headline with its italic line, the text
  * beside it; then the figures and the two lists a member comes for. */
-function MemberOverview({ member, calendar, clerk }: { member: Member | null; calendar: Booking[]; clerk: ClerkBrowser }) {
+function MemberOverview({ member, calendar, clerk, reload }: { member: Member | null; calendar: Booking[]; clerk: ClerkBrowser; reload: () => Promise<void> }) {
+  // Douglas (forslag #6): the answer to a cancellation stands by the registration it was about.
+  const [cancelNote, setCancelNote] = useState<{ id: number; text: string } | null>(null);
   const registrations = calendar.filter((booking) => booking.isAttending);
   const owned = calendar.filter((booking) => booking.isOwner);
   const awaiting = owned.filter((booking) => booking.reviewStatus === "pending" || booking.reviewStatus === "needs_board").length;
@@ -294,9 +299,13 @@ function MemberOverview({ member, calendar, clerk }: { member: Member | null; ca
               {registrations.length ? (
                 <ul className="lys-list">
                   {registrations.slice(0, 4).map((booking) => (
-                    <li key={booking.id}><span>{booking.title}<span className="lys-meta">{formatDate(booking.startsAt)}</span></span>
-                      {booking.registrationStatus === "pending" ? <span className="lys-chip clay">Afventer</span> : <span className="lys-chip sage">Tilmeldt</span>}</li>
+                    <li key={booking.id} className="registration-row"><div className="registration-row-top"><span>{booking.title}<span className="lys-meta">{formatDate(booking.startsAt)}{booking.mySeats && booking.mySeats > 1 ? ` · ${booking.mySeats} personer` : ""}</span></span>
+                      {booking.registrationStatus === "pending" ? <span className="lys-chip clay">Afventer</span> : <span className="lys-chip sage">Tilmeldt</span>}</div>
+                      {/* Douglas (forslag #6): "One 'Cancel' button next to each registration in the card" - the same cancellation as Kalender. */}
+                      <CancelRegistration clerk={clerk} booking={booking} onDone={async text => { setCancelNote({ id: booking.id, text }); await reload(); }} />
+                      {cancelNote?.id === booking.id && <small className="member-row-note" role="status"><Live text={cancelNote.text} /></small>}</li>
                   ))}
+                  {cancelNote && !registrations.some(b => b.id === cancelNote.id) && <li role="status"><small className="member-row-note"><Live text={cancelNote.text} /></small></li>}
                 </ul>
               ) : <p className="lys-sub">Du er ikke tilmeldt et kommende event.</p>}
               <p className="member-overview-more"><a className="lys-link" href="/member-portal/kalender">{registrations.length ? "Se kalenderen, eller annullér en tilmelding →" : "Find et event i kalenderen →"}</a></p>
@@ -872,14 +881,17 @@ export function MemberCalendar({
                   {Array.from({ length: Math.min(6, booking.maxAttendees ? Math.max(1, booking.maxAttendees - (booking.attendeeCount ?? 0)) : 6) }, (_, i) => i + 1).map(n => <option key={n} value={n}>{n === 1 ? "1 person" : `${n} pers.`}</option>)}
                 </select>}
               {/* Douglas (19 Nov 2026): "I still can't sign up for my event" - the organiser can sign up for their own event like anyone else, and still has the way to manage it. */}
-              {booking ? (
+              {/* Douglas (forslag #6): "If not, build the partial cancellation so it works the same in Kalender and in the card" (cancel-registration.tsx). */}
+              {booking && booking.isAttending && booking.registrationStatus !== "pending" ? (
+                <CancelRegistration clerk={clerk} booking={booking} label="Annullér tilmelding" onDone={async text => { setMessage(text); setRowNote({ id: booking.id, text }); await reload(); }} />)
+              : booking ? (
                 <button type="button" className={booking.isAttending ? "pill-button subtle" : "pill-button dark"}
                   disabled={busyId === booking.id || booking.registrationStatus === "pending" || (!booking.isAttending && full)}
                   onClick={() => void toggleAttendance(booking)}>
                   {busyId === booking.id ? "Arbejder …" : booking.registrationStatus === "pending" ? "Betaling afventer" : booking.isAttending ? "Annullér tilmelding" : full ? "Fuldt booket" : priceKr > 0 ? "Tilmeld og betal" : "Tilmeld"}
                 </button>)
                 : href ? <a className="text-link" href={href} {...linkProps}>Læs mere{away ? " ↗" : " →"}</a> : <span className="member-row-meta">Kontakt arrangøren</span>}
-              {booking && rowNote?.id === booking.id && <small className="member-row-note" role="status">{rowNote.text}</small>}
+              {booking && rowNote?.id === booking.id && <small className="member-row-note" role="status"><Live text={rowNote.text} /></small>}
               {/* Douglas (19 Nov 2026): "the layout here is a bit strange" - the organiser's way to manage the event goes under the button. */}
               {booking?.isOwner && <a className="text-link row-manage" href="/member-portal/events">Administrér →</a>}
             </span>
@@ -1288,7 +1300,7 @@ export function MemberWorkspace({
           <section className="workspace-section member-page site-page member-about"><SitePageInner page={SITE_PAGES.find((page) => page.path === "/om-hjerterum")!} widgets={{}} /></section>
         ) : normalized === "/member-portal/kalender" ? (
           <MemberCalendar clerk={clerk} bookings={calendar} externalEvents={externalEvents} reload={loadCalendar} nonMember={trial} />
-        ) : <MemberOverview member={member} calendar={calendar} clerk={clerk} />}
+        ) : <MemberOverview member={member} calendar={calendar} clerk={clerk} reload={loadCalendar} />}
       <footer className="member-foot"><LegalLine /></footer>
       {/* Requested: Saga on all three sites. Everyone logged in meets her; only a member with benefits can have an event made (worker/member-saga.ts). */}
       {!loading && <SagaWidget mode="member" clerk={clerk} path={path} canCreate={Boolean(member && includesMemberBenefits(member.tier))}

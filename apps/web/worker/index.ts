@@ -41,6 +41,7 @@ import {
   listOwnedRoomBookings,
   normalizeCreateRoomBookingInput,
   unattendRoomBooking,
+  reduceAttendance,
   updateOwnedRoomBooking,
   fixedTeacherByAccount,
   type RoomBookingRow
@@ -484,6 +485,21 @@ async function attendBooking(
   }
 }
 
+async function reduceBookingAttendance(request: Request, env: Env, bookingId: number): Promise<Response> {
+  if (!env.DB) return json({ error: "database_unbound" }, { status: 503 });
+  const user = await requireUser(request, env);
+  if (isResponse(user)) return user;
+  const body = await request.json().catch(() => ({})) as { seats?: unknown };
+  try {
+    return json({ status: "attending", seats: await reduceAttendance(env.DB, user.userId, bookingId, Number(body.seats)) });
+  } catch (error) {
+    const code = error instanceof Error ? error.message : "reduce_failed";
+    if (code === "attendance_not_found" || code === "booking_not_found") return json({ error: code }, { status: 404 });
+    if (code === "booking_started" || code === "invalid_seats") return json({ error: code }, { status: code === "invalid_seats" ? 400 : 409 });
+    return json({ error: "reduce_failed" }, { status: 500 });
+  }
+}
+
 async function unattendBooking(
   request: Request,
   env: Env,
@@ -539,6 +555,7 @@ async function memberCalendar(request: Request, env: Env): Promise<Response> {
       attendeeCount: row.attendee_count,
       isAttending: row.is_attending === 1,
       registrationStatus: row.registration_status,
+      mySeats: row.my_seats ?? null,
       isOwner: row.clerk_user_id === user.userId
     })));
   } catch {
@@ -934,6 +951,10 @@ export default {
     }
     if (request.method === "DELETE" && attendanceId !== null) {
       return unattendBooking(request, env, attendanceId);
+    }
+    // Douglas (forslag #6): cancel some of the places of a group registration and keep the rest.
+    if (request.method === "PATCH" && attendanceId !== null) {
+      return reduceBookingAttendance(request, env, attendanceId);
     }
     const posterId = parseRouteId(url.pathname, /^\/api\/room-bookings\/(\d+)\/poster$/);
     if (posterId !== null && request.method === "GET") return downloadPoster(request, env, posterId);
