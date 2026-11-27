@@ -108,6 +108,7 @@ describe("a deputy's login", () => {
     expect(minutes).toContain("Vi holder åbent hus i november");
     expect(minutes).toContain("Hemmeligt om økonomien");
     expect(minutes).not.toContain("Del med suppleanterne");
+    expect(minutes).not.toContain("Jeg kan ikke godkende det");
     // The forms are theirs - but none to vote.
     const forms = [...home.matchAll(/<form\b[^>]*method="post"[^>]*action="([^"]*)"/gi), ...home.matchAll(/<form\b[^>]*action="([^"]*)"[^>]*method="post"/gi)].map(m => m[1]);
     expect(forms.some(a => a!.endsWith("/logout"))).toBe(true);

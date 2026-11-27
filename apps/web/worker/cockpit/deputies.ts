@@ -76,7 +76,9 @@ export function deputyView(page: string): string {
   const stripped = page.replace(/<form\b[^>]*>[\s\S]*?<\/form>/gi, form => {
     const open = /^<form\b[^>]*>/i.exec(form)?.[0] ?? "";
     return /\bmethod="post"/i.test(open) && blocked(open) ? "" : form;
-  }).replace(/<span class="state todo">Du mangler at stemme<\/span>/g, `<span class="state">Til afstemning</span>`);
+  }).replace(/<span class="state todo">Du mangler at stemme<\/span>/g, `<span class="state">Til afstemning</span>`)
+    // A fold whose form was taken out ("Jeg kan ikke godkende det") goes too.
+    .replace(/<details\b[^>]*>\s*<summary>[^<]*<\/summary>\s*<\/details>/gi, "");
   const at = stripped.indexOf("</header>");
   return at < 0 ? stripped : `${stripped.slice(0, at + 9)}${DEPUTY_NOTE}${stripped.slice(at + 9)}`;
 }
