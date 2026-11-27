@@ -61,6 +61,8 @@ export type MemberCalendarRow = RoomBookingRow & {
   attendee_count: number;
   is_attending: number;
   registration_status: "pending" | "confirmed" | "cancelled" | null;
+  /** How many places the member's own registration holds (forslag #6). */
+  my_seats: number | null;
 };
 
 export type AttendeeRow = {
@@ -291,13 +293,14 @@ export async function listMemberCalendarBookings(
             b.cancelled_at_ms,
             SUM(CASE WHEN a.registration_status = 'confirmed' THEN a.seats ELSE 0 END) AS attendee_count,
             MAX(CASE WHEN a.clerk_user_id = ? AND a.registration_status = 'confirmed' THEN 1 ELSE 0 END) AS is_attending,
-            MAX(CASE WHEN a.clerk_user_id = ? THEN a.registration_status ELSE NULL END) AS registration_status
+            MAX(CASE WHEN a.clerk_user_id = ? THEN a.registration_status ELSE NULL END) AS registration_status,
+            MAX(CASE WHEN a.clerk_user_id = ? AND a.registration_status IN ('pending', 'confirmed') THEN a.seats ELSE NULL END) AS my_seats
      FROM room_bookings b
      LEFT JOIN room_booking_attendees a ON a.room_booking_id = b.id
      WHERE b.status = 'scheduled' AND b.ends_at_ms >= ? AND (b.review_status = 'approved' OR b.clerk_user_id = ?)
      GROUP BY b.id
      ORDER BY b.starts_at_ms ASC`
-  ).bind(clerkUserId, clerkUserId, fromMs, clerkUserId).all<MemberCalendarRow>();
+  ).bind(clerkUserId, clerkUserId, clerkUserId, fromMs, clerkUserId).all<MemberCalendarRow>();
   return result.results ?? [];
 }
 
@@ -625,6 +628,20 @@ export async function unattendRoomBooking(
        AND registration_status IN ('pending', 'confirmed')`
   ).bind(now, bookingId, clerkUserId).run();
   if ((result.meta?.changes ?? 0) === 0) throw new Error("attendance_not_found");
+}
+
+/** Douglas (forslag #6, 27 Nov 2026): "When one person in a group drops out, the member shouldn't have to cancel everyone and sign up again." A confirmed
+ * registration for several places keeps `seats` of them (at least 1, fewer than now); the others are free on the event again at once, as the places are
+ * counted from the registrations. Only before the event begins, and only the member's own. Paid registrations are for one place, so this is the free ones. */
+export async function reduceAttendance(db: D1Database, clerkUserId: string, bookingId: number, seats: number): Promise<number> {
+  if (!Number.isInteger(seats) || seats < 1) throw new Error("invalid_seats");
+  const booking = await db.prepare("SELECT starts_at_ms FROM room_bookings WHERE id = ? AND status = 'scheduled'").bind(bookingId).first<{ starts_at_ms: number }>();
+  if (!booking) throw new Error("booking_not_found");
+  if (booking.starts_at_ms <= Date.now()) throw new Error("booking_started");
+  const result = await db.prepare(`UPDATE room_booking_attendees SET seats = ?
+     WHERE room_booking_id = ? AND clerk_user_id = ? AND registration_status = 'confirmed' AND seats > ?`).bind(seats, bookingId, clerkUserId, seats).run();
+  if ((result.meta?.changes ?? 0) === 0) throw new Error("attendance_not_found");
+  return seats;
 }
 
 /** Security review (3 Nov 2026), point 4: a member could type a fixed teacher's address on their profile and have their own events approved at once.
