@@ -34,7 +34,7 @@ import { approvalButtons, telegramClient } from "./telegram.js";
 import { importDocMinutes } from "./importDoc.js";
 import { boardKnowledge } from "../cockpit/ask.js";
 import { scheduledAgendaAsk, scheduledLeaderAgenda } from "../cockpit/agendaAsk.js";
-import { ensureNextTeamMeeting, scheduledMeetingRoles, scheduledRoleReminders } from "../cockpit/meetingRoles.js";
+import { ensureNextTeamMeeting, scheduledMeetingRoles, scheduledRoleReminders, scheduledRoleReplacements } from "../cockpit/meetingRoles.js";
 import { frameComingAgendas, scheduledAgendaPriority } from "../cockpit/agendaPriority.js";
 import { boardMembers, memberDoneForSaga, responsibilities, responsibilitiesForSaga } from "../cockpit/data.js";
 import { handlePendingCorrections } from "../cockpit/corrections.js";
@@ -537,6 +537,9 @@ export async function runSagaJobs(env: SagaEnv, deps: SagaDeps, options: { mail?
     .catch(error => console.warn("saga_next_meeting_failed", error instanceof Error ? error.message : error));
   await scheduledMeetingRoles(env, deps, db, (key, slot) => claimJob(db, key, slot, deps.now()))
     .catch(error => console.warn("saga_meeting_roles_failed", error instanceof Error ? error.message : error));
+  // "Gitta skal ikke længere have roller til møder" - a role already given to her goes to someone else (cockpit/meetingRoles.ts NO_MEETING_ROLES).
+  await scheduledRoleReplacements(env, deps, db, (key, slot) => claimJob(db, key, slot, deps.now()))
+    .catch(error => console.warn("saga_role_replacements_failed", error instanceof Error ? error.message : error));
   await scheduledRoleReminders(env, deps, db, (key, slot) => claimJob(db, key, slot, deps.now()))
     .catch(error => console.warn("saga_role_reminders_failed", error instanceof Error ? error.message : error));
   await step("optagelser og referater");
