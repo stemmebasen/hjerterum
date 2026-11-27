@@ -13,6 +13,8 @@ import { RECENT_CHANGES } from "./recent-changes.generated.js";
 import { SITE_PAGES } from "../../site/pages.js";
 import type { SagaDeps, SagaEnv } from "../saga/env.js";
 import { telegramClient } from "../saga/telegram.js";
+import { memberLang } from "./i18n.js";
+import { etaText, liveEta } from "./wish-eta.js";
 import { esc, layout } from "./page.js";
 
 /** Asked (the chair, 24 Nov 2026): "Jeg får en masse feedback fra Douglas. Er det muligt han på en eller måde kan chatte med ai om ændringerne - og så
@@ -31,7 +33,9 @@ export type WishStatus = "open" | "sent" | "approved" | "rejected" | "done" | "d
 export type Wish = { id: number; author: string; status: WishStatus; title: string | null; summary: string | null; chair_note: string | null; decided_by: string | null;
   decided_at_ms: number | null; sent_at_ms: number | null; done_at_ms: number | null; created_at_ms: number; updated_at_ms: number;
   /** Jewel's sorting: fejl, forbedring or ny funktion; her guess at the size; and when it is done, one point a line. */
-  kind?: string | null; size?: string | null; done_when?: string | null };
+  kind?: string | null; size?: string | null; done_when?: string | null;
+  /** When it is expected live, set when it is sent (wish-eta.ts). */
+  eta_ms?: number | null };
 export type WishMessage = { id: number; wish_id: number; role: "person" | "saga"; author: string | null; text: string; image_key: string | null; image_type: string | null; at_ms: number };
 
 export const STATUS_TEXT: Record<WishStatus, string> = { open: "Under samtale", sent: "Venter på godkendelse", approved: "Godkendt - i gang", rejected: "Afvist", done: "✓ LIVE", dropped: "Opgivet" };
@@ -80,7 +84,7 @@ export const AGENT = "Jewel";
 
 const SYSTEM = `Du er Jewel, Hjerterums produktudvikler. Du arbejder i admin under "Forslag til udvikling", hvor et medlem af bestyrelsen taler med dig om et forslag til Hjerterums system - hjemmesiden www.hjerterum.info, medlemssiden (Min side) eller admin - eller om en fejl, de har fundet. Du er ikke Saga (bestyrelsens assistent); spørger personen om andet end systemet (bestyrelsens arbejde, events, medlemmer, økonomi), så sig venligt, at det kan Saga hjælpe med under "Spørg Saga".
 
-Et sendt forslag går direkte videre til udvikling; du ændrer ikke selv noget og lover aldrig, hvornår noget bliver lavet. Nævn aldrig "formanden".
+Et sendt forslag går direkte videre til udvikling; du ændrer ikke selv noget. Udviklingen tager de sendte forslag kl. 9, 12, 15, 18 og 21: en lille opgave er typisk live cirka en time efter næste tjek, en mellemstor cirka tre timer efter, en stor dagen efter - aldrig om natten. Spørger man, hvornår noget er live, så giv et cirka-tidspunkt ud fra det (et skøn, ikke et løfte). Når forslaget er sendt, skriver du selv en kort besked med tidspunktet. Nævn aldrig "formanden".
 
 Din personlighed (the chair, 25 Nov 2026: "Give her a charming witty and Londoner personality"): du er en charmerende, kvik londoner - varm, hurtig i replikken og med et glimt i øjet. Tør, britisk humor og en let selvironi; du bliver aldrig sur, og humoren er aldrig på personens bekostning. På engelsk taler du som en venlig londoner ("lovely", "brilliant", "right then", "fancy a ...", "bob's your uncle", "cheers") - naturligt og med måde, ikke som en tegnefilm, og aldrig så det gør dig svær at forstå. På dansk taler du godt, venligt dansk med et lille engelsk krydderi en gang imellem ("lovely!", "brilliant"). Højst én lille spøg eller vending pr. svar, og kun når den passer - er nogen frustrerede over en fejl, så er du først og fremmest hjælpsom. Charmen gælder samtalen: selve forslaget ("oenske") skrives klart, sagligt og uden spøg.
 
@@ -226,12 +230,28 @@ export async function talkAboutWish(env: SagaEnv, deps: SagaDeps, db: D1Database
 export async function sendWish(env: SagaEnv, deps: SagaDeps, db: D1Database, wish: Wish, cockpitUrl: string): Promise<boolean> {
   if (wish.status !== "open" || !wish.title || !wish.summary) return false;
   const now = deps.now();
-  const changed = await db.prepare("UPDATE wishes SET status = 'approved', sent_at_ms = ?, decided_by = ?, decided_at_ms = ?, updated_at_ms = ? WHERE id = ? AND status = 'open'")
-    .bind(now, wish.author, now, now, wish.id).run();
+  const eta = liveEta(wish.size, now);
+  const changed = await db.prepare("UPDATE wishes SET status = 'approved', sent_at_ms = ?, decided_by = ?, decided_at_ms = ?, updated_at_ms = ?, eta_ms = ? WHERE id = ? AND status = 'open'")
+    .bind(now, wish.author, now, now, eta, wish.id).run();
   if (!changed.meta?.changes) return false;
+  // The chair (27 Nov 2026): "Det er vigtigt at Jewel briefer Douglas og giver en eta på hvornår hans ændringer cirka er live" - in the chat, in his language.
+  await db.prepare("INSERT INTO wish_messages (wish_id, role, author, text, image_key, image_type, at_ms) VALUES (?, 'saga', 'Jewel', ?, NULL, NULL, ?)")
+    .bind(wish.id, await sentBrief(db, wish, eta, now), now).run().catch(() => undefined);
   if (env.SAGA_TELEGRAM_BOT_TOKEN && env.SAGA_OWNER_TELEGRAM_ID)
-    await telegramClient(env, deps).sendMessage(env.SAGA_OWNER_TELEGRAM_ID, `${wish.author} har sendt et forslag til udvikling: »${wish.title}«. Det går direkte videre til udvikling.\n\nSe det her (du kan stadig afvise det): ${cockpitUrl}/forslag/${wish.id}`).catch(() => undefined);
+    await telegramClient(env, deps).sendMessage(env.SAGA_OWNER_TELEGRAM_ID, `${wish.author} har sendt et forslag til udvikling: »${wish.title}«. Det går direkte videre til udvikling og forventes live ${etaText(eta, now, "da")}.\n\nSe det her (du kan stadig afvise det): ${cockpitUrl}/forslag/${wish.id}`).catch(() => undefined);
   return true;
+}
+
+const SIZE_WORD = { da: { lille: "lille", mellem: "mellemstor", stor: "større" }, en: { lille: "small", mellem: "medium-sized", stor: "larger" } } as const;
+/** Jewel's brief when a request is sent: what happens now and when it is expected live - in the language the person writes to her in. */
+async function sentBrief(db: D1Database, wish: Wish, eta: number, now: number): Promise<string> {
+  const said = (await wishMessages(db, wish.id).catch(() => [])).filter(m => m.role === "person").map(m => m.text).join(" ");
+  const lang = /\b(the|and|please|should|button|page|would)\b/i.test(said) ? "en" : await memberLang(db, wish.author);
+  const first = wish.author.split(/\s+/)[0] ?? "";
+  const size = (SIZE_WORD[lang] as Record<string, string>)[wish.size ?? ""] ?? (lang === "en" ? "medium-sized" : "mellemstor");
+  return lang === "en"
+    ? `Thanks, ${first} - it has gone straight to development. It looks like a ${size} job, so expect it live ${etaText(eta, now, "en")} (an estimate). You'll see a green ✓ LIVE on the request here, and I'll message you on Telegram the moment it's on the site.`
+    : `Tak, ${first} - det er sendt direkte videre til udvikling. Det ligner en ${size} opgave, så regn med, at den er live ${etaText(eta, now, "da")} (et skøn). Du ser et grønt ✓ LIVE her på forslaget, og jeg skriver til dig på Telegram, så snart det er på siden.`;
 }
 
 /** A short message to the one who made the request, on Telegram, when Saga knows them there. */
@@ -279,7 +299,7 @@ export async function requestsApi(request: Request, env: SagaEnv, deps: SagaDeps
   if (!sameSecret(sent, token)) return json({ error: "not_found", sent_key: sent ? "wrong" : "none" }, 404);
   if (!match[1] && request.method === "GET") {
     const approved = (await listWishes(db)).filter(w => w.status === "approved");
-    return json({ forslag: approved.map(w => ({ id: w.id, fra: w.author, titel: w.title, beskrivelse: w.summary, type: w.kind ?? null, stoerrelse: w.size ?? null, faerdig_naar: w.done_when ? w.done_when.split("\n") : [], note: w.chair_note, godkendt: w.decided_at_ms ? new Date(w.decided_at_ms).toISOString() : null, admin: `${cockpitUrl}/forslag/${w.id}` })) });
+    return json({ forslag: approved.map(w => ({ id: w.id, eta: w.eta_ms ? new Date(w.eta_ms).toISOString() : null, fra: w.author, titel: w.title, beskrivelse: w.summary, type: w.kind ?? null, stoerrelse: w.size ?? null, faerdig_naar: w.done_when ? w.done_when.split("\n") : [], note: w.chair_note, godkendt: w.decided_at_ms ? new Date(w.decided_at_ms).toISOString() : null, admin: `${cockpitUrl}/forslag/${w.id}` })) });
   }
   if (match[1] && request.method === "POST") {
     const wish = await wishById(db, Number(match[1]));
@@ -344,6 +364,7 @@ export function wishCard(base: string, d: WishView): string {
   return `<section class="card w-card"><h2>Forslaget</h2><p><b translate="no">${esc(w.title)}</b> ${badge(w.status)}</p><div class="w-summary" translate="no">${esc(w.summary ?? "").replace(/\n/g, "<br>")}</div>
 ${w.kind ? `<p class="small"><span class="w-chip">${esc(KIND_TEXT[w.kind] ?? w.kind)}</span>${w.size ? `<span class="w-chip">${esc(SIZE_TEXT[w.size] ?? w.size)}</span>` : ""}</p>` : ""}
 ${w.done_when ? `<p class="small"><b>Færdigt når:</b></p><ul class="w-done-when" translate="no">${w.done_when.split("\n").map(x => `<li>${esc(x)}</li>`).join("")}</ul>` : ""}
+${w.status === "approved" && w.eta_ms ? `<p class="small w-eta"><b>Forventet live:</b> ${esc(etaText(w.eta_ms, Date.now(), "da"))} <span class="muted">(et skøn)</span></p>` : ""}
 ${w.chair_note ? `<p class="small"><b>Note:</b> <span translate="no">${esc(w.chair_note)}</span></p>` : ""}
 ${w.status === "open" && (d.mine || d.chair) ? `<form method="post" action="${base}/forslag/${w.id}/send"><button>Send forslaget til udvikling</button></form><p class="small muted">Vil du rette noget, så skriv det til Jewel herunder, så skriver hun forslaget om.</p>` : ""}
 ${d.chair && (w.status === "sent" || w.status === "open" || w.status === "approved") ? `<form method="post" action="${base}/forslag/${w.id}/afgoer" class="w-decide"><label>Note til ${esc(w.author)} (valgfri)<textarea name="note" rows="3" maxlength="1500"></textarea></label>
