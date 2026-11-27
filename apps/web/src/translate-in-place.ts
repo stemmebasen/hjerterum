@@ -151,7 +151,9 @@ const NAMES: Array<[RegExp, string]> = [[/\b(?:the )?Heart ?(?:Room|room|Space|s
   [/\bCOURSES (?:&|AND) (?:COURSES|PROGRAMMES)\b/g, "COURSES"], [/\bCourses (?:&|and) (?:[Cc]ourses|[Pp]rogrammes)\b/g, "Courses"],
   // Douglas (19 and 24 Nov 2026): the Standard box should say "Fixed price, no member discount to participate", as the other boxes say "to participate" -
   // Google makes it "for participating".
-  [/\bno member discount for (?:participating|participation|participants)\b/g, "no member discount to participate"]];
+  [/\bno member discount for (?:participating|participation|participants)\b/g, "no member discount to participate"],
+  // Douglas (forslag #8, 27 Nov 2026): cancelling some places, "Please leave out the word 'them' where it says 'keep them'" - Google makes the lone "behold" "keep them" (or "Behold").
+  [/(\bsome of the (?:places|seats|spots)\s*[-–—]\s*)(?:keep them|Keep them|behold|Behold)\b/g, "$1keep"]];
 export function englishNames(text: string): string {
   return NAMES.reduce((out, [pattern, name]) => out.replace(pattern, name), text);
 }

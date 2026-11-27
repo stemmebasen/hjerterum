@@ -153,7 +153,8 @@ ${preheader}<table role="presentation" class="hr-bg" width="100%" cellpadding="0
 <tr><td class="hr-outer" align="center" style="padding:32px 16px">
 <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="width:100%;max-width:600px">
 <tr><td align="center" style="padding:0 0 20px">
-<a href="${MAIL_SITE}" style="text-decoration:none"><img class="hr-ink" src="${MAIL_LOGO_URL}" width="96" height="96" alt="Hjerterum" style="display:block;width:96px;height:96px;border:0;font-family:${SERIF};font-size:20px;line-height:96px;letter-spacing:.2em;text-align:center;color:${LIGHT.ink}"></a>
+<!-- Douglas (forslag #7, 27 Nov 2026): "please make the logo in the emails a bit bigger" - 128 px, a third more than the 96 it was. -->
+<a href="${MAIL_SITE}" style="text-decoration:none"><img class="hr-ink" src="${MAIL_LOGO_URL}" width="128" height="128" alt="Hjerterum" style="display:block;width:128px;height:128px;border:0;font-family:${SERIF};font-size:20px;line-height:128px;letter-spacing:.2em;text-align:center;color:${LIGHT.ink}"></a>
 </td></tr>
 <tr><td class="hr-card hr-pad" bgcolor="${LIGHT.surface}" style="background:${LIGHT.surface};border:1px solid ${LIGHT.line};border-radius:20px;padding:34px 36px">
 <p class="hr-kicker" style="margin:0 0 14px;font-family:${SANS};font-size:12px;line-height:1.4;font-weight:600;letter-spacing:.18em;text-transform:uppercase;color:${LIGHT.terra}">${escapeMailHtml(input.title)}</p>

@@ -11,4 +11,10 @@ describe("the house's names in English", () => {
     expect(englishNames("the Heart Space calendar")).toBe("Hjerterum calendar");
     expect(englishNames("Small circles of friends")).toBe("Small circles of friends");
   });
+  // Douglas (forslag #8, 27 Nov 2026): "Please leave out the word 'them' where it says 'keep them'".
+  it("says keep, not keep them, when some of the places are cancelled", () => {
+    expect(englishNames("Only some of the places - keep them")).toBe("Only some of the places - keep");
+    expect(englishNames("Only some of the seats – Behold")).toBe("Only some of the seats – keep");
+    expect(englishNames("Keep them warm")).toBe("Keep them warm");
+  });
 });
