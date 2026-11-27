@@ -1,8 +1,7 @@
 import { DEFAULT_MEMBERSHIP_PLANS, membershipPlans, membershipPrice, type MembershipTier } from "../membership";
 import { SIGNUP_URL } from "../site/pages";
 
-/** The four memberships as on holistisk.org/bliv-medlem/ and hjerterum.info, in Hjerterum Lys. Signing up still
- * happens in the membership system on holistisk.org - where hjerterum.info sends people too - until payment runs here. */
+/** The four memberships, in Hjerterum Lys. Signing up happens in Hjerterum's own member area (SIGNUP_URL) - never on holistisk.org. */
 const EN: Record<string, { name: string; description: string }> = {
   standard: { name: "Standard membership", description: "Become a member of Hjerterum and enjoy a wide range of benefits." },
   generoest: { name: "Generous membership", description: "Support Hjerterum a little extra – and help people with few means to a membership at a reduced price." },
@@ -14,7 +13,7 @@ const kr = (minor: number, en: boolean) => membershipPrice(minor).replace(" kr."
 
 export function MembershipPlans({ lang = "da" }: { lang?: "da" | "en" }) {
   const en = lang === "en";
-  const signup = en ? "https://holistisk.org/become-a-member/" : SIGNUP_URL;
+  const signup = SIGNUP_URL;
   return <div className="site-plans" aria-label={en ? "Memberships" : "Medlemskaber"}>
     {Object.entries(membershipPlans).map(([id, plan]) => {
       // The English words while the Danish are as written; words saved in admin since are shown as saved (and translated with the page).

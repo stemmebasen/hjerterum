@@ -6,7 +6,6 @@ import { sagaTimeSince, scheduledBoardNow } from "../cockpit/boardNow.js";
 import { scheduledBoardAccess } from "../cockpit/personalLogin.js";
 import { scheduledDeputyAccess } from "../cockpit/deputies.js";
 import { scheduledChangeDigest } from "../cockpit/changeDigest.js";
-import { archiveSiteMedia, scheduledSiteSync } from "../cockpit/site.js";
 import { scheduledEnglishSummaries, scheduledTranslations } from "../cockpit/translate.js";
 import { scheduledDecisionKinds } from "../cockpit/decisionKinds.js";
 import { placePending } from "../cockpit/board.js";
@@ -632,16 +631,13 @@ export async function runSagaJobs(env: SagaEnv, deps: SagaDeps, options: { mail?
   // A post sent "Til mødet" before a team meeting was planned goes on its agenda once there is one (cockpit/board.ts).
   await placePending(env.DB, deps.now()).catch(error => console.warn("cockpit_board_posts_failed", error instanceof Error ? error.message : error));
   // Requested: the overview's speaker - Saga's words about the next two events that have not begun, new whenever one begins (program.ts).
-  if (env.AI_API_KEY && env.AI_MODEL) await writeProgramIntro(env, deps, env.DB, await getExternalEvents(false, deps.fetcher).catch(() => []), (key) => claimJob(env.DB!, `event_intro:${key}`.slice(0, 200), 0, deps.now()))
+  if (env.AI_API_KEY && env.AI_MODEL) await writeProgramIntro(env, deps, env.DB, await getExternalEvents(false).catch(() => []), (key) => claimJob(env.DB!, `event_intro:${key}`.slice(0, 200), 0, deps.now()))
     .catch(error => console.warn("event_blurbs_failed", error instanceof Error ? error.message : error));
   await step("backup og hjemmeside");
   // Requested: "gemmes sikkert én gang i døgnet" - the night copy of everything the board has written and decided, to Drive (saga/backup.ts).
   await scheduledBackup(env, deps, env.DB).catch(error => console.warn("saga_backup_failed", error instanceof Error ? error.message : error));
-  // Requested: "Generelt må hun gerne have al data fra den nuværende hjemmeside tilgængelig" - read once a day, no AI.
-  await scheduledSiteSync(deps, env.DB, (key, slot) => claimJob(env.DB!, key, slot, deps.now()))
-    .catch(error => console.warn("saga_site_sync_failed", error instanceof Error ? error.message : error));
-  // Requested: "holistisk.org indhold bliver ikke ved med at være tilgængelig så det skal lagres" - the media files to R2, a few at a time.
-  await archiveSiteMedia(env, deps, env.DB).catch(error => console.warn("saga_site_media_failed", error instanceof Error ? error.message : error));
+  // holistisk.org is no longer read (the chair, 27 Nov 2026: "alle forbindelser til holistisk ... skal klippes"): what was copied of it
+  // (site_pages and the media in R2, cockpit/site.ts) stays as the archive.
   if (parts.weekday === "Sun" && parts.hour === "18" && env.SAGA_BOARD_CHAT_ID && env.AI_API_KEY) {
     const week = Math.floor(deps.now() / (7 * DAY));
     if (await claimJob(env.DB, "saga_weekly_summary", week, deps.now())) await draftWeeklySummary(env, deps).catch(error => console.warn("saga_weekly_failed", error instanceof Error ? error.message : error));

@@ -1,5 +1,6 @@
-import { describe, expect, it } from "vitest";
-import { endFromText, getExternalEvents, isCancelledEvent, mergeExternalEvents, parseMembershipWorksList, parseMembershipWorksRss, withTexts } from "./external-events.js";
+import { describe, expect, it, vi } from "vitest";
+import { endFromText, getExternalEvents, isCancelledEvent, mergeExternalEvents, parseMembershipWorksList, parseMembershipWorksRss, useEventStore } from "./external-events.js";
+import { testDatabase } from "./saga/test-support.js";
 
 describe("MembershipWorks RSS parser", () => {
   it("parses the documented event tags", () => {
@@ -67,7 +68,7 @@ describe("MembershipWorks event list", () => {
     expect(rest).toEqual([]);
     expect(meal).toMatchObject({
       id: "SF6a0000000000000000000007", title: "Fællesspisning med ÅBEN SCENE 📖", startsAt: "2026-10-19T16:30:00.000Z", endsAt: "2026-10-19T19:30:00.000Z",
-      category: "Hjerterum events", imageUrl: "https://img/f.jpg", link: "https://holistisk.org/events/#!event/2026/10/19/faellesspisning", description: null
+      category: "Hjerterum events", imageUrl: "https://img/f.jpg", link: null, description: null
     });
     expect(workshop).toMatchObject({ title: "RELAX YOUR EYES – A feldenkrais workshop", category: "Events & Workshops", endsAt: null, link: null });
   });
@@ -79,30 +80,29 @@ describe("MembershipWorks event list", () => {
     expect(merged[1]!.description).toBe("Tekst");
   });
 
-  it("shows the feed's events when the list cannot be read", async () => {
-    const rss = `<rss><channel><item><guid>SF6a0000000000000000000009</guid><title>Qi Gong</title><ev:startdate>2026-10-23T10:30:00+02:00</ev:startdate></item></channel></rss>`;
-    const fetcher = (async (input: RequestInfo | URL) => String(input).includes("_op=rss") ? new Response(rss) : new Response("nej", { status: 500 })) as typeof fetch;
-    expect((await getExternalEvents(true, fetcher)).map(e => e.title)).toEqual(["Qi Gong"]);
-  });
 });
 
-// Asked: "Hvorfor er der den forskel på tekst? Alle events har jo en beskrivelse."
-describe("the text of events only the list has", () => {
-  const listed = parseMembershipWorksList({ evt: [{ ttl: "Satsãnga", sdp: 1792427400, eid: "6aaa8347f1a29b96a0031976" }, { ttl: "Har tekst", sdp: 1792427400, eid: "6aaa8347f1a29b96a0031977" }] })
-    .map((e, i) => i === 1 ? { ...e, description: "Fra feedet" } : e);
-
-  it("is read from the event's details once, and kept", async () => {
-    let calls = 0;
-    const fetcher = (async (input: RequestInfo | URL) => {
-      calls++;
-      expect(String(input)).toContain("eid=6aaa8347f1a29b96a0031976");
-      return new Response(JSON.stringify({ dtl: "<p>Sats&atilde;nga: mantra &amp; dans</p><p>Med Marin</p>" }));
-    }) as typeof fetch;
-    const [first, second] = await withTexts(listed, fetcher, 1);
-    expect(first!.description).toBe("Satsãnga: mantra & dans\nMed Marin");
-    expect(second!.description).toBe("Fra feedet");
-    await withTexts(listed, fetcher, 2);
-    expect(calls).toBe(1);
+// The chair (27 Nov 2026): "alle forbindelser til holistisk og membership works skal klippes" - the kept calendar is read from D1, never fetched.
+describe("the kept calendar", () => {
+  it("is read from house_events: coming events only, not cancelled or removed, and without links to holistisk.org - never from MembershipWorks", async () => {
+    const db = testDatabase();
+    const now = Date.now();
+    const add = (id: string, title: string, at: number, removed: number | null = null) => db.prepare(`INSERT INTO house_events (id, title, starts_at_ms, ends_at_ms, host, link, content_hash, removed_at_ms, updated_at_ms)
+      VALUES (?, ?, ?, ?, 'Kasper', 'https://holistisk.org/events/#!event/x', 'x', ?, 0)`).bind(id, title, at, at + 3_600_000, removed).run();
+    await add("SF6a0000000000000000000009", "Qi Gong", now + 86_400_000);
+    await add("SF6a0000000000000000000010", "Holdt for længe siden", now - 10 * 86_400_000);
+    await add("SF6a0000000000000000000011", "Yoga - Aflyst -", now + 86_400_000);
+    await add("SF6a0000000000000000000012", "Fjernet", now + 86_400_000, now);
+    const fetcher = vi.fn();
+    vi.stubGlobal("fetch", fetcher);
+    useEventStore(db);
+    const events = await getExternalEvents(true);
+    expect(events.map(e => e.title)).toEqual(["Qi Gong"]);
+    expect(events[0]).toMatchObject({ host: "Kasper", link: null });
+    expect(fetcher).not.toHaveBeenCalled();
+    useEventStore(null);
+    expect(await getExternalEvents(true)).toEqual([]);
+    vi.unstubAllGlobals();
   });
 });
 

@@ -171,7 +171,9 @@ describe("admin → Medlemmer", () => {
 
     const membership = await (await call(`/medlemmer/${id}`, { headers: { cookie } })).text();
     for (const text of ["<h1>Mette Holm</h1>", "Standard medlemskab", "Aktiv", "Manuel betaling - givet af Hjerterum", "Medlem siden 28. apr. 2025", "Underviser", "Fra MembershipWorks",
-      "Betaler stadig i MembershipWorks", "https://membershipworks.com/admin/#!biz/id/680f5aae37f3c27dfd0f0001", 'aria-current="page">Medlemskab']) expect(membership).toContain(text);
+      "Betaler stadig i MembershipWorks", 'aria-current="page">Medlemskab']) expect(membership).toContain(text);
+    // "alle forbindelser til ... membership works skal klippes" (27 Nov 2026): no link into MembershipWorks.
+    expect(membership).not.toContain("membershipworks.com");
     const contact = await (await call(`/medlemmer/${id}?fane=kontakt`, { headers: { cookie } })).text();
     expect(contact).toContain('href="tel:11223344"');
     expect(contact).toContain('href="mailto:mette@example.dk"');

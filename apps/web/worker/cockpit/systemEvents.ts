@@ -46,7 +46,7 @@ export function systemEventsSection(base: string, events: SystemEvent[], notice:
   const row = (e: SystemEvent) => `<li><div><b>${esc(e.title)}</b><span class="small muted">${esc(when(e))} · ${esc(e.teacher_name)}${e.review_status === "pending" ? " · afventer godkendelse" : ""}${e.attendees ? ` · ${e.attendees} tilmeldt` : ""}</span></div>
 ${e.cirkler_meeting_id ? `<div class="se-acts"><span class="small muted">CIRKLER-møde - rettes i CIRKLER</span>${options.deleteCirkler ? cirklerDeleteForm(base, e) : ""}</div>` : `<div class="se-acts"><a class="button ghost" href="${base}/arrangementer/system/${e.id}">Ret</a>${deleteForm(base, e)}</div>`}</li>`;
   return `<section class="card" id="system-events"><h2>Events oprettet i systemet</h2>
-<p class="small muted">Events, medlemmerne har oprettet i medlemsområdet. Events i den gamle kalender rettes stadig i MembershipWorks.</p>
+<p class="small muted">Events, medlemmerne har oprettet i medlemsområdet.</p>
 ${notice ? `<p class="notice">${esc(notice)}</p>` : ""}${events.length ? `<ul class="plain se-list">${events.map(row).join("")}</ul>` : `<p class="muted">Ingen kommende events.</p>`}</section>`;
 }
 

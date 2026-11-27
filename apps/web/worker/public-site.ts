@@ -10,9 +10,10 @@ export const OLD_SITE = "https://holistisk.org";
 export const OLD_EVENTS = `${OLD_SITE}/events/`;
 const KEY = "public_site_live";
 
-export async function siteLive(db: D1Database): Promise<boolean> {
-  const row = await db.prepare("SELECT setting_value AS v FROM platform_settings WHERE setting_key = ?").bind(KEY).first<{ v: string }>().catch(() => null);
-  return row?.v === "1";
+/** The chair (27 Nov 2026): "alle forbindelser til holistisk ... skal klippes" - links are never turned into holistisk.org links any more:
+ * the new site counts as the one, whatever was saved. */
+export async function siteLive(_db: D1Database): Promise<boolean> {
+  return true;
 }
 
 export async function setSiteLive(db: D1Database, live: boolean, by: string, nowMs: number): Promise<void> {

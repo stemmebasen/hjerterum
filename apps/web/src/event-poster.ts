@@ -65,8 +65,9 @@ export const OWN_PICTURE = { key: "eget" as const, label: "Underviserens eget bi
 
 /** Requested: "Vigtigt at vi først bruger den nye url når vi er begyndt at bruge den nye hjemmeside." The address the posters print: holistisk.org until the chair
  * says the new website is in use (worker/public-site.ts), then hjerterum.info. Plakater og opslag sets it from the server (setPosterSite). */
-export let SITE_LABEL = "holistisk.org";
-export const setPosterSite = (live: boolean) => { SITE_LABEL = live ? SITE_LABEL : "holistisk.org"; };
+// The chair (27 Nov 2026): "alle forbindelser til holistisk ... skal klippes" - the posters print the new address.
+export const SITE_LABEL = "hjerterum.info";
+export const setPosterSite = (_live: boolean) => undefined;
 
 export const SIZES: Record<Format, { width: number; height: number; label: string }> = {
   opslag: { width: 1080, height: 1350, label: "Opslag (4:5)" },

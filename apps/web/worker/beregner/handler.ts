@@ -17,7 +17,7 @@ const PAGES = new Set(["/beregner", "/beregner/", "/ny-beregner-2026", "/ny-bere
 export const isCalculatorRequest = (url: URL) => /^beregner\./i.test(url.hostname) ? true
   : PAGES.has(url.pathname) || url.pathname.startsWith("/beregner/");
 
-const FRAME = "frame-ancestors 'self' https://holistisk.org https://*.holistisk.org https://hjerterum.info https://*.hjerterum.info";
+const FRAME = "frame-ancestors 'self' https://hjerterum.info https://*.hjerterum.info";
 const headers = (type: string) => ({ "content-type": type, "cache-control": "no-store", "content-security-policy": FRAME, "x-content-type-options": "nosniff", "referrer-policy": "strict-origin-when-cross-origin" });
 const json = (body: unknown, status = 200) => new Response(JSON.stringify(body), { status, headers: headers("application/json; charset=utf-8") });
 

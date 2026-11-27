@@ -116,13 +116,11 @@ function eventList(title: string, events: MemberEvent[], empty: string): string 
 
 function mwBox(a: MembershipWorksAccount, m: AdminMember, today: string): string {
   const stillPaying = a.billing === "auto" && a.renewsOn !== null && a.renewsOn >= today;
-  const url = a.accountId && /^[a-f0-9]{24}$/.test(a.accountId) ? `https://membershipworks.com/admin/#!biz/id/${a.accountId}` : null;
   return `<div class="m-mw"><p class="lbl">Fra MembershipWorks</p>
 <p>${esc(a.plan ?? "Intet medlemskab")}${a.interval ? ` · ${a.interval === "year" ? "årlig" : "månedlig"}` : ""}${a.billing ? ` · ${a.billing === "manual" ? "manuel betaling" : "automatisk betaling"}` : ""}</p>
 ${a.joinedOn ? `<p>Medlem siden ${esc(isoDay(a.joinedOn))}${a.renewsOn ? ` · ${a.renewsOn < today ? `fornyelse udløb ${esc(isoDay(a.renewsOn))}` : `næste fornyelse ${esc(isoDay(a.renewsOn))}`}` : ""}</p>` : ""}
 ${a.labels.length ? `<p>${a.labels.map(l => `<span class="chip">${esc(l)}</span>`).join("")}</p>` : ""}
-${stillPaying && m.status === "active" ? `<p class="warn">Betaler stadig i MembershipWorks - stop betalingen dér, så medlemmet ikke trækkes dobbelt.</p>` : ""}
-${url ? `<p><a href="${esc(url)}" target="_blank" rel="noopener noreferrer">Åbn i MembershipWorks ↗</a></p>` : ""}</div>`;
+${stillPaying && m.status === "active" ? `<p class="warn">Betaler stadig i MembershipWorks - stop betalingen dér, så medlemmet ikke trækkes dobbelt.</p>` : ""}</div>`;
 }
 
 export type MemberPageData = { member: AdminMember; tab: MemberTab; timeline: TimelineEntry[]; events: { created: MemberEvent[]; registered: MemberEvent[] };

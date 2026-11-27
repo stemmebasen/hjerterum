@@ -315,7 +315,7 @@ export async function createFromDraft(db: D1Database, id: number, who: string, n
     return { ok: true, bookingId: created.id };
   } catch (error) {
     const code = error instanceof Error ? error.message : "";
-    return { ok: false, reason: code === "booking_conflict" ? "Salen er optaget i det tidsrum (i det nye system eller i MembershipWorks-kalenderen)." : code.startsWith("invalid_") ? "Bookingen følger ikke prisberegnerens regler." : "Eventet kunne ikke oprettes lige nu." };
+    return { ok: false, reason: code === "booking_conflict" ? "Salen er optaget i det tidsrum." : code.startsWith("invalid_") ? "Bookingen følger ikke prisberegnerens regler." : "Eventet kunne ikke oprettes lige nu." };
   }
 }
 
@@ -413,6 +413,5 @@ ${field("member_price_kr", "Pris for medlemmer (kr.)", "number", 'min="0"')}${fi
 ${field("payment", "Betaling (fx MobilePay ved fremmøde)")}</div>
 <label style="display:grid;gap:4px;margin-top:10px">Beskrivelse<textarea name="description" rows="10">${esc(d.description)}</textarea></label>
 ${created ? "" : `<p class="acts" style="display:flex;gap:8px;flex-wrap:wrap"><button name="action" value="save">Gem</button><button name="action" value="create" ${d.missing.length || problems.length ? "disabled" : ""}>Opret i Hjerterums nye system</button><button name="action" value="discard" class="ghost">Kassér</button></p>`}</form>
-${coverField(base, row, created)}<div class="card"><h2>Til MembershipWorks</h2><p class="small muted">Så længe vi kører begge systemer: kopiér teksten ind som nyt event i MembershipWorks.</p>
-<textarea class="mw" readonly id="mw">${esc(membershipWorksText(d))}</textarea><p><button type="button" class="ghost" onclick="navigator.clipboard.writeText(document.getElementById('mw').value).then(()=>{this.textContent='Kopieret'})">Kopiér</button></p></div></main>`;
+${coverField(base, row, created)}</main>`;
 }

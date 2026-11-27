@@ -31,7 +31,8 @@ describe("the price calculator", () => {
     expect(isCalculatorRequest(new URL("https://beregner.hjerterum.info/"))).toBe(true);
     expect(isCalculatorRequest(new URL(`${ORIGIN}/`))).toBe(false);
     const page = await handleCalculatorRequest(new Request(`${ORIGIN}/beregner`), env(), deps(fakeServices().fetcher, NOW));
-    expect(page.headers.get("content-security-policy")).toContain("frame-ancestors 'self' https://holistisk.org https://*.holistisk.org");
+    expect(page.headers.get("content-security-policy")).toContain("frame-ancestors 'self' https://hjerterum.info https://*.hjerterum.info");
+    expect(page.headers.get("content-security-policy")).not.toContain("holistisk.org");
     expect(page.headers.get("x-frame-options")).toBeNull();
     const html = await page.text();
     for (const text of ["Udregn pris og send bookingforespørgsel", "Start med at<br>vælge tidspunkt", "Standardpris", "Reduceret pris", "Gratis leje", "Priser og regler", "Beregn pris"]) expect(html).toContain(text);

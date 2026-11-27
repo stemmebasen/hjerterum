@@ -279,7 +279,7 @@ export async function memberSagaChat(request: Request, env: MemberEnv, deps: Sag
       return json({ conversation: conversation.id, reply: answer.reply, action: answer.action, draft: null, photo: null });
     }
     const today = new Intl.DateTimeFormat("da-DK", { timeZone: "Europe/Copenhagen", weekday: "long", day: "numeric", month: "long", year: "numeric" }).format(now) + ` (${day})`;
-    const external = await getExternalEvents(false, deps.fetcher).catch(() => []);
+    const external = await getExternalEvents(false).catch(() => []);
     const calendar = await calendarLines(db, external, now);
     const facts = await memberFacts(db, membership, env.STRIPE_SECRET_KEY, userId, now);
     const recent = history.slice(-12);
