@@ -12,7 +12,7 @@ import { allMemories, forget, memoryPage } from "./memory.js";
 import { actorOf, audit, auditPage, can, denial, recentAudit, type Power } from "./authority.js";
 import type { D1Database } from "../db.js";
 import type { BoardPicture } from "../saga/picture.js";
-import { minutesDocText, minutesDocUrl, MAX_RECORDING_BYTES } from "../saga/drive.js";
+import { minutesDocText, minutesDocUrl, MAX_UPLOADED_RECORDING_BYTES } from "../saga/drive.js";
 import type { SagaDeps, SagaEnv } from "../saga/env.js";
 import { markdownToHtml } from "../saga/markdown.js";
 import { splitMinutesDoc } from "../saga/picture.js";
@@ -2125,11 +2125,12 @@ async function route(request: Request, env: SagaEnv, deps: SagaDeps, state: Stat
     const meetingId = Number(form?.get("meeting_id") ?? 0);
     if (!(file instanceof File) || !file.size) return redirect(`${base}/moder`);
     if (!AUDIO.test(file.name) && !file.type.startsWith("audio/")) return html(problem(base, who, "Filen er ikke en lydfil. Upload en mp3, m4a, wav eller ogg."), 400);
-    if (file.size > MAX_RECORDING_BYTES) return html(problem(base, who, "Optagelsen er over 60 MB. Gem den i lavere kvalitet (fx m4a eller mp3), og prøv igen."), 413);
+    if (file.size > MAX_UPLOADED_RECORDING_BYTES) return html(problem(base, who, "Optagelsen er over 95 MB. Gem den i lavere kvalitet (fx m4a eller mp3), og prøv igen."), 413);
     const meetingDate = /^\d{4}-\d{2}-\d{2}$/.test(date) && date <= today ? date : today;
     const extension = (AUDIO.exec(file.name)?.[1] ?? "m4a").toLowerCase();
     const key = `cockpit/${meetingDate}/${crypto.randomUUID()}.${extension}`;
-    await env.BOARD_RECORDINGS.put(key, await file.arrayBuffer(), { httpMetadata: { contentType: file.type || "audio/mp4" } });
+    // As it came (a File), not copied into a buffer first - a long recording would not fit twice in the Worker's memory.
+    await env.BOARD_RECORDINGS.put(key, file, { httpMetadata: { contentType: file.type || "audio/mp4" } });
     await queueMinutes(db, { source: "upload", fileId: key, fileName: file.name.slice(0, 200) || `optagelse.${extension}`, mimeType: file.type || null, meetingDate, nowMs: now });
     // Saga takes it at her next five-minute round: a long recording needs minutes, and work left
     // running after a page's answer is stopped by Cloudflare after about 30 seconds.

@@ -7,6 +7,9 @@ const DRIVE = "https://www.googleapis.com/drive/v3";
 const UPLOAD = "https://www.googleapis.com/upload/drive/v3";
 /** A Worker has 128 MB of memory; recordings above this go through a smaller export instead. */
 export const MAX_RECORDING_BYTES = 60 * 1024 * 1024;
+/** The chair (27 Nov 2026): a meeting's recording of 61 MB did not go through. One uploaded in admin is kept in R2 and handed on as it is, never copied
+ * in memory, so it may be larger - up to what Cloudflare takes in one request (100 MB). */
+export const MAX_UPLOADED_RECORDING_BYTES = 95 * 1024 * 1024;
 
 const base64url = (bytes: ArrayBuffer | Uint8Array | string) => {
   const data = typeof bytes === "string" ? new TextEncoder().encode(bytes) : bytes instanceof Uint8Array ? bytes : new Uint8Array(bytes);
