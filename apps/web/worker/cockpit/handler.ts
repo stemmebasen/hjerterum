@@ -1,5 +1,5 @@
 import { setSiteLive, siteLive, toPublicSite } from "../public-site.js";
-import { PREVIEW_PATH } from "../site-closed.js";
+import { PREVIEW_PATH, wayBack } from "../site-closed.js";
 import { WEBMAIL_PAGE_HEADERS, webmailRoute } from "./webmail.js";
 import { cleanFolder, copies, COPIES, deleteFile, deleteFolder, FILES, listFolder, finishBigUpload, makeFolder, MAX_UPLOAD_BYTES, PART_BYTES, startBigUpload, uploadBigPart, uploadFile, type ArchiveObject } from "../archive.js";
 import { copiesPage, eventMaterialPage, fileArchivePage } from "./filearchivePage.js";
@@ -102,6 +102,12 @@ import { archivePage, decisionsPage, layout, linkPage, loginPage, meetingPage, m
 
 /** Requested: "Lad os kalde den admin.hjerterum.info". admin.<domain> (and cockpit.<domain>) is the
  * cockpit's own address: the whole site is the cockpit there. */
+/** The card on the front page that leads into the closed website. */
+const withSiteCard = (page: string, base: string) => {
+  const at = page.indexOf("</header>");
+  const card = `<div class="site-closed-card" style="max-width:1100px;margin:14px auto 0;padding:12px 16px;border-radius:12px;border:1px solid rgba(47,158,91,.45);background:rgba(47,158,91,.1);display:flex;gap:12px;align-items:center;justify-content:space-between;flex-wrap:wrap"><span>Hjemmesiden og Min side er lukket for alle andre, mens I tester.</span><a href="${base}/hjemmeside-adgang" style="font-weight:600">Se den lukkede hjemmeside →</a></div>`;
+  return at < 0 ? page : `${page.slice(0, at + 9)}${card}${page.slice(at + 9)}`;
+};
 export const isCockpitHost = (hostname: string) => /^(?:admin|cockpit)\./i.test(hostname);
 export const isCockpitRequest = (url: URL) => isCockpitHost(url.hostname) || url.pathname === "/cockpit" || url.pathname.startsWith("/cockpit/");
 const AUDIO = /\.(mp3|m4a|mp4|aac|wav|ogg|oga|webm)$/i;
@@ -318,7 +324,9 @@ async function route(request: Request, env: SagaEnv, deps: SagaDeps, state: Stat
     const assoc = await associationEvents(db, base, list, today, now).catch(() => []);
     const coming = await rsvps(db, [...assoc.map(e => e.key), ...(nextTeam ? [`moede:${nextTeam.id}`] : [])]);
     const prs = isPrOwner(who) ? await openPrWishes(db, now) : [];
-    return html(homePage(base, { prs, assoc, coming, posts: waitingOn(posts, who), tr: english ? (text: string) => english.get(text) ?? text : undefined, who, isChair, today, toSign, tasks: open.tasks, todos: open.todos, forMe: await sagaFor(picture), needsResponsibilities: Boolean(who) && !ownResponsibilities,
+    // "Douglas kan ikke komme ind nu" (the chair, 27 Nov 2026): the way to the closed website stands on the front page for those who may see it (site-closed.ts).
+    const homeHtml = (page: string) => html(state.may?.("site.preview") && (env as { SITE_CLOSED?: string }).SITE_CLOSED === "1" ? withSiteCard(page, base) : page);
+    return homeHtml(homePage(base, { prs, assoc, coming, posts: waitingOn(posts, who), tr: english ? (text: string) => english.get(text) ?? text : undefined, who, isChair, today, toSign, tasks: open.tasks, todos: open.todos, forMe: await sagaFor(picture), needsResponsibilities: Boolean(who) && !ownResponsibilities,
       next, nextTeam, found: sagaMeetings(picture, list, today), picture, summary, at, events, eventsMonth: month?.n ?? 0, eventsHeld: held?.n ?? 0, eventsSince: held?.first ?? null, progress, memberStats, newEnquiries, eventsToReview, boardNow, votes, proposals: openProposals, nowMs: now,
       latest: latest ? { id: latest.id, date: latest.meeting_date ?? "", decisions: onlyDecisions(minutesDecisions(latest).map(d => d.text), await decisionKinds(db)), approved: approvals, members: latest.source === "document" ? 0 : members.names.length } : null }));
   }
@@ -539,9 +547,10 @@ async function route(request: Request, env: SagaEnv, deps: SagaDeps, state: Stat
   if (path === "/hjemmeside-adgang" && request.method === "GET") {
     if (!who) return redirect(`${base}/hvem`);
     if (!may("site.preview")) return denied("site.preview");
-    const site = isCockpitHost(url.hostname) ? url.hostname.replace(/^(?:admin|cockpit)\./i, "www.") : url.hostname;
+    const domain = url.hostname.split(".").slice(-2).join(".");
+    const back = new URL(wayBack(url.searchParams.get("vaert"), url.searchParams.get("til"), domain));
     const token = await previewValue(env.SAGA_TELEGRAM_BOT_TOKEN!, personal ?? who, now);
-    return redirect(`${url.protocol}//${site}${PREVIEW_PATH}?t=${encodeURIComponent(token)}`);
+    return redirect(`${back.origin}${PREVIEW_PATH}?t=${encodeURIComponent(token)}&til=${encodeURIComponent(back.pathname + back.search)}`);
   }
   // Asked (the chair, 24 Nov 2026): Douglas talks his wishes through with Saga, and the chair decides (wishes.ts).
   // The chair (24 Nov 2026): "Brug i stedet udtryk som: Forslag til udvikling / Development requests" - the first address leads there.

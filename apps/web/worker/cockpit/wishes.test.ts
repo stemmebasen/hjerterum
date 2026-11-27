@@ -108,6 +108,10 @@ describe("wishes and faults in admin", () => {
     expect(fetched.forslag).toEqual([expect.objectContaining({ id: Number(id), titel: "Bigger sign-up button on the event page", note: "Good idea" })]);
     expect((await call(`/udvikling/api/forslag/${id}/lavet`, { method: "POST", headers: { authorization: `Bearer ${TOKEN}` } })).status).toBe(200);
     expect(services.telegram("sendMessage").map(c => JSON.stringify(c.body)).some(t => t.includes("is done and on the site"))).toBe(true);
+    // "et grønt flueben + teksten LIVE for hver opgave der er live" (the chair, 27 Nov 2026).
+    expect(services.telegram("sendMessage").map(c => JSON.stringify(c.body)).some(t => t.includes("✓ LIVE"))).toBe(true);
+    const overview = await (await call("/forslag", { cookie: douglas })).text();
+    expect(overview).toContain('<span class="w-status w-done">✓ LIVE</span>');
     expect((await (await call("/udvikling/api/forslag", { headers: { authorization: `Bearer ${TOKEN}` } })).json() as { forslag: unknown[] }).forslag).toEqual([]);
     expect((await db.prepare("SELECT status FROM wishes WHERE id = ?").bind(id).first<{ status: string }>())!.status).toBe("done");
 

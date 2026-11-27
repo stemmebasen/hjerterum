@@ -34,7 +34,7 @@ export type Wish = { id: number; author: string; status: WishStatus; title: stri
   kind?: string | null; size?: string | null; done_when?: string | null };
 export type WishMessage = { id: number; wish_id: number; role: "person" | "saga"; author: string | null; text: string; image_key: string | null; image_type: string | null; at_ms: number };
 
-export const STATUS_TEXT: Record<WishStatus, string> = { open: "Under samtale", sent: "Venter på godkendelse", approved: "Godkendt", rejected: "Afvist", done: "Lavet", dropped: "Opgivet" };
+export const STATUS_TEXT: Record<WishStatus, string> = { open: "Under samtale", sent: "Venter på godkendelse", approved: "Godkendt - i gang", rejected: "Afvist", done: "✓ LIVE", dropped: "Opgivet" };
 const IMAGE_TYPES: Record<string, string> = { "image/png": "png", "image/jpeg": "jpg", "image/webp": "webp", "image/gif": "gif" };
 export const MAX_IMAGE_BYTES = 4 * 1024 * 1024;
 const MAX_TEXT = 4000;
@@ -261,7 +261,7 @@ export async function markWishDone(env: SagaEnv, deps: SagaDeps, db: D1Database,
   const now = deps.now();
   const changed = await db.prepare("UPDATE wishes SET status = 'done', done_at_ms = ?, updated_at_ms = ? WHERE id = ? AND status = 'approved'").bind(now, now, wish.id).run();
   if (!changed.meta?.changes) return false;
-  await tellAuthor(env, deps, db, wish.author, `Your development request »${wish.title ?? `#${wish.id}`}« is done and on the site now.\n\n${cockpitUrl}/forslag/${wish.id}`);
+  await tellAuthor(env, deps, db, wish.author, `✓ LIVE: your development request »${wish.title ?? `#${wish.id}`}« is done and on the site now.\n\n${cockpitUrl}/forslag/${wish.id}`);
   return true;
 }
 
@@ -317,7 +317,8 @@ export function wishesPage(base: string, who: string | null, d: { wishes: Wish[]
   const group = (title: string, list: Wish[], empty: string) => `<section class="card"><h2>${title}</h2>${list.length ? `<ul class="w-list">${list.map(row).join("")}</ul>` : `<p class="muted small">${empty}</p>`}</section>`;
   // The chair (24 Nov 2026): "Der er ikke nogen grund til at gemme en samtale i 'Under samtale'" - the overview shows what has been sent and what came of it.
   const waiting = d.wishes.filter(w => w.status === "sent"), approved = d.wishes.filter(w => w.status === "approved");
-  const closed = d.wishes.filter(w => w.status === "rejected" || w.status === "done" || w.status === "dropped");
+  // The chair (27 Nov 2026): "der kommer et grønt flueben + teksten LIVE for hver opgave der er live".
+  const live = d.wishes.filter(w => w.status === "done"), closed = d.wishes.filter(w => w.status === "rejected" || w.status === "dropped");
   const forMaking = d.chair && approved.length ? `<section class="card" id="til-udvikling"><h2>Godkendte forslag samlet</h2>
 <p class="small muted">Kopiér teksten, og giv den videre, når forslagene skal laves. Markér hvert forslag som lavet, når det er på siden.</p>
 <textarea class="w-copy" rows="10" readonly translate="no">${esc(approvedText(approved))}</textarea>
@@ -327,9 +328,10 @@ export function wishesPage(base: string, who: string | null, d: { wishes: Wish[]
 <form method="post" action="${base}/forslag/ny"><button>Nyt forslag</button></form></div>
 ${d.notice ? `<p class="notice">${esc(d.notice)}</p>` : ""}
 ${group(d.chair ? "Venter på dig" : "Venter på godkendelse", waiting, "Ingen forslag venter.")}
-${group("Godkendt", approved, "Ingen godkendte forslag venter på at blive lavet.")}
+${group("Godkendt - i gang", approved, "Ingen godkendte forslag venter på at blive lavet.")}
 ${forMaking}
-${group("Lavet, afvist og opgivet", closed, "Ingen endnu.")}</main>`;
+${group(`<span class="w-live-head">✓ LIVE</span>`, live, "Ingen endnu.")}
+${group("Afvist og opgivet", closed, "Ingen endnu.")}</main>`;
   return layout(base, "Forslag til udvikling", body, { section: "/forslag", who, style: WISH_STYLE });
 }
 
@@ -396,7 +398,7 @@ const WISH_STYLE = `
 .w .card{margin-top:14px}.w-list{list-style:none;margin:0;padding:0;display:grid}.w-list li{padding:9px 0;border-top:1px solid var(--line)}.w-list li:first-child{border-top:0}
 .w-list small{display:block;color:var(--muted);font-size:12.5px}.w-status{display:inline-block;margin-left:6px;padding:1px 8px;border-radius:999px;font-size:12px;background:var(--line)}
 /* Tints, so the words keep the page's own colour in light and dark mode alike (the chair, 24 Nov 2026: the own message could not be read in dark mode). */
-.w-sent{background:rgba(214,158,46,.22)}.w-approved{background:rgba(72,160,90,.22)}.w-rejected,.w-dropped{background:rgba(128,128,128,.2)}.w-done{background:rgba(70,130,190,.22)}
+.w-sent{background:rgba(214,158,46,.22)}.w-approved{background:rgba(72,160,90,.22)}.w-rejected,.w-dropped{background:rgba(128,128,128,.2)}.w-done{background:#2f9e5b;color:#fff;font-weight:700;letter-spacing:.04em}.w-live-head{color:#2f9e5b;letter-spacing:.04em}
 .w-chat:empty{display:none}.w-typing div{color:var(--muted);font-style:italic}.w-say-row{display:flex;gap:12px;align-items:end;flex-wrap:wrap}.w-say-row label{flex:1 1 240px}.w-drop{margin-top:6px}.w-drop button{font-size:13px}
 .w-chat{list-style:none;margin:0 0 14px;padding:0;display:grid;gap:10px}.w-msg{max-width:84%;padding:10px 12px;border-radius:14px;background:var(--card,#fff);border:1px solid var(--line)}
 .w-msg.w-from-person{justify-self:end;background:rgba(201,152,110,.16)}.w-msg small{display:block;color:var(--muted);font-size:12px;margin-bottom:4px}.w-msg img{display:block;max-width:100%;max-height:320px;margin-top:8px;border-radius:8px}
