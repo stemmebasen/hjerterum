@@ -88,7 +88,7 @@ export async function studioData(db: D1Database, id: string, nowMs: number, fetc
   } else if (/^[0-9a-f]{24}$/.test(id)) {
     const stored = await db.prepare("SELECT title, starts_at_ms, ends_at_ms, host, category, image_url, description FROM house_events WHERE id = ?").bind(`SF${id}`)
       .first<{ title: string; starts_at_ms: number; ends_at_ms: number | null; host: string | null; category: string | null; image_url: string | null; description: string | null }>().catch(() => null);
-    const detail = stored ? null : await eventDetail(id, fetcher, nowMs).catch(() => null);
+    const detail = stored ? null : await eventDetail(id, nowMs).catch(() => null);
     if (!stored && !detail) return null;
     const image = stored?.image_url ?? detail?.imageUrl ?? null;
     event = stored ? { id, title: stored.title, startsAt: iso(stored.starts_at_ms)!, endsAt: iso(stored.ends_at_ms), host: stored.host, category: stored.category, lines: plain(stored.description), bookingId: null, design: null }

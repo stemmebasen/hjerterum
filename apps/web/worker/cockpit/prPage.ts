@@ -209,12 +209,9 @@ function shareEventCard(base: string, on: boolean): string {
 <form method="post" action="${base}/pr/del-begivenhed" onsubmit="return confirm('Skal Saga dele eventets Facebook-begivenhed, når et events opslag ikke bliver godkendt i tide?')"><input type="hidden" name="on" value="1"><button>Del Facebook-begivenheden</button></form>`}</section>`;
 }
 
-function siteCard(base: string, live: boolean): string {
-  return `<section class="panel"><header><h2>Hjemmesiden i opslagene</h2></header>${live
-    ? `<p>Opslag og nyhedsbrev linker til den nye hjemmeside, <b>hjerterum.info</b>.</p>
-<form method="post" action="${base}/pr/hjemmeside"><input type="hidden" name="live" value="0"><button class="ghost">Link til den gamle side igen</button></form>`
-    : `<p>Opslag og nyhedsbrev linker til den gamle hjemmeside, <b>holistisk.org</b>, indtil I er begyndt at bruge den nye.</p>
-<form method="post" action="${base}/pr/hjemmeside" onsubmit="return confirm('Er den nye hjemmeside i brug? Fra nu af linker opslag og nyhedsbrev til hjerterum.info.')"><input type="hidden" name="live" value="1"><button>Den nye hjemmeside er i brug</button></form>`}</section>`;
+/** The chair (27 Nov 2026): "alle forbindelser til holistisk ... skal klippes" - posts and the newsletter always link to hjerterum.info; there is no going back. */
+function siteCard(_base: string, _live: boolean): string {
+  return `<section class="panel"><header><h2>Hjemmesiden i opslagene</h2></header><p>Opslag og nyhedsbrev linker til den nye hjemmeside, <b>hjerterum.info</b>.</p></section>`;
 }
 
 export function prPage(base: string, who: string | null, d: PrPageData, tab: PrTab = "overblik"): string {

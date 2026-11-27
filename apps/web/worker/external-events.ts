@@ -1,12 +1,13 @@
 import { isPartnerEvent } from "../partner-events.js";
-const MEMBERSHIPWORKS_FEED_URL = "https://api.membershipworks.com/v2/events?_op=rss&org=22308";
-/** The list the membership system's own calendar widget reads. It holds every public event, also those in the categories that
- * are left out of the RSS feed ("Hjerterum events", "Dans & Bevægelse") - asked: "All of these appear in Membership works". */
-export const membershipWorksListUrl = (fromMs: number, toMs: number) =>
-  `https://api.membershipworks.com/v2/events?sdp=${Math.floor(fromMs / 1000)}&edp=${Math.floor(toMs / 1000)}&org=22308&_st`;
-const LIST_DAYS = 183;
+import type { D1Database } from "./db.js";
+
+/** The chair (27 Nov 2026): "alle forbindelser til holistisk og membership works skal klippes så vores nye siden er et helt og lukket økosystem".
+ * Nothing is fetched from MembershipWorks any more. Its calendar as it last was is kept in D1 (house_events, cockpit/events.ts) and is read from
+ * there: the events it had still hold the hall and are shown, but what is changed in MembershipWorks from now on does not come over - new events
+ * are made in Hjerterum's own system. The parsing below is kept for that copy. */
 const DAY_MS = 24 * 60 * 60 * 1000;
-const CACHE_MS = 5 * 60 * 1000;
+const CACHE_MS = 60 * 1000;
+const MAX_EVENTS = 500;
 
 export type ExternalEvent = {
   id: string;
@@ -166,39 +167,12 @@ export function parseMembershipWorksList(data: MembershipWorksList): ExternalEve
       endsAt: typeof item.edp === "number" ? new Date(endFromText(item.sdp * 1000, item.edp * 1000, item.ezp)).toISOString() : null,
       location: null,
       imageUrl: item.lgo?.l ?? null,
-      link: item.url ? `https://holistisk.org/events/#!event/${item.url}` : null,
+      link: null,
       host: null,
       description: null,
       category: category ? decodeXml(category) : null
     }];
   });
-}
-
-/** Asked: "Hvorfor er der den forskel på tekst? Alle events har jo en beskrivelse." The list has no text, so an event only the list has
- * gets its text from MembershipWorks' event details - the soonest first, at most MAX_TEXTS fetched in one round, each kept for hours. */
-const TEXT_CACHE_MS = 6 * 60 * 60 * 1000;
-const MAX_TEXTS = 40;
-const textCache = new Map<string, { at: number; text: string | null }>();
-
-async function eventText(eid: string, fetcher: typeof fetch, now: number): Promise<string | null> {
-  const response = await fetcher(`https://api.membershipworks.com/v2/event?eid=${eid}&org=22308`, { headers: { accept: "application/json" } });
-  const text = response.ok ? ((await response.json()) as { dtl?: string }).dtl : undefined;
-  const plain = text ? stripHtml(text) || null : null;
-  textCache.set(eid, { at: now, text: plain });
-  return plain;
-}
-
-export async function withTexts(events: ExternalEvent[], fetcher: typeof fetch, now: number): Promise<ExternalEvent[]> {
-  let fetches = 0;
-  return Promise.all(events.map(async (event) => {
-    const eid = /^SF([0-9a-f]{24})$/.exec(event.id)?.[1];
-    if (event.description || !eid) return event;
-    const hit = textCache.get(eid);
-    if (hit && now - hit.at < TEXT_CACHE_MS) return { ...event, description: hit.text };
-    if (fetches >= MAX_TEXTS) return event;
-    fetches++;
-    return { ...event, description: await eventText(eid, fetcher, now).catch(() => null) };
-  }));
 }
 
 /** The feed's events with their text, and the events only the widget's list has. */
@@ -217,27 +191,38 @@ export function isCancelledEvent(event: { title: string; description?: string | 
   return said.test(event.title) || said.test((event.description ?? "").replace(/<[^>]+>/g, " ").trim().slice(0, 60));
 }
 
-export async function getExternalEvents(force = false, fetcher: typeof fetch = fetch): Promise<ExternalEvent[]> {
+/** Where the kept calendar is: set once per request and scheduled run (config-entry.ts), so the many readers need not pass it. */
+let store: D1Database | null = null;
+export function useEventStore(db: D1Database | null | undefined): void {
+  if (db !== store) { store = db ?? null; cachedEvents = null; }
+}
+
+type StoredRow = { id: string; title: string; starts_at_ms: number; ends_at_ms: number | null; location: string | null; host: string | null; category: string | null; image_url: string | null; description: string | null };
+export const storedEvent = (row: StoredRow): ExternalEvent => ({ id: row.id, source: "membershipworks", title: row.title, startsAt: new Date(row.starts_at_ms).toISOString(),
+  endsAt: row.ends_at_ms === null ? null : new Date(row.ends_at_ms).toISOString(), location: row.location, imageUrl: row.image_url,
+  // The old event page on holistisk.org is not linked to any more: each event has its own page here (event-detail.ts).
+  link: null, host: row.host, description: row.description, category: row.category });
+
+/** The kept calendar's coming events (from yesterday), without the cancelled ones - read from D1, never from MembershipWorks. */
+export async function getExternalEvents(force = false): Promise<ExternalEvent[]> {
   const now = Date.now();
   if (!force && cachedEvents && now < cacheExpiresAt) return cachedEvents;
-
-  const [feed, list] = await Promise.all([
-    fetcher(MEMBERSHIPWORKS_FEED_URL, {
-      headers: { accept: "application/rss+xml, application/xml, text/xml;q=0.9, */*;q=0.5" }
-    }).then(async (response) => {
-      if (!response.ok) throw new Error(`membershipworks_fetch_failed_${response.status}`);
-      return parseMembershipWorksRss(await response.text());
-    }),
-    // The list only adds to the feed; without it the feed's events are still shown.
-    fetcher(membershipWorksListUrl(now - DAY_MS, now + LIST_DAYS * DAY_MS), { headers: { accept: "application/json" } })
-      .then(async (response) => response.ok ? parseMembershipWorksList(await response.json() as MembershipWorksList) : [])
-      .catch(() => [] as ExternalEvent[])
-  ]);
-  const events = (await withTexts(mergeExternalEvents(feed, list), fetcher, now)).filter((event) => !isCancelledEvent(event));
-
+  if (!store) return [];
+  const rows = (await store.prepare(`SELECT id, title, starts_at_ms, ends_at_ms, location, host, category, image_url, description FROM house_events
+      WHERE removed_at_ms IS NULL AND COALESCE(ends_at_ms, starts_at_ms) >= ? ORDER BY starts_at_ms LIMIT ?`).bind(now - DAY_MS, MAX_EVENTS)
+    .all<StoredRow>().catch(() => ({ results: [] as StoredRow[] }))).results ?? [];
+  const events = rows.map(storedEvent).filter((event) => !isCancelledEvent(event));
   cachedEvents = events;
   cacheExpiresAt = now + CACHE_MS;
   return events;
+}
+
+/** One event of the kept calendar by its id ("SF" + 24 hex), coming or past - for its own page (event-detail.ts). */
+export async function storedEventById(id: string): Promise<ExternalEvent | null> {
+  if (!store) return null;
+  const row = await store.prepare("SELECT id, title, starts_at_ms, ends_at_ms, location, host, category, image_url, description FROM house_events WHERE id = ? AND removed_at_ms IS NULL")
+    .bind(id).first<StoredRow>().catch(() => null);
+  return row ? storedEvent(row) : null;
 }
 
 export async function hasExternalEventConflict(startMs: number, endMs: number): Promise<boolean> {

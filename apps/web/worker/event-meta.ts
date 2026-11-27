@@ -41,7 +41,7 @@ export async function eventMeta(db: D1Database | undefined, id: string, fetcher:
       paragraphs: (row.description ?? "").split(/\n+/).map(l => plainLine(l.trim())).filter(Boolean),
       prices: { memberKr: row.ticket_price_minor / 100, nonMemberKr: (row.non_member_price_minor ?? row.ticket_price_minor) / 100, full: row.max_attendees !== null && row.taken >= row.max_attendees } };
   }
-  const detail = await eventDetail(id, fetcher, nowMs).catch(() => null);
+  const detail = await eventDetail(id, nowMs).catch(() => null);
   if (!detail) return null;
   return { title: detail.title, url: `${SITE}/events/${id}`, image: detail.imageUrl && /^https:\/\//.test(detail.imageUrl) ? detail.imageUrl : `${SITE}/media/hjerterum-deling.jpg`,
     description: short(`${when(detail.startsAt)} i Hjerterum, Aarhus${detail.host ? ` · med ${detail.host}` : ""}. ${detail.paragraphs.map(plainLine).join(" ")}`, 300),

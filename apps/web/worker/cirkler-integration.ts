@@ -278,7 +278,7 @@ export async function sharedEvent(db: D1Database, id: string, fetcher: typeof fe
     return { title: row.title, url: `${SITE}/events/h${row.id}`, image_url: image ? `${SITE}${image}` : null, summary: short(row.description ?? ""), starts_at: new Date(row.starts_at_ms).toISOString() };
   }
   if (!/^[0-9a-f]{24}$/.test(id)) return null;
-  const detail = await eventDetail(id, fetcher, nowMs).catch(() => null);
+  const detail = await eventDetail(id, nowMs).catch(() => null);
   if (!detail || Date.parse(detail.startsAt) < nowMs) return null;
   return { title: detail.title, url: `${SITE}/events/${id}`, image_url: detail.imageUrl && /^https:\/\//.test(detail.imageUrl) ? detail.imageUrl : null,
     summary: short(detail.paragraphs.map(plainLine).join(" ")), starts_at: detail.startsAt };

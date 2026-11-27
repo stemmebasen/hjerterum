@@ -1967,7 +1967,7 @@ async function route(request: Request, env: SagaEnv, deps: SagaDeps, state: Stat
       if (row.status === "draft" && form) await saveDraft(db, row.id, draftFrom({ ...parseDraft(row), ...Object.fromEntries([...form.entries()].filter(([, v]) => typeof v === "string")) }), now);
       if (action === "create") {
         const created = await createFromDraft(db, row.id, who, now);
-        return redirect(`${base}/arrangementer/udkast/${row.id}?besked=${encodeURIComponent(created.ok ? "Eventet er oprettet i Hjerterums nye system. Husk MembershipWorks-teksten herunder, så længe vi kører begge systemer." : created.reason)}`);
+        return redirect(`${base}/arrangementer/udkast/${row.id}?besked=${encodeURIComponent(created.ok ? "Eventet er oprettet i Hjerterums nye system." : created.reason)}`);
       }
       return redirect(`${base}/arrangementer/udkast/${row.id}?besked=${encodeURIComponent("Gemt.")}`);
     }

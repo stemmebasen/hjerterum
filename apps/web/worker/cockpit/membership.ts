@@ -23,6 +23,6 @@ export function membershipFacts(): string {
     "Står en dato for et tilbud (fx en prøveperiode) i teksten, så hold den op mod dagens dato: er den passeret, gælder tilbuddet ikke længere - sig det, og at hjemmesiden måske skal opdateres.",
     ...MEMBERSHIP_PAGES.map(sitePage).filter((page): page is NonNullable<typeof page> => !!page).map(sitePageText),
     "OVERGANGEN (Hjerterums blueprint): Medlemskaber og betalingsaftaler i MembershipWorks bevares og flyttes ikke. Det nye system læser dem kun og giver de aktive medlemmer adgang. "
-      + `Indmeldelse sker indtil videre via ${SIGNUP_URL} (MembershipWorks), med de samme fire medlemskaber. Eksisterende medlemmer får ikke en ny prøveperiode ved import.`
+      + `Indmeldelse sker i Hjerterums eget medlemsområde (https://medlem.hjerterum.info${SIGNUP_URL}), med de samme fire medlemskaber - aldrig via holistisk.org eller MembershipWorks. Eksisterende medlemmer får ikke en ny prøveperiode ved import.`
   ].join("\n");
 }

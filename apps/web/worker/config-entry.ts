@@ -1,6 +1,6 @@
 import { runNewsletterJob, type NewsletterEnv } from "./newsletter-send.js";
 import appWorker from "./entry.js";
-import { getExternalEvents } from "./external-events.js";
+import { getExternalEvents, useEventStore } from "./external-events.js";
 import { currentLevels, refreshMembershipLevels } from "./membership-levels.js";
 import { eventDetail } from "./event-detail.js";
 import { program, programCandidates, upcomingFeed } from "./program.js";
@@ -9,9 +9,9 @@ import type { SagaEnv } from "./saga/env.js";
 import { handleSagaRequest } from "./saga/handler.js";
 import { handleCockpitRequest, isCockpitHost, isCockpitRequest } from "./cockpit/handler.js";
 import { siteClosedResponse } from "./site-closed.js";
+import { guardFetch } from "./closed-ecosystem.js";
 import { handleCalculatorRequest, isCalculatorRequest } from "./beregner/handler.js";
 import { isMailRun, runSagaJobs, runTeamMailRound } from "./saga/saga.js";
-import { runEventSync } from "./cockpit/events.js";
 import { handleCirklerIntegrationRequest, isCirklerIntegrationRequest, type CirklerIntegrationEnv } from "./cirkler-integration.js";
 import { logoResponse } from "./cockpit/logo.js";
 import { handleLoginMail, LOGIN_MAIL_PATH, type LoginMailEnv } from "./login-mail.js";
@@ -74,12 +74,17 @@ export function translationHeaders(request: Request, response: Response): Respon
   return open;
 }
 
+// "alle forbindelser til holistisk og membership works skal klippes" (closed-ecosystem.ts): no request to them leaves the worker.
+globalThis.fetch = guardFetch(globalThis.fetch.bind(globalThis));
+
 export default {
   async fetch(request: Request, env: Env, ctx?: ExecutionContextLike): Promise<Response> {
+    useEventStore(env.DB as D1Database | undefined);
     return translationHeaders(request, await handle(request, env, ctx));
   },
 
   async scheduled(controller: ScheduledControllerLike, env: Env): Promise<void> {
+    useEventStore(env.DB as D1Database | undefined);
     await refreshMembershipLevels(env.DB as D1Database | undefined);
     return scheduledRun(controller, env);
   }
@@ -273,8 +278,6 @@ async function scheduledRun(controller: ScheduledControllerLike, env: Env): Prom
     await app.scheduled(controller, env).catch(error => console.warn("app_scheduled_failed", error instanceof Error ? error.message : error));
     await runSagaJobs(env as SagaEnv, deps, { mail: false })
       .catch(error => console.warn("saga_jobs_failed", error instanceof Error ? error.message : error));
-    await runEventSync(env as SagaEnv, { fetcher: (input, init) => fetch(input, init), now: () => Date.now() })
-      .catch(error => console.warn("house_events_failed", error instanceof Error ? error.message : error));
     // Requested: "this is how the newsletter should be designed and compiled each month, sent out on the first" (newsletter.ts).
     await runNewsletterJob(env as NewsletterEnv, deps).catch(error => console.warn("newsletter_failed", error instanceof Error ? error.message : error));
     // Requested: "alle modtagere gemmes samlet i vores Mailchimp konto" - everyone who said yes, into the one audience (mailchimp-sync.ts).

@@ -81,7 +81,8 @@ export const ABOUT_WORDS = {
 
 /** Requested: "team@hjerterum.info ... bliver i øvrigt den nye officielle kontaktadresse" (1 Nov 2026). */
 export const CONTACT_EMAIL = TEAM_MAIL;
-export const SIGNUP_URL = "https://holistisk.org/bliv-medlem/";
+/** The chair (27 Nov 2026): "alle forbindelser til holistisk og membership works skal klippes" - joining happens in Hjerterum's own member area. */
+export const SIGNUP_URL = "/member-portal";
 export const CIRKLER_URL = "https://cirkler.net";
 export const NEWSLETTER_ACTION = "https://holistisk.us6.list-manage.com/subscribe/post?u=e41afd3f798957ec11726bf83&id=0070dc72a9&f_id=00b8ede5f0";
 export const NEWSLETTER_HONEYPOT = "b_e41afd3f798957ec11726bf83_0070dc72a9";
@@ -881,9 +882,7 @@ Har du booket til standardpris, så skriv til [[mail]], hvis noget skal ændres.
 Hjerterum beholder altid grundprisen. Hvor meget af resten du får tilbage, afhænger af, hvor længe før du aflyser – se [reglerne for aflysning](/brug-hjerterum/vilkaar#aflysning).
 
 **Aflysning i sidste øjeblik:** Skal vi aflyse for dig senere end dagen før kl. 14.00, koster det et gebyr på 250 kr. Bliver du forhindret i sidste øjeblik, kan du selv aflyse dit event, hvis du er medlem – så slipper du for gebyret. Kan du se det komme, så aflys gerne i god tid. [Se guiden til aflysning](https://docs.google.com/document/d/1Z_eatceSFqqgWLqFq0AEqWP2fce0wayFvvHKr3YZWzA/edit?usp=sharing).
-
-## Events i medlemssystemet {#tidligere}
-Er dit event oprettet i vores medlemssystem på holistisk.org, administrerer du det dér: log ind, åbn dit event i kalenderen, vælg **Admin** over eventets billede og derefter **Dashboard** for at se dine deltagere og rette eventet. [Se vejledningen](https://holistisk.org/managing-your-event/).`,
+`,
     sources: ["administrer-dine-events", "managing-your-event"]
   },
   // ---------------------------------------------------------------- Om Hjerterum (/om-os)

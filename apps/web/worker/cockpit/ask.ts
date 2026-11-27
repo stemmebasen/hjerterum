@@ -8,9 +8,8 @@ import { trimMinutesDoc } from "../saga/picture.js";
 import { COCKPIT_SYSTEM } from "../saga/prompts.js";
 import { recentBoardMessages, saveBoardMessage } from "../saga/store.js";
 import { telegramClient } from "../saga/telegram.js";
-import { parseMembershipWorksRss } from "../external-events.js";
 import { boardPosts, postsForSaga } from "./board.js";
-import { comingEvents, EVENTS_FEED, eventStats, searchEvents, type HouseEvent } from "./events.js";
+import { comingEvents, eventStats, searchEvents, type HouseEvent } from "./events.js";
 import { addAgendaPoints, agendaClosed, meetingOver, allDecisions, allTasks, approvedMinutes, boardMembers, boardPicture, openFor, responsibilities, rolesLine, responsibilitiesForSaga, type ApprovedMinutes, meetingOn, meetings, saveMeeting } from "./data.js";
 import { LAW } from "./law.js";
 import { cirklerPages, cirklerText } from "./cirkler.js";
@@ -163,14 +162,10 @@ async function events(db: D1Database, deps: SagaDeps, nowMs: number, question: s
   const found = new Map<string, HouseEvent>();
   for (const word of words) for (const e of await searchEvents(db, word, { year, limit: 30 }).catch(() => [])) found.set(e.id, e);
   if (year && !words.length) for (const e of await searchEvents(db, "", { year, limit: 80 }).catch(() => [])) found.set(e.id, e);
-  // Before the archive is filled, the coming events come straight from the calendar.
-  const live = coming.length ? [] : await deps.fetcher(EVENTS_FEED, { headers: { accept: "application/rss+xml, application/xml" }, signal: AbortSignal.timeout(5000) })
-    .then(async response => response.ok ? parseMembershipWorksRss(await response.text()) : []).catch(() => []);
   const parts = [
     stats?.total ? `Antal i alt siden ${stats.first ? new Date(stats.first).getUTCFullYear() : "2019"}: ${stats.total}. Pr. år: ${stats.byYear.map(b => `${b.year}: ${b.n}`).join(", ")}.`
       + `${stats.hosts.length ? ` Mest aktive det seneste år: ${stats.hosts.map(h => `${h.host} (${h.n})`).join(", ")}.` : ""} Kategorier: ${stats.categories.map(c => `${c.category} (${c.n})`).join(", ")}.` : "",
-    `KOMMENDE (60 dage):\n${[...coming.map(eventLine), ...live.filter(e => Date.parse(e.startsAt) < nowMs + 60 * DAY).slice(0, 60).map(e => `- ${DATE.format(Date.parse(e.startsAt))}: ${e.title}`),
-      ...rooms.map(r => `- ${DATE.format(r.starts_at_ms)}: ${r.title} (oprettet af ${r.teacher_name}${r.review_status === "pending" ? " - afventer bestyrelsens godkendelse" : ""})`)].join("\n") || "(ingen)"}`,
+    `KOMMENDE (60 dage):\n${[...coming.map(eventLine), ...rooms.map(r => `- ${DATE.format(r.starts_at_ms)}: ${r.title} (oprettet af ${r.teacher_name}${r.review_status === "pending" ? " - afventer bestyrelsens godkendelse" : ""})`)].join("\n") || "(ingen)"}`,
     found.size ? `FUNDET I ARKIVET (${words.join(", ")}${year ? `, ${year}` : ""}; højst 30 pr. ord, nyeste først):\n${[...found.values()].sort((a, b) => b.starts_at_ms - a.starts_at_ms).slice(0, 120).map(eventLine).join("\n")}` : ""
   ];
   return parts.filter(Boolean).join("\n\n");

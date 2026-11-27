@@ -1,4 +1,4 @@
-import { getExternalEvents, type ExternalEvent } from "./external-events.js";
+import { storedEventById, type ExternalEvent } from "./external-events.js";
 
 /** Requested: "Prøv at fetche event detaljer automatisk så vi ikke sender folk til en anden hjemmeside." An event from the
  * membership system's calendar gets its own page on hjerterum.info: the feed's words and picture, and the event's own details
@@ -22,7 +22,6 @@ export type EventDetail = {
   signUpUrl: string | null;
 };
 
-const ORG = "22308";
 const CACHE_MS = 10 * 60_000;
 const cache = new Map<string, { at: number; detail: EventDetail | null }>();
 
@@ -63,42 +62,20 @@ export function htmlParagraphs(html: string): string[] {
 
 /** Guldsmedgade 26B, Aarhus - the house. */
 export const HOUSE = { lat: 56.159318, lon: 10.207848 };
-function coordinates(loc: [string, string] | undefined): { lat: number; lon: number } {
-  const lon = Number(loc?.[0]), lat = Number(loc?.[1]);
-  // Only a place in or near Aarhus is believed; anything else is the house.
-  return Number.isFinite(lat) && Number.isFinite(lon) && Math.abs(lat - HOUSE.lat) < 0.5 && Math.abs(lon - HOUSE.lon) < 0.5 ? { lat, lon } : HOUSE;
-}
 
-type MwEvent = { ttl?: string; sdp?: number; edp?: number; lgo?: { l?: string }; adr?: { ad1?: string; zip?: string; cit?: string; loc?: [string, string] }; dtl?: string; tkt?: Array<{ lbl?: string }>; cap?: number };
-
-export async function eventDetail(id: string, fetcher: typeof fetch = fetch, now = Date.now()): Promise<EventDetail | null> {
+/** An event of the kept calendar (external-events.ts storedEventById), coming or past - read from D1 only, never from MembershipWorks
+ * (the chair, 27 Nov 2026: "alle forbindelser ... skal klippes"). What only MembershipWorks' own event page had (tickets, places) is not shown. */
+export async function eventDetail(id: string, now = Date.now()): Promise<EventDetail | null> {
   if (!/^[0-9a-f]{24}$/.test(id)) return null;
   const hit = cache.get(id);
   if (hit && now - hit.at < CACHE_MS) return hit.detail;
-  const feed = (await getExternalEvents(false, fetcher).catch(() => [])).find((event) => eventIdOf(event) === id) ?? null;
-  let mw: MwEvent | null = null;
-  try {
-    const response = await fetcher(`https://api.membershipworks.com/v2/event?eid=${id}&org=${ORG}`, { headers: { accept: "application/json" } });
-    if (response.ok) mw = await response.json() as MwEvent;
-  } catch { mw = null; }
-  if (!feed && !mw?.ttl) { cache.set(id, { at: now, detail: null }); return null; }
-  const address = mw?.adr ? [mw.adr.ad1, [mw.adr.zip, mw.adr.cit].filter(Boolean).join(" ")].filter(Boolean).join(", ") : null;
-  const detail: EventDetail = {
-    id,
-    title: feed?.title ?? decode(mw?.ttl ?? ""),
-    startsAt: feed?.startsAt ?? new Date((mw?.sdp ?? 0) * 1000).toISOString(),
-    endsAt: feed?.endsAt ?? (mw?.edp ? new Date(mw.edp * 1000).toISOString() : null),
-    host: feed?.host ?? null,
-    category: feed?.category ?? null,
-    imageUrl: feed?.imageUrl ?? mw?.lgo?.l ?? null,
-    address: address || feed?.location || null,
-    ...coordinates(mw?.adr?.loc),
-    paragraphs: mw?.dtl ? htmlParagraphs(mw.dtl) : (feed?.description ?? "").split(/\n/).map((l) => l.trim()).filter(Boolean),
-    // Douglas (17 Nov 2026): "Tickets: 'Reach' when there are no tickets" - MembershipWorks writes "n/a" for a closed ticket (Google reads it as "reach"): no ticket.
-    tickets: (mw?.tkt ?? []).map((t) => decode(t.lbl ?? "").trim()).filter(label => label && !/^(n\/?a|-+|–|ingen)$/i.test(label)),
-    capacity: typeof mw?.cap === "number" && mw.cap > 0 ? mw.cap : null,
-    signUpUrl: feed?.link ?? null
-  };
+  const event = await storedEventById(`SF${id}`);
+  const detail: EventDetail | null = event ? {
+    id, title: event.title, startsAt: event.startsAt, endsAt: event.endsAt, host: event.host, category: event.category, imageUrl: event.imageUrl,
+    address: event.location, ...HOUSE,
+    paragraphs: /<[a-z][^>]*>/i.test(event.description ?? "") ? htmlParagraphs(event.description!) : (event.description ?? "").split(/\n/).map((l) => l.trim()).filter(Boolean),
+    tickets: [], capacity: null, signUpUrl: null
+  } : null;
   cache.set(id, { at: now, detail });
   return detail;
 }

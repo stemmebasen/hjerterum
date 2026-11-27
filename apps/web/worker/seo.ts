@@ -69,7 +69,7 @@ async function comingEvents(db: D1Database | undefined, fetcher: typeof fetch, n
     .all<{ id: number; title: string; teacher_name: string; starts_at_ms: number }>()
     .then(r => (r.results ?? []).map(b => ({ title: b.title, startsAt: new Date(b.starts_at_ms).toISOString(), host: b.teacher_name, link: `/events/h${b.id}` })))
     .catch(() => [] as Coming[]);
-  const calendar = (async () => (await getExternalEvents(false, fetcher).catch(() => []))
+  const calendar = (async () => (await getExternalEvents(false).catch(() => []))
     .filter(e => Date.parse(e.endsAt ?? e.startsAt) >= nowMs && !isPartnerEvent(e) && eventIdOf(e))
     .map(e => ({ title: e.title, startsAt: e.startsAt, host: e.host, link: `/events/${eventIdOf(e)}` })))().catch(() => [] as Coming[]);
   const work = Promise.all([own, calendar]).then(([a, b]) => [...a, ...b].sort((x, y) => Date.parse(x.startsAt) - Date.parse(y.startsAt)));

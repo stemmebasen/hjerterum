@@ -81,8 +81,8 @@ function startLang(path: string): Lang {
 }
 
 /** Requested: "De sider hun linker til bør være aktive links og understreget på en tydelig måde". Her [name](address) and bare addresses become
- * links - only to Hjerterum's own pages (a path on this site), hjerterum.info, holistisk.org and cirkler.net. Anything else stays plain text. */
-const ALLOWED = /^(?:\/(?!\/)[^\s)]*|https:\/\/(?:[a-z0-9-]+\.)*(?:hjerterum\.info|holistisk\.org|cirkler\.net)(?:[/?#][^\s)]*)?)$/i;
+ * links - only to Hjerterum's own pages (a path on this site), hjerterum.info and cirkler.net. Anything else stays plain text. */
+const ALLOWED = /^(?:\/(?!\/)[^\s)]*|https:\/\/(?:[a-z0-9-]+\.)*(?:hjerterum\.info|cirkler\.net)(?:[/?#][^\s)]*)?)$/i;
 export function withLinks(text: string): ReactNode[] {
   const out: ReactNode[] = [];
   const pattern = /\[([^\]\n]{1,120})\]\(([^)\s]{1,300})\)|(https:\/\/[^\s)]+[^\s).,!?:;])/g;
@@ -240,7 +240,7 @@ export function SagaWidget(props: Props) {
                 <button type="button" className="pill-button" disabled={busy} onClick={() => fill(m.draft!)}>{t("Udfyld formularen", "Fill in the form")}</button>
               </div></div>}
             {m.action && <div className="saga-actions">
-              {m.action === "membership" && <a className="pill-button dark" href={en ? "https://holistisk.org/become-a-member/" : SIGNUP_URL} target="_blank" rel="noopener noreferrer">{t("Bliv medlem", "Become a member")}</a>}
+              {m.action === "membership" && <a className="pill-button dark" href={SIGNUP_URL}>{t("Bliv medlem", "Become a member")}</a>}
               {(m.action === "login" || (m.action === "membership" && mode === "public")) && <a className="pill-button" href={sagaLoginHref()}>{t("Log ind", "Log in")}</a>}
             </div>}</div>)}
           {busy && <div className="saga-msg assistant"><p className="saga-typing">{t("Saga skriver …", "Saga is writing …")}</p></div>}

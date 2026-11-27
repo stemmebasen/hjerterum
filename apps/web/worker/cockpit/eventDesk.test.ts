@@ -135,7 +135,8 @@ describe("Saga's event desk", () => {
     const draft = await (await call(draftUrl, { cookie })).text();
     expect(draft).toContain("Lydhealing med Lisbeth");
     expect(draft).toContain("300 kr.");
-    expect(draft).toContain("Til MembershipWorks");
+    // "alle forbindelser til ... membership works skal klippes" (27 Nov 2026): events are made only in the new system.
+    expect(draft).not.toContain("Til MembershipWorks");
 
     const created = await call(draftUrl, { method: "POST", cookie, body: form({ action: "create" }) });
     expect(decodeURIComponent(created.headers.get("location")!)).toContain("oprettet i Hjerterums nye system");

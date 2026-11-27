@@ -1,7 +1,7 @@
 import { prNames, shownAs } from "./teacher-names.js";
 import type { D1Database } from "./db.js";
 import { isPartnerEvent } from "../partner-events.js";
-import { isCancelledEvent, membershipWorksListUrl, parseMembershipWorksList, type MembershipWorksList } from "./external-events.js";
+import { isCancelledEvent } from "./external-events.js";
 import { completeAs } from "./saga/ai.js";
 import type { SagaDeps, SagaEnv } from "./saga/env.js";
 import { designUrl } from "./event-designs.js";
@@ -77,29 +77,15 @@ const plain = (html: string | null) => (html ?? "").replace(/<[^>]+>/g, " ").rep
 /** Hjerterum Mornings: the house's own morning programme, said so in its title or text. */
 const isMornings = (title: string, description: string) => /\bmornings\b/i.test(`${title} ${description}`);
 
-/** Every event in the house that month: the calendar's (not the partner houses') and the members' approved ones (not CIRKLER's meetings).
- * The calendar is read as the website reads it: MembershipWorks' list for the month (it has events the RSS feed and so house_events
- * lack - "Fri morgendans", "Fællesspisning", a talk), with the text and teacher from house_events, or else from the event's own page. */
+/** Every event in the house that month: the kept calendar's (house_events, not the partner houses') and the members' approved ones (not CIRKLER's meetings). */
 export async function monthEvents(db: D1Database, month: string, fetcher?: typeof fetch): Promise<NewsletterEvent[]> {
   const from = monthStart(month), to = monthStart(nextMonth(month));
   type Row = { id: string; title: string; starts_at_ms: number; ends_at_ms: number | null; host: string | null; category: string | null; location: string | null; image_url: string | null; link: string | null; description: string | null };
   const stored = await db.prepare(`SELECT id, title, starts_at_ms, ends_at_ms, host, category, location, image_url, link, description FROM house_events
       WHERE starts_at_ms >= ? AND starts_at_ms < ? AND removed_at_ms IS NULL ORDER BY starts_at_ms`).bind(from, to).all<Row>().then(r => r.results ?? []).catch(() => [] as Row[]);
-  const listed = fetcher ? await fetcher(membershipWorksListUrl(from, to), { headers: { accept: "application/json" } })
-    .then(async r => r.ok ? parseMembershipWorksList(await r.json() as MembershipWorksList) : []).catch(() => []) : [];
-  const byId = new Map(stored.map(r => [r.id, r] as const));
-  // Without the list (MembershipWorks not answering), the stored calendar.
-  const calendar: Row[] = listed.length ? listed.filter(e => Date.parse(e.startsAt) >= from && Date.parse(e.startsAt) < to).map(e => {
-    const known = byId.get(e.id);
-    return { id: e.id, title: e.title, starts_at_ms: Date.parse(e.startsAt), ends_at_ms: e.endsAt ? Date.parse(e.endsAt) : null, host: known?.host ?? null, category: e.category ?? known?.category ?? null,
-      location: known?.location ?? null, image_url: known?.image_url ?? e.imageUrl, link: e.link ?? known?.link ?? null, description: known?.description ?? null };
-  }) : stored;
-  // The text of an event only the list has, from its own page (a few at a time).
-  const missing = calendar.filter(r => !r.description && /^SF[0-9a-f]{24}$/.test(r.id)).slice(0, 40);
-  if (fetcher) for (let i = 0; i < missing.length; i += 8) await Promise.all(missing.slice(i, i + 8).map(async r => {
-    r.description = await fetcher(`https://api.membershipworks.com/v2/event?eid=${r.id.slice(2)}&org=22308`, { headers: { accept: "application/json" } })
-      .then(async res => res.ok ? ((await res.json()) as { dtl?: string }).dtl ?? null : null).catch(() => null);
-  }));
+  // The chair (27 Nov 2026): "alle forbindelser til holistisk og membership works skal klippes" - the calendar is the copy kept in D1 (house_events),
+  // never MembershipWorks itself; new events are made in Hjerterum's own system (below).
+  const calendar: Row[] = stored;
   // A cancelled event ("- Aflyst -" in its title or at the start of its text) is neither in the newsletter nor in PR (external-events.ts).
   const house = calendar.filter(e => !isPartnerEvent(e) && !isCancelledEvent({ title: e.title, description: e.description }));
   const own = await db.prepare(`SELECT b.id, b.title, b.teacher_name, b.description, b.starts_at_ms, b.ends_at_ms,
