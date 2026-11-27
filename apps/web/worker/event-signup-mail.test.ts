@@ -3,6 +3,7 @@ import { notifyOrganiser, readSignupSettings, saveSignupSettings, signupSettings
 import { guestReceipt, publicEvent } from "./guest-signup.js";
 import { linkParts, plainLine } from "../site/event-links.js";
 import { testDatabase } from "./saga/test-support.js";
+import { MAIL_LOGO_URL } from "./mail-template.js";
 
 // Douglas (13 Nov 2026): a mail to the teacher when people book, the teacher's own words in the confirmation, and an editor for the text - the chair: "Ja".
 const STARTS = Date.parse("2026-12-04T17:00:00Z");
@@ -40,6 +41,14 @@ describe("the organiser's sign-up mails", () => {
     expect(String(sent[0]!.text)).toContain("Bo (bo@x.dk) har tilmeldt sig");
     expect(String(sent[0]!.text)).toContain("Ikke-medlem");
     expect(String(sent[0]!.text)).toContain("1 af 10 tilmeldt");
+    // Douglas (forslag #5, 27 Nov 2026): the organiser's mail in the common template - the logo, the footer, a button, a plain-text part, one "kl.".
+    expect(String(sent[0]!.html)).toContain(`src="${MAIL_LOGO_URL}"`);
+    expect(String(sent[0]!.html)).toContain('alt="Hjerterum"');
+    expect(String(sent[0]!.html)).toContain("Guldsmedgade 26B, 8000 Aarhus C");
+    expect(String(sent[0]!.html)).toContain('class="hr-btn-a" href="https://www.hjerterum.info/member-portal/events/mine"');
+    expect(String(sent[0]!.text)).toContain('har tilmeldt sig "Lydbad" fredag 4. december kl. 18.00. Ikke-medlem.');
+    expect(String(sent[0]!.text)).toContain("Se alle tilmeldte under Mine events: https://www.hjerterum.info/member-portal/events/mine");
+    for (const part of [String(sent[0]!.text), String(sent[0]!.html)]) expect(part).not.toContain("kl. kl.");
     await notifyOrganiser({ ...ENV, DB: db }, fetcher, id, { name: "Anna", email: "anna@x.dk", clerkUserId: "teacher" }, "https://www.hjerterum.info");
     await saveSignupSettings(db, id, "teacher", { notifySignups: false, confirmationNote: null });
     await notifyOrganiser({ ...ENV, DB: db }, fetcher, id, { name: "Eva", email: "eva@x.dk", clerkUserId: "guest:eva@x.dk" }, "https://www.hjerterum.info");
@@ -54,6 +63,11 @@ describe("the organiser's sign-up mails", () => {
     await guestReceipt(ENV, fetcher, (await publicEvent(db, id))!, { name: "Bo", email: "bo@x.dk" }, "https://www.hjerterum.info/events/h1");
     expect(String(sent[0]!.text)).toContain("Besked fra Anna Ananda:\nTag en måtte med.\nDøren åbner 18.45.");
     expect(String(sent[0]!.html)).toContain("Tag en måtte med.<br>Døren åbner 18.45.");
+    // Douglas (forslag #5, 27 Nov 2026): "kl. kl. 10.00" in the confirmation - the time with one "kl.", in the template with the logo and the footer.
+    expect(String(sent[0]!.text)).toContain('Du er tilmeldt "Lydbad" fredag 4. december kl. 18.00 i Hjerterum');
+    for (const part of [String(sent[0]!.text), String(sent[0]!.html)]) expect(part).not.toContain("kl. kl.");
+    expect(String(sent[0]!.html)).toContain(`src="${MAIL_LOGO_URL}"`);
+    expect(String(sent[0]!.text)).toContain("Hjerterum · Guldsmedgade 26B, 8000 Aarhus C");
     // Douglas (19 Nov 2026): one who cannot come writes to the organiser, not to team@ - and a member can cancel on the member pages.
     expect(String(sent[0]!.text)).toContain("Kan du ikke komme alligevel, så skriv til anna@x.dk");
     expect(sent[0]!.reply_to).toBe("anna@x.dk");

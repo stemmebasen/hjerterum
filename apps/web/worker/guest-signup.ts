@@ -1,5 +1,7 @@
 import type { D1Database } from "./db.js";
 import { attendRoomBooking, MAX_SEATS } from "./room-bookings.js";
+import { hjerterumMail, type MailRun } from "./mail-template.js";
+import { withKl } from "../site/when.js";
 
 /** Douglas' notes: "Do they have to be a member to book an event?" - "Som gæst uden login". An event in the house's own system has a page of its
  * own on the website (/events/h<id>), and anyone can sign up there with a name and an e-mail, without logging in. A guest is kept as an attendee
@@ -51,28 +53,40 @@ export async function signUpGuest(db: D1Database, id: number, sent: Record<strin
 /** Douglas (19 Nov 2026): "Surely, the participant should only write to the teacher and not Hjerterum if they want to cancel their registration (or cancel
  * online if a member and logged in) ... should the system automatically put in the teachers email address instead of team@hjerterum.info?" The organiser's
  * address (team@ when there is none), and for one who signed up logged in: cancel on the member pages. */
-export function cancelLine(event: Pick<PublicEventRow, "teacher_email">, member: boolean): { text: string; html: string; replyTo: string } {
+export function cancelLine(event: Pick<PublicEventRow, "teacher_email">, member: boolean): { text: string; runs: MailRun[]; replyTo: string } {
   const to = event.teacher_email && EMAIL.test(event.teacher_email.trim()) ? event.teacher_email.trim() : "team@hjerterum.info";
   const online = member ? "afmeld dig under Kalender på Min side, eller skriv til " : "skriv til ";
   return { replyTo: to, text: `Kan du ikke komme alligevel, så ${online}${to}, så en anden kan få pladsen.`,
-    html: `Kan du ikke komme alligevel, så ${member ? `afmeld dig under <a href="https://medlem.hjerterum.info/member-portal/kalender">Kalender på Min side</a>, eller skriv til ` : "skriv til "}<a href="mailto:${escapeHtml(to)}">${escapeHtml(to)}</a>, så en anden kan få pladsen.` };
+    runs: ["Kan du ikke komme alligevel, så ", ...(member ? ["afmeld dig under ", { text: "Kalender på Min side", href: "https://medlem.hjerterum.info/member-portal/kalender" }, ", eller skriv til "] : ["skriv til "]),
+      { text: to, href: `mailto:${to}` }, ", så en anden kan få pladsen."] };
+}
+
+const WHEN = new Intl.DateTimeFormat("da-DK", { timeZone: "Europe/Copenhagen", weekday: "long", day: "numeric", month: "long", hour: "2-digit", minute: "2-digit" });
+
+/** Douglas (forslag #5, 27 Nov 2026): "Can it be made to look a bit more attractive and professional, at least with our logo." The confirmation in
+ * Hjerterum's mail template (mail-template.ts) - and the time as "kl. 10.00", not "kl. kl. 10.00" (site/when.ts). */
+export function guestReceiptMail(event: PublicEventRow, guest: { name: string; seats?: number }, pageUrl: string, member = false): { html: string; text: string } {
+  const cancel = cancelLine(event, member);
+  const party = guest.seats && guest.seats > 1 ? ` (${guest.seats} personer)` : "";
+  const note = event.confirmation_note?.trim() || null;
+  const when = withKl(WHEN.format(event.starts_at_ms));
+  const where = `${when} i Hjerterum, Guldsmedgade 26B, 8000 Aarhus C.`;
+  return hjerterumMail({ title: "Du er tilmeldt", preheader: `${event.title} ${when}`, blocks: [
+    { p: `Kære ${guest.name}` },
+    { p: [`Du er tilmeldt${party} `, { text: event.title, bold: true }, ` ${where}`], text: `Du er tilmeldt${party} "${event.title}" ${where}` },
+    ...(note ? [{ box: [note], title: `Besked fra ${event.teacher_name}:` }] : []),
+    { button: "Læs om eventet", url: pageUrl },
+    { p: cancel.runs, text: cancel.text }
+  ] });
 }
 
 export async function guestReceipt(env: { RESEND_API_KEY?: string; RESEND_FROM_EMAIL?: string }, fetcher: typeof fetch, event: PublicEventRow, guest: { name: string; email: string; seats?: number }, pageUrl: string, member = false): Promise<void> {
-  const cancel = cancelLine(event, member);
-  const party = guest.seats && guest.seats > 1 ? ` (${guest.seats} personer)` : "";
   if (!env.RESEND_API_KEY || !env.RESEND_FROM_EMAIL) return;
-  const note = event.confirmation_note?.trim() || null;
-  const when = new Intl.DateTimeFormat("da-DK", { timeZone: "Europe/Copenhagen", weekday: "long", day: "numeric", month: "long", hour: "2-digit", minute: "2-digit" }).format(event.starts_at_ms);
-  const text = `Kære ${guest.name}\n\nDu er tilmeldt${party} "${event.title}" ${when.replace(/(\d{2})[.:](\d{2})$/, "kl. $1.$2")} i Hjerterum, Guldsmedgade 26B, 8000 Aarhus C.\n\n${note ? `Besked fra ${event.teacher_name}:\n${note}\n\n` : ""}Læs om eventet: ${pageUrl}\n\n${cancel.text}\n\nVarme hilsner\nHjerterum`;
-  const html = `<p>Kære ${escapeHtml(guest.name)}</p><p>Du er tilmeldt${party} <b>${escapeHtml(event.title)}</b> ${escapeHtml(when.replace(/(\d{2})[.:](\d{2})$/, "kl. $1.$2"))} i Hjerterum, Guldsmedgade 26B, 8000 Aarhus C.</p>`
-    + (note ? `<p><b>Besked fra ${escapeHtml(event.teacher_name)}:</b><br>${escapeHtml(note).replace(/\n/g, "<br>")}</p>` : "")
-    + `<p><a href="${escapeHtml(pageUrl)}">Læs om eventet</a></p><p>${cancel.html}</p><p>Varme hilsner<br>Hjerterum</p>`;
+  const cancel = cancelLine(event, member);
+  const { text, html } = guestReceiptMail(event, guest, pageUrl, member);
   const sent = await fetcher("https://api.resend.com/emails", { method: "POST", headers: { authorization: `Bearer ${env.RESEND_API_KEY}`, "content-type": "application/json",
     // Douglas (24 Nov 2026): "I didn't get a confirmation email now when I registered for my Test event." The key was the event and the address, and the
     // mail service keeps a key for a day - signed up, cancelled and signed up again the same day, the second receipt never went. Now per sign-up (minute).
     "idempotency-key": `guest-signup/${event.id}/${guest.email}/${Math.floor(Date.now() / 60_000)}` }, body: JSON.stringify({ from: env.RESEND_FROM_EMAIL, to: [guest.email], reply_to: cancel.replyTo, subject: `Du er tilmeldt: ${event.title}`, text, html }) }).catch(() => null);
   if (!sent?.ok) console.warn("guest_receipt_failed", sent?.status ?? "network");
 }
-
-const escapeHtml = (text: string) => text.replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c]!);

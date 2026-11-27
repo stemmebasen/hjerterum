@@ -1,5 +1,6 @@
 import { readCookies, readPreview } from "./cockpit/auth.js";
 import { isCockpitRequest } from "./cockpit/handler.js";
+import { MAIL_LOGO_PATH } from "./mail-template.js";
 
 /** The chair (27 Nov 2026): "Siden skal nu kun kunne ses af Douglas og jeg" - "Alle i board admin kan se". While SITE_CLOSED is "1", the website and
  * the member pages (every address but admin's) show only a short "opens soon" page - to everyone but those let in from admin (power "site.preview":
@@ -37,7 +38,8 @@ export function wayBack(host: string | null, path: string | null, domain: string
 export async function siteClosedResponse(request: Request, env: ClosedEnv, nowMs: number): Promise<Response | null> {
   if (env.SITE_CLOSED !== "1") return null;
   const url = new URL(request.url);
-  if (isCockpitRequest(url) || url.pathname.startsWith("/api/") || url.pathname === "/logo.png") return null;
+  // The logo in the system's mails (mail-template.ts) shows in the inbox while the website is closed too.
+  if (isCockpitRequest(url) || url.pathname.startsWith("/api/") || url.pathname === "/logo.png" || url.pathname === MAIL_LOGO_PATH) return null;
   if (url.pathname === "/robots.txt") return new Response("User-agent: *\nDisallow: /\n", { headers: { "content-type": "text/plain; charset=utf-8", ...NOINDEX } });
   // The key from admin: kept for the whole domain (www and medlem), then on to the front page.
   if (url.pathname === PREVIEW_PATH && request.method === "GET") {

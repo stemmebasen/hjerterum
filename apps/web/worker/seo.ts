@@ -2,6 +2,7 @@ import { renderMarkdown } from "../site/markdown.js";
 import { ABOUT_WORDS, BENEFITS, LEGAL_LINKS, NAV, type SitePage } from "../site/pages.js";
 import { sitePage } from "../site/redirects.js";
 import { TEAM_MAIL } from "../site/mail.js";
+import { withKl } from "../site/when.js";
 import { membershipPlans } from "../membership.js";
 import type { D1Database } from "./db.js";
 import { EVENT_PAGE, eventMeta, type EventMeta } from "./event-meta.js";
@@ -57,7 +58,7 @@ const footer = () => `<footer><p>Hjerterum F.M.B.A. · Guldsmedgade 26B, 8000 Aa
 const shell = (main: string) => `${header()}<main>${main}</main>${footer()}`;
 
 const DAY = new Intl.DateTimeFormat("da-DK", { timeZone: "Europe/Copenhagen", weekday: "long", day: "numeric", month: "long", hour: "2-digit", minute: "2-digit", hourCycle: "h23" });
-const when = (iso: string) => DAY.format(new Date(iso)).replace(/(\d{2})[.:](\d{2})$/, "kl. $1.$2");
+const when = (iso: string) => withKl(DAY.format(new Date(iso)));
 
 type Coming = { title: string; startsAt: string; host: string | null; link: string };
 

@@ -1,6 +1,7 @@
 import { useEffect, useState, type ReactNode } from "react";
 import { apiFetch, type ClerkBrowser } from "./clerk";
 import { openCirklerHandoff } from "./cirkler-card";
+import { withKl } from "../site/when";
 
 /** Requested (2 November 2026): under every event in the hall - "Inviter din CIRKEL med". Member of a circle: a box with the event, the circle's
  * name and a field to write in; the message lands in the circle's chat in CIRKLER with the event's picture, short description and link
@@ -49,7 +50,7 @@ export function CirkelInvite({ clerk }: { clerk: ClerkBrowser }) {
   const back = event ? <a className="lys-link" href={event.url}>← Tilbage til eventet</a> : <a className="lys-link" href="https://www.hjerterum.info/events">← Kalenderen</a>;
   const card = event && <div className="cirkel-invite-event">
     {event.imageUrl && <img src={event.imageUrl} alt="" />}
-    <div><p className="kicker">{WHEN.format(new Date(event.startsAt)).replace(/(\d{2})[.:](\d{2})$/, "kl. $1.$2")}</p><h2>{event.title}</h2></div>
+    <div><p className="kicker">{withKl(WHEN.format(new Date(event.startsAt)))}</p><h2>{event.title}</h2></div>
   </div>;
   let content: ReactNode;
   if (event === null) content = <p>Eventet findes ikke længere.</p>;
