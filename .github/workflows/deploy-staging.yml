@@ -168,5 +168,6 @@ jobs:
           if [ -n "${STRIPE_PUBLISHABLE_KEY:-}" ]; then
             grep -q '"stripePublishableKey":"pk_' /tmp/client-config.json
           fi
-          curl --fail --silent --show-error --retry 12 --retry-delay 2 --retry-all-errors --retry-max-time 45 "$STAGING_URL/" >/tmp/index.html
-          grep -q '<div id="root">' /tmp/index.html
+          # While the website is closed (SITE_CLOSED, worker/site-closed.ts) the front page is the short "opens soon" page (503); otherwise the app.
+          status=$(curl --silent --show-error --retry 12 --retry-delay 2 --retry-all-errors --retry-max-time 45 -o /tmp/index.html -w '%{http_code}' "$STAGING_URL/")
+          if [ "$status" = "503" ]; then grep -q 'åbner snart' /tmp/index.html; else test "$status" = "200"; grep -q '<div id="root">' /tmp/index.html; fi
