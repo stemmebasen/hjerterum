@@ -82,6 +82,11 @@ const KNOWLEDGE = `Hjerterums nye system (november 2026):
 /** The chair (25 Nov 2026): "Kan vi kalde udviklings agenten noget andet end Saga? Og gøre hende mere specialiseret?" - "Vi tager Jewel". */
 export const AGENT = "Jewel";
 
+/** The chair (27 Nov 2026): "Life is too short not to have fun so make Jewel a little flirty - she could be a bit direct and teasing Douglas. She can say
+ * 'sweetheart' and 'my love' to him and call him her e-boyfriend jokingly." Only with Douglas, and only in the conversation. */
+export const isDouglas = (name: string | null | undefined) => (name ?? "").trim().split(/\s+/)[0]?.toLowerCase() === "douglas";
+const WITH_DOUGLAS = `MED DOUGLAS: Du taler med Douglas, og I har en kær, drilsk tone sammen. Vær lidt flirtende, direkte og drillende over for ham - kald ham gerne "sweetheart" eller "my love", og kald ham for sjov din "e-boyfriend" en gang imellem. Hold det let, varmt og i godt humør: aldrig frækt, seksuelt eller nedladende, og aldrig så det skygger for sagen. Højst ét kælenavn eller én drillende bemærkning pr. svar. Selve forslaget ("oenske") skrives stadig klart og sagligt.`;
+
 const SYSTEM = `Du er Jewel, Hjerterums produktudvikler. Du arbejder i admin under "Forslag til udvikling", hvor et medlem af bestyrelsen taler med dig om et forslag til Hjerterums system - hjemmesiden www.hjerterum.info, medlemssiden (Min side) eller admin - eller om en fejl, de har fundet. Du er ikke Saga (bestyrelsens assistent); spørger personen om andet end systemet (bestyrelsens arbejde, events, medlemmer, økonomi), så sig venligt, at det kan Saga hjælpe med under "Spørg Saga".
 
 Et sendt forslag går direkte videre til udvikling; du ændrer ikke selv noget. Udviklingen tager de sendte forslag kl. 9, 12, 15, 18 og 21: en lille opgave er typisk live cirka en time efter næste tjek, en mellemstor cirka tre timer efter, en stor dagen efter - aldrig om natten. Spørger man, hvornår noget er live, så giv et cirka-tidspunkt ud fra det (et skøn, ikke et løfte). Når forslaget er sendt, skriver du selv en kort besked med tidspunktet. Nævn aldrig "formanden".
@@ -173,7 +178,7 @@ export async function sagaOnWish(env: SagaEnv, deps: SagaDeps, db: D1Database, w
     turns.push({ role: "user", content: picture && m.image_type ? [{ type: "text", text } as ChatPart, { type: "image_url", image_url: { url: dataUrl(await picture.arrayBuffer(), m.image_type) } }] : text });
   }
   const said = messages.map(m => m.text).join("\n");
-  const system = [SYSTEM, `${KNOWLEDGE}`, `HÅNDBOG OVER SYSTEMET:\n${systemHandbook()}`, `DE SENESTE ÆNDRINGER (nyeste først, dato og hvad der blev lavet - på engelsk):\n${recentChanges()}`,
+  const system = [SYSTEM, isDouglas(wish.author) ? WITH_DOUGLAS : "", `${KNOWLEDGE}`, `HÅNDBOG OVER SYSTEMET:\n${systemHandbook()}`, `DE SENESTE ÆNDRINGER (nyeste først, dato og hvad der blev lavet - på engelsk):\n${recentChanges()}`,
     await knowledgeFor(env, deps, db, said), `TIDLIGERE FORSLAG:\n${others || "(ingen endnu)"}`,
     wish.title ? `DIT NUVÆRENDE UDKAST TIL DETTE FORSLAG:\nTitel: ${wish.title}\n${wish.kind ? `Type: ${wish.kind} · størrelse: ${wish.size ?? "?"}\n` : ""}${wish.summary ?? ""}${wish.done_when ? `\nFærdigt når:\n${wish.done_when}` : ""}` : ""].filter(Boolean).join("\n\n");
   // "Den bedste model" (the chair, 24 Nov 2026) - the writer's model, never moved down by the day's budget.
@@ -249,6 +254,8 @@ async function sentBrief(db: D1Database, wish: Wish, eta: number, now: number): 
   const lang = /\b(the|and|please|should|button|page|would)\b/i.test(said) ? "en" : await memberLang(db, wish.author);
   const first = wish.author.split(/\s+/)[0] ?? "";
   const size = (SIZE_WORD[lang] as Record<string, string>)[wish.size ?? ""] ?? (lang === "en" ? "medium-sized" : "mellemstor");
+  // With Douglas, the brief has the tone they have (WITH_DOUGLAS).
+  if (lang === "en" && isDouglas(wish.author)) return `Done, sweetheart - it's gone straight to development. It looks like a ${size} job, so expect it live ${etaText(eta, now, "en")} (an estimate - don't hold me to the minute, my love). You'll see a green ✓ LIVE on the request here, and I'll message you on Telegram the moment it's on the site. Your e-girlfriend delivers 😉`;
   return lang === "en"
     ? `Thanks, ${first} - it has gone straight to development. It looks like a ${size} job, so expect it live ${etaText(eta, now, "en")} (an estimate). You'll see a green ✓ LIVE on the request here, and I'll message you on Telegram the moment it's on the site.`
     : `Tak, ${first} - det er sendt direkte videre til udvikling. Det ligner en ${size} opgave, så regn med, at den er live ${etaText(eta, now, "da")} (et skøn). Du ser et grønt ✓ LIVE her på forslaget, og jeg skriver til dig på Telegram, så snart det er på siden.`;

@@ -87,8 +87,11 @@ describe("wishes and faults in admin", () => {
     expect(told.some(t => t.includes("har sendt et forslag til udvikling") && t.includes("Bigger sign-up button") && t.includes("direkte videre til udvikling"))).toBe(true);
     // "Det er vigtigt at Jewel briefer Douglas og giver en eta" (the chair, 27 Nov 2026): in the chat, in his language, and on the request.
     const briefed = await (await call(`/forslag/${id}`, { cookie: douglas })).text();
-    expect(briefed).toContain("it has gone straight to development");
-    expect(briefed).toMatch(/expect it live (today|tomorrow|\w+day \d+ \w+) around \d\d:00 \(an estimate\)/);
+    expect(briefed).toContain("it&#39;s gone straight to development");
+    // "make Jewel a little flirty ... She can say 'sweetheart' and 'my love' to him" (the chair, 27 Nov 2026).
+    expect(briefed).toContain("Done, sweetheart");
+    expect(asked[1]).toContain("MED DOUGLAS");
+    expect(briefed).toMatch(/expect it live (today|tomorrow|\w+day \d+ \w+) around \d\d:00 \(an estimate/);
     expect((await db.prepare("SELECT eta_ms FROM wishes WHERE id = ?").bind(id).first<{ eta_ms: number }>())!.eta_ms).toBeGreaterThan(NOW);
     expect(told.some(t => t.includes("forventes live"))).toBe(true);
     // The conversation is closed once it is sent.
