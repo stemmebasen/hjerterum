@@ -55,6 +55,8 @@ export type SocialPost = { id: number; kind: SocialKind; source_key: string; wee
     /** Gone out as the event itself (shareEventInstead): its picture or video with the short fixed words (eventItselfText) - not Saga's, not a link card.
      * (`fbEventShare`/`pageShare`: the link card of the first version, 8 Nov 2026.) */
     eventItself?: boolean; fbEventShare?: boolean; pageShare?: boolean; noFbEventTold?: 1;
+    /** Gone out unapproved with no Facebook event known (fixedInstead): the event's own picture with the short fixed words, on Facebook and Instagram. */
+    fixedShare?: boolean;
     /** "Nyt opslag" (cockpit/prFreePost.ts): a post of the chair's own, about no event. */
     free?: boolean;
     /** Posted by the chair directly on Facebook or Instagram (findOwnPosts): in the calendar, never deleted by Saga. */
@@ -573,7 +575,7 @@ export async function planShouts(env: SocialEnv, deps: SagaDeps, db: D1Database)
     const ig = p.channels.includes("instagram");
     // A first post that went out as the event itself (shareEventInstead): the reminder is a post of Saga's own again.
     const { video: _v, videoTemplate: _t, videoAtMs: _a, videoNotifiedAtMs: _n, videoAsk: _q, videoChoices: _c, videoChoicesTold: _ct, stillAsk: _s, noVideo: _o, instagramAtMs: _i,
-      eventItself: _e, fbEventShare: _f, pageShare: _ps, ...rest } = p.source;
+      eventItself: _e, fbEventShare: _f, pageShare: _ps, fixedShare: _fs, ...rest } = p.source;
     if (await insertPost(db, { kind: "event", sourceKey: `${p.source_key}:2`, week: p.week, channels: p.channels, text, link: p.link, images: p.images,
       source: { ...rest, shout: 2, shouts: 2, ...(ig ? { instagramText: instagramEventText(text), ...(igTimes[i] !== times[i] ? { instagramAtMs: igTimes[i] } : {}) } : {}) }, publishAtMs: times[i]! }, now)) made++;
     if (p.source.shouts !== 2) await db.prepare("UPDATE social_posts SET source = json_set(source, '$.shouts', 2) WHERE id = ?").bind(p.id).run();
@@ -614,9 +616,9 @@ export async function topUpWeeks(env: SocialEnv, deps: SagaDeps, db: D1Database)
   // "Hun må meget gerne fordele dem jævnt fra og med i morgen tidlig" (10 Nov 2026): each morning from 6, once a day.
   if (now >= LEVEL_FROM_MS && hourOf(now) >= 6 && await claimJob(db, "social_level_days", at(dateOf(now), 0), now)) await levelDrafts(db, now);
   const sharedEvents = await retimeOverdue(db, now, p => eventHook(env, deps, p));
-  for (const e of sharedEvents) await tellChair(env, deps, e.at === null
-    ? `Opslaget om "${e.title}" blev ikke godkendt i tide, og Saga kender ikke eventets Facebook-begivenhed, så den kan ikke deles. Læg linket ind under Events → Facebook-begivenheder, eller godkend opslaget: ${cockpitUrl(env)}/pr/kalender`
-    : `Opslaget om "${e.title}" blev ikke godkendt i tide, så Saga deler Facebook-begivenheden på Facebook ${longWhen(e.at)}, som du har valgt. Stop det her: ${cockpitUrl(env)}/pr/kalender`).catch(() => undefined);
+  for (const e of sharedEvents) await tellChair(env, deps,
+    `Opslaget om "${e.title}" blev ikke godkendt i tide, så Saga ${e.fbEvent ? `deler Facebook-begivenheden på Facebook ${longWhen(e.at)}${e.instagram ? " og eventets billede med en fast kort tekst på Instagram" : ""}`
+      : `deler eventet ${longWhen(e.at)} med eventets billede og en fast kort tekst${e.instagram ? " - på Facebook og Instagram" : " på Facebook"}`}. Stop det her: ${cockpitUrl(env)}/pr/kalender`).catch(() => undefined);
   await pullEarlier(db, now).catch(error => console.warn("social_pull_earlier_failed", error instanceof Error ? error.message : error));
   let fresh = 0;
   const series = await seriesMap(db, now);
@@ -767,12 +769,13 @@ async function facebookEventLink(db: D1Database, key: string | undefined): Promi
 /** Corrected (the chair, 8 Nov 2026): "Nu er movie Night kommet ud med en reel. Jeg havde ikke godkendt den så den bør have været en deling af
  * begivenheden". The event shared is its Facebook event - on Facebook, as the event's own card, with the short words over it (eventItselfText) - not its
  * picture or video, and nothing on Instagram (it has no events). */
-async function asFacebookEventShare(db: D1Database, p: SocialPost, link: string, line: string, nowMs: number, approveAt: number | null): Promise<void> {
+async function asFacebookEventShare(db: D1Database, p: SocialPost, link: string, line: string, nowMs: number, approveAt: number | null, instagram: InstagramPicture | null = null): Promise<void> {
   const { design: _d, video: _v, instagramAtMs: _i, instagramText: _t, eventItself: _e, pageShare: _p, ...rest } = p.source;
-  const source = { ...rest, fbEventShare: true, noVideo: true, noFacebookVideo: true, instagramAtMs: null };
+  const source = { ...rest, fbEventShare: true, noVideo: true, noFacebookVideo: true, instagramAtMs: instagram?.atMs ?? null,
+    ...(instagram ? { instagramText: eventItselfText(p.source, "instagram", line) } : {}) };
   const text = eventItselfText(p.source, "facebook", line);
-  if (approveAt !== null) await db.prepare(`UPDATE social_posts SET status = 'approved', channels = '["facebook"]', text = ?, link = ?, images = '[]', source = ?, publish_at_ms = ?, approved_by = 'Saga (Facebook-begivenheden, efter din indstilling)', approved_at_ms = ?, error = NULL, updated_at_ms = ?
-    WHERE id = ? AND status = 'draft'`).bind(text, link, JSON.stringify(source), approveAt, nowMs, nowMs, p.id).run();
+  if (approveAt !== null) await db.prepare(`UPDATE social_posts SET status = 'approved', channels = ?, text = ?, link = ?, images = ?, source = ?, publish_at_ms = ?, approved_by = 'Saga (Facebook-begivenheden, efter din indstilling)', approved_at_ms = ?, error = NULL, updated_at_ms = ?
+    WHERE id = ? AND status = 'draft'`).bind(JSON.stringify(instagram ? ["facebook", "instagram"] : ["facebook"]), text, link, JSON.stringify(instagram ? [instagram.image] : []), JSON.stringify(source), approveAt, nowMs, nowMs, p.id).run();
   else await db.prepare(`UPDATE social_posts SET status = 'draft', channels = '["facebook"]', text = ?, link = ?, images = '[]', source = ?, approved_by = NULL, approved_at_ms = NULL, error = NULL, updated_at_ms = ? WHERE id = ?`)
     .bind(text, link, JSON.stringify(source), nowMs, p.id).run();
 }
@@ -791,15 +794,39 @@ export async function asEventItself(env: SagaEnv, deps: SagaDeps, db: D1Database
 /** Each of an event's posts (14 and 7 days before) that comes unapproved: its Facebook event shared instead at the post's time (asFacebookEventShare). The
  * time it goes out; "no_event" when the event has no Facebook event known (then nothing goes out in its place, and the chair is told); null when the
  * setting is off or the event too near. */
-async function shareEventInstead(db: D1Database, p: SocialPost, nowMs: number, hook: (p: SocialPost) => Promise<string>): Promise<number | "no_event" | null> {
+async function shareEventInstead(db: D1Database, p: SocialPost, nowMs: number, hook: (p: SocialPost) => Promise<string>): Promise<number | null> {
   if (!p.source.key || !p.source.startsMs || !(await shareFacebookEventOn(db))) return null;
   if (p.source.startsMs < nowMs + 3 * 3_600_000) return null;
-  const link = await facebookEventLink(db, p.source.key);
-  if (!link) return "no_event";
   // At the post's own time - it has just come, unapproved.
   const at = Math.max(nowMs, p.publish_at_ms ?? nowMs);
-  await asFacebookEventShare(db, p, link, await hook(p), nowMs, at);
+  const instagram = await instagramPicture(db, p, nowMs);
+  const link = await facebookEventLink(db, p.source.key);
+  // Requested (the chair, 27 Nov 2026): "Vi er nødt til at finde på en holdbar løsning, hvis jeg ikke når at godkende, for det gør jeg tit ikke" - only two
+  // posts on Instagram that week. Unapproved, the event still goes out on both media: the Facebook event shared on Facebook (else the event's own picture
+  // with the short fixed words), and on Instagram the event's own picture with the same fixed words - never a video or words of Saga's unread.
+  if (link) await asFacebookEventShare(db, p, link, await hook(p), nowMs, at, instagram);
+  else await fixedInstead(db, p, await hook(p), nowMs, at, instagram);
   return at;
+}
+
+type InstagramPicture = { image: string; atMs: number | null };
+/** The event's own picture for Instagram (not the chair's design, which may say more than the fixed words), when Instagram is connected; at the post's own
+ * Instagram time when that is still to come, else with Facebook. */
+async function instagramPicture(db: D1Database, p: SocialPost, nowMs: number): Promise<InstagramPicture | null> {
+  const image = p.source.eventImage ?? (p.source.design ? undefined : p.images[0]);
+  if (!image || !(await socialAccount(db))?.ig_user_id) return null;
+  const own = p.source.instagramAtMs;
+  return { image, atMs: own && own > nowMs ? own : null };
+}
+/** No Facebook event known: the event's own picture with the short fixed words and the event's link, on Facebook (and Instagram, as above). */
+async function fixedInstead(db: D1Database, p: SocialPost, line: string, nowMs: number, at: number, instagram: InstagramPicture | null): Promise<void> {
+  const { design: _d, video: _v, instagramAtMs: _i, instagramText: _t, eventItself: _e, pageShare: _p, fbEventShare: _f, ...rest } = p.source;
+  const image = instagram?.image ?? p.source.eventImage ?? (p.source.design ? undefined : p.images[0]);
+  const source = { ...rest, fixedShare: true, noVideo: true, noFacebookVideo: true, instagramAtMs: instagram?.atMs ?? null,
+    ...(instagram ? { instagramText: eventItselfText(p.source, "instagram", line) } : {}) };
+  await db.prepare(`UPDATE social_posts SET status = 'approved', channels = ?, text = ?, images = ?, source = ?, publish_at_ms = ?, approved_by = 'Saga (eventets billede og faste tekst, ikke godkendt i tide)', approved_at_ms = ?, error = NULL, updated_at_ms = ?
+    WHERE id = ? AND status = 'draft'`).bind(JSON.stringify(instagram ? ["facebook", "instagram"] : ["facebook"]), eventItselfText(p.source, "facebook", line), JSON.stringify(image ? [image] : []),
+      JSON.stringify(source), at, nowMs, nowMs, p.id).run();
 }
 
 /** Asked (the chair, 8 Nov 2026) for the event's Facebook event to be what is shared - and none had its link in Events → Facebook-begivenheder: Saga finds
@@ -975,8 +1002,8 @@ export async function findOwnPosts(env: SocialEnv, deps: SagaDeps, db: D1Databas
   return made;
 }
 
-async function retimeOverdue(db: D1Database, nowMs: number, hook: (p: SocialPost) => Promise<string> = async () => ""): Promise<Array<{ title: string; at: number | null }>> {
-  const shared: Array<{ title: string; at: number | null }> = [];
+async function retimeOverdue(db: D1Database, nowMs: number, hook: (p: SocialPost) => Promise<string> = async () => ""): Promise<Array<{ title: string; at: number; instagram: boolean; fbEvent: boolean }>> {
+  const shared: Array<{ title: string; at: number; instagram: boolean; fbEvent: boolean }> = [];
   const late = (await socialPosts(db, `kind = 'event' AND status = 'draft'
       AND min(publish_at_ms, coalesce(json_extract(source, '$.instagramAtMs'), publish_at_ms)) < ? AND json_extract(source, '$.startsMs') > ?`, [nowMs + 15 * MINUTE, nowMs + 3 * 3_600_000], "publish_at_ms, id", 200))
     .filter(p => p.source.startsMs);
@@ -984,13 +1011,10 @@ async function retimeOverdue(db: D1Database, nowMs: number, hook: (p: SocialPost
   // "Når der ikke er godkendt et opslag, så deles selve eventet bare" - "Ved både 14 og 7 dage": each post, come unapproved - the event itself instead (when the chair said so).
   for (const p of [...late]) {
     const at = await shareEventInstead(db, p, nowMs, hook);
-    if (typeof at === "number") { shared.push({ title: p.source.title ?? "", at }); late.splice(late.indexOf(p), 1); }
-    // No Facebook event to share: the post goes on as before (a later time, or set aside) - and the chair is told, once.
-    else if (at === "no_event" && !p.source.noFbEventTold) {
-      shared.push({ title: p.source.title ?? "", at: null });
-      await db.prepare("UPDATE social_posts SET source = json_set(source, '$.noFbEventTold', 1) WHERE id = ?").bind(p.id).run();
-      // Kept when the post is given its later time below (found 9 Nov 2026: it was written over, and the chair would be told again).
-      p.source = { ...p.source, noFbEventTold: 1 };
+    if (typeof at === "number") {
+      const made = await socialPost(db, p.id);
+      shared.push({ title: p.source.title ?? "", at, instagram: made?.channels.includes("instagram") ?? false, fbEvent: Boolean(made?.source.fbEventShare) });
+      late.splice(late.indexOf(p), 1);
     }
   }
   if (!late.length) return shared;
@@ -1249,7 +1273,7 @@ export async function publishPost(env: SocialEnv, deps: SagaDeps, db: D1Database
         }) : null;
       if (channel === "facebook") done.facebook = facebookVideo ?? (post.source.design && post.images.length > 1
         ? await postPhotosToPage(deps.fetcher, page, { urls: post.images, caption: await pub(post.link ? `${post.text}\n\n${post.link}` : post.text) })
-        : (post.source.design || post.source.eventItself) && post.images[0]
+        : (post.source.design || post.source.eventItself || post.source.fixedShare) && post.images[0]
         ? await postPhotoToPage(deps.fetcher, page, { url: post.images[0], caption: await pub(post.link ? `${post.text}\n\n${post.link}` : post.text) })
         : await postToPage(deps.fetcher, page, { message: await pub(post.text), link: post.link ? await pub(post.link) : post.link }));
       else {
@@ -1414,8 +1438,17 @@ export async function publishOne(env: SocialEnv, deps: SagaDeps, db: D1Database,
   } catch (error) {
     if (error instanceof ReelPending) {
       // Tried again in the next round, at most for six hours.
-      if (deps.now() - (post.publish_at_ms ?? deps.now()) < 6 * 3_600_000) {
+      if (deps.now() - dueAt(post, "instagram") < 6 * 3_600_000) {
         await db.prepare("UPDATE social_posts SET status = 'approved', updated_at_ms = ? WHERE id = ?").bind(deps.now(), post.id).run();
+        return false;
+      }
+      // Found 27 Nov 2026 (Yin yoga, and Nærvær the week before): Instagram never finished the video, and the post was lost. An event's post with a picture
+      // goes on Instagram as the picture instead, in the next round - what reached Facebook is kept.
+      const picture = post.kind === "event" && post.images.length > 0;
+      if (picture) {
+        const { instagram_container: _c, ...kept } = (await socialPost(db, post.id))?.published ?? post.published;
+        await db.prepare("UPDATE social_posts SET status = 'approved', published = ?, source = json_set(source, '$.noVideo', json('true')), error = 'Instagram blev ikke færdig med videoen - billedet sendes i stedet', updated_at_ms = ? WHERE id = ?")
+          .bind(JSON.stringify(kept), deps.now(), post.id).run();
         return false;
       }
       error = new Error("Instagram blev ikke færdig med videoen inden for seks timer");

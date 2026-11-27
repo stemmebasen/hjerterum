@@ -72,16 +72,37 @@ describe("the Facebook event shared when no post was approved", () => {
     expect((await socialPosts(db, "source_key = 'event:2026-W46:mw:SFa:2'"))[0]).toMatchObject({ status: "draft", channels: ["facebook", "instagram"] });
   });
 
-  it("puts nothing out in its place when the Facebook event is not known - and tells the chair once", async () => {
-    const { db, env, services, fetcher } = await setup({ fbLink: false });
+  // Requested (the chair, 27 Nov 2026): "Vi er nødt til at finde på en holdbar løsning, hvis jeg ikke når at godkende, for det gør jeg tit ikke".
+  it("shares the event's own picture with the fixed words on Instagram too, at the post's own Instagram time", async () => {
+    const { db, env, fetcher, calls } = await setup();
+    const igAt = NOW + 5 * 3_600_000;
+    await db.prepare(`UPDATE social_posts SET images = '["https://x.example/event.jpg"]', source = json_set(json_remove(source, '$.design'), '$.instagramAtMs', ?)`).bind(igAt).run();
     await setShareFacebookEvent(db, true, "Jacob Hauge", NOW);
     await topUpWeeks(env as never, deps(fetcher, NOW), db);
     const [post] = await socialPosts(db, "kind = 'event'");
-    expect(post!.status).not.toBe("approved");
-    expect(post!.source.fbEventShare).toBeUndefined();
-    expect(services.telegram("sendMessage").filter(c => JSON.stringify(c.body).includes("kender ikke eventets Facebook-begivenhed")).length).toBe(1);
-    // Told once, also when its next time comes (the told mark survives the post's new time).
-    expect((await socialPosts(db, "kind = 'event'"))[0]!.source.noFbEventTold).toBe(1);
+    expect(post).toMatchObject({ status: "approved", channels: ["facebook", "instagram"], link: FB_EVENT, images: ["https://x.example/event.jpg"], source: { fbEventShare: true, noVideo: true, instagramAtMs: igAt } });
+    expect(post!.source.instagramText).toContain("linket i bio");
+    await publishDue(env as never, deps(fetcher, NOW + 60_000), db);
+    expect(calls.find(c => c.path === "/755/feed")!.params).toMatchObject({ link: FB_EVENT });
+    expect(calls.some(c => c.path.startsWith("/17841"))).toBe(false);
+    await publishDue(env as never, deps(fetcher, igAt + 60_000), db);
+    expect(calls.find(c => c.path === "/17841/media")!.params).toMatchObject({ image_url: "https://x.example/event.jpg" });
+    expect(calls.find(c => c.path === "/17841/media")!.params.caption).toContain("✨ Lydbad ✨");
+  });
+
+  it("shares the event's own picture with the fixed words when the Facebook event is not known - and tells the chair", async () => {
+    const { db, env, services, fetcher, calls } = await setup({ fbLink: false });
+    await db.prepare(`UPDATE social_posts SET source = json_set(source, '$.eventImage', 'https://x.example/event.jpg')`).run();
+    await setShareFacebookEvent(db, true, "Jacob Hauge", NOW);
+    await topUpWeeks(env as never, deps(fetcher, NOW), db);
+    const [post] = await socialPosts(db, "kind = 'event'");
+    expect(post).toMatchObject({ status: "approved", channels: ["facebook", "instagram"], images: ["https://x.example/event.jpg"], source: { fixedShare: true, noVideo: true } });
+    expect(post!.source.design).toBeUndefined();
+    expect(post!.text).toContain("✨ Lydbad ✨");
+    expect(services.telegram("sendMessage").filter(c => JSON.stringify(c.body).includes("på Facebook og Instagram")).length).toBe(1);
+    await publishDue(env as never, deps(fetcher, NOW + 60_000), db);
+    expect(calls.find(c => c.path === "/755/photos")!.params).toMatchObject({ url: "https://x.example/event.jpg" });
+    expect(calls.some(c => c.path === "/17841/media")).toBe(true);
   });
 
   it("finds the event's Facebook event on the page by its time and title", async () => {
