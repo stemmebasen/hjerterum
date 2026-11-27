@@ -89,7 +89,8 @@ describe("wishes and faults in admin", () => {
     const briefed = await (await call(`/forslag/${id}`, { cookie: douglas })).text();
     expect(briefed).toContain("it&#39;s gone straight to development");
     // "make Jewel a little flirty ... She can say 'sweetheart' and 'my love' to him" (the chair, 27 Nov 2026).
-    expect(briefed).toContain("Done, sweetheart");
+    expect(briefed).toMatch(/Done, sweetheart|Sent off, handsome|Consider it handled, my love|Right then, my e-boyfriend|Off it goes, trouble|Done and dusted, darling/);
+    expect(asked[1]).toContain("my pixel prince");
     expect(asked[1]).toContain("MED DOUGLAS");
     expect(briefed).toMatch(/expect it live (today|tomorrow|\w+day \d+ \w+) around \d\d:00 \(an estimate/);
     expect((await db.prepare("SELECT eta_ms FROM wishes WHERE id = ?").bind(id).first<{ eta_ms: number }>())!.eta_ms).toBeGreaterThan(NOW);
