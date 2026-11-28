@@ -17,4 +17,13 @@ describe("the house's names in English", () => {
     expect(englishNames("Only some of the seats – Behold")).toBe("Only some of the seats – keep");
     expect(englishNames("Keep them warm")).toBe("Keep them warm");
   });
+  // Douglas (forslag #9 and #10, 28 Nov 2026).
+  it("says past events, never previous, and says registered once", () => {
+    expect(englishNames("View previous events")).toBe("View past events");
+    expect(englishNames("Show more earlier events")).toBe("Show more past events");
+    expect(englishNames("Previous events could not be fetched")).toBe("Past events could not be fetched");
+    expect(englishNames("← Previous")).toBe("← Previous");
+    expect(englishNames("You are registered · You are registered")).toBe("You are registered");
+    expect(englishNames("Free · 3 / 10 participants")).toBe("Free · 3 / 10 participants");
+  });
 });

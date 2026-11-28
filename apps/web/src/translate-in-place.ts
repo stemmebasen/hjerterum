@@ -144,7 +144,7 @@ function keepSpaces(kept: Element): void {
  * sentence in pieces - Douglas (8-9 Nov 2026): "put your event in. Hjerterums calendar", "Do you want to use it yourself? Hjerterum?",
  * "CIRKLERSmall". Now Google gets the whole sentence, and the names are put back in its English afterwards. */
 // Douglas (9 Nov 2026): "2021 – Goldsmith Street" - "Very accurate but not really Goldsmith Street, ha ha!" Street names stay Danish.
-const NAMES: Array<[RegExp, string]> = [[/\b(?:the )?Heart ?(?:Room|room|Space|space|Rum|rum)\b/g, "Hjerterum"], [/\bCIRCLES\b/g, "CIRKLER"],
+const NAMES: Array<[RegExp, string | ((match: string, ...groups: string[]) => string)]> = [[/\b(?:the )?Heart ?(?:Room|room|Space|space|Rum|rum)\b/g, "Hjerterum"], [/\bCIRCLES\b/g, "CIRKLER"],
   [/\bGoldsmith(?:'s)? ?(?:Street|Lane|street|lane)\b/g, "Guldsmedgade"],
   // Douglas (17 Nov 2026): "It says 'Courses and courses' in English instead of 'Forløb'" - the calendar's category "Kurser & Forløb".
   // Then (18 Nov 2026): "I think it would be best if the word 'programmes' get left out, so it is just 'Courses'".
@@ -153,9 +153,13 @@ const NAMES: Array<[RegExp, string]> = [[/\b(?:the )?Heart ?(?:Room|room|Space|s
   // Google makes it "for participating".
   [/\bno member discount for (?:participating|participation|participants)\b/g, "no member discount to participate"],
   // Douglas (forslag #8, 27 Nov 2026): cancelling some places, "Please leave out the word 'them' where it says 'keep them'" - Google makes the lone "behold" "keep them" (or "Behold").
-  [/(\bsome of the (?:places|seats|spots)\s*[-–—]\s*)(?:keep them|Keep them|behold|Behold)\b/g, "$1keep"]];
+  [/(\bsome of the (?:places|seats|spots)\s*[-–—]\s*)(?:keep them|Keep them|behold|Behold)\b/g, "$1keep"],
+  // Douglas (forslag #9, 28 Nov 2026): "View previous events" next to the list's "← Previous" - "The word 'previous' might be confusing". Past events.
+  [/\b([Pp])revious events\b/g, "$1ast events"], [/\bPREVIOUS EVENTS\b/g, "PAST EVENTS"], [/\b([Ee])arlier events\b/g, (_m: string, e: string) => (e === "E" ? "Past" : "past") + " events"],
+  // Douglas (forslag #10, 28 Nov 2026): "You are registered · You are registered" - said once.
+  [/\b(You(?:'re| are) (?:registered|signed up))(?:\s*·\s*\1)+/g, "$1"]];
 export function englishNames(text: string): string {
-  return NAMES.reduce((out, [pattern, name]) => out.replace(pattern, name), text);
+  return NAMES.reduce((out, [pattern, name]) => out.replace(pattern, name as string), text);
 }
 /** Douglas (10 Nov 2026): "No space after these two email addresses" - "team@hjerterum.infoif something". The Danish has a comma after the address
  * (", hvis noget skal ændres"); Google leaves the comma out in English, and the space with it. After Google's work a space is put between an address
