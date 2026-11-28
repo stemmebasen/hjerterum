@@ -864,7 +864,10 @@ export function MemberCalendar({
             <RowDate startsAt={event.startsAt} />
             {href ? <a className="event-row-photo-link" href={href} {...linkProps} tabIndex={-1} aria-hidden="true"><RowPhoto src={booking?.imageUrl || external?.imageUrl || null} /></a> : <RowPhoto src={booking?.imageUrl || external?.imageUrl || null} />}
             <RowText category={external?.category} title={href ? <a href={href} {...linkProps}>{calendarText(event.title)}</a> : calendarText(event.title)} startsAt={event.startsAt} endsAt={event.endsAt} host={booking?.teacherName || external?.host || null}>
-              {booking && <span className="member-row-meta">{price} · {booking.attendeeCount ?? 0}{booking.maxAttendees ? " / " + booking.maxAttendees : ""} tilmeldte{booking.isAttending ? " · Du er tilmeldt" : ""}</span>}
+              {/* Douglas (forslag #10, 28 Nov 2026): "You are registered · You are registered" in English - Google made both "tilmeldte" and "Du er tilmeldt"
+                  the same words. The count says "deltagere", and the status is a label of its own (as on the event cards). */}
+              {booking && <span className="member-row-meta">{price} · {booking.attendeeCount ?? 0}{booking.maxAttendees ? " / " + booking.maxAttendees : ""} deltagere</span>}
+              {booking?.isAttending && <span className="calendar-attending">Du er tilmeldt</span>}
               {/* Douglas (10 Nov 2026): "when I first made a test event, it appeared on the event list and it had not been approved" - only its owner sees it here, and now it says so. */}
               {booking?.isOwner && booking.reviewStatus && booking.reviewStatus !== "approved" && <span className="lys-chip clay">{booking.reviewStatus === "rejected" ? "Ikke godkendt" : "Afventer godkendelse"} · kun du kan se det</span>}
               {booking?.files && booking.files.some((file) => file.kind === "file") && <FileLinks clerk={clerk} files={booking.files} />}

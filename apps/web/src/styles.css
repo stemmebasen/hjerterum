@@ -772,6 +772,7 @@ button.rc-login { background:none; cursor:pointer; font:inherit; font-size:.85re
 .member-event-content { padding: 22px; flex: 1; display: flex; flex-direction: column; }
 .member-event-eyebrow { display: flex; gap: 8px; flex-wrap: wrap; color: var(--muted); font-size: 11px; margin-bottom: 13px; }
 .calendar-attending { color: var(--ink); background: var(--profile-sage); padding: 3px 7px; border-radius: 10px; }
+.member-event-row .calendar-attending { display: inline-block; width: fit-content; font-size: .85em; }
 .member-event-card h3 { font: 400 25px/1.14 var(--lys-serif, Georgia, serif); letter-spacing: -.5px; margin-bottom: 16px; overflow-wrap: anywhere; }
 .member-event-card time { font-size: 12px; line-height: 1.5; }
 .member-event-card p { font-size: 14px; line-height: 1.6; overflow-wrap: anywhere; }
